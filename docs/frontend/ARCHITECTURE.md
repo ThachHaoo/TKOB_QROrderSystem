@@ -120,7 +120,8 @@ source/
 │   │   └── tsconfig.json
 │   │
 │   ├── web-customer/        # Customer Ordering App
-│   │   ├── app/
+│   │   ├── src/
+│   │   │   ├── app/
 │   │   │   ├── (auth)/       # Authentication routes
 │   │   │   ├── (menu)/       # Menu browsing routes
 │   │   │   ├── (cart)/       # Cart and checkout routes
@@ -133,7 +134,8 @@ source/
 │   │   │   ├── shared/       # Shared UI/hooks/utils
 │   │   │   ├── lib/          # API client, providers
 │   │   │   ├── store/        # Global state
-│   │   │   └── styles/       # Global styles
+│   │   │   ├── styles/       # Global styles
+│   │   │   └── assets/       # Images, fonts
 │   │   ├── package.json
 │   │   └── next.config.js
 │   │
@@ -1970,6 +1972,17 @@ jobs:
 - **Time to Interactive**: < 3s
 
 ---
+
+## Path Aliases & Conventions
+
+For both apps, use:
+
+- `@/*` → `./src/*`
+- `@/app/*` → `./src/app/*`
+
+Remove legacy `src/pages/` to avoid conflicts with the App Router.
+
+Page files should stay thin and import UI/logic from `src/features/*`.
 
 ## Migration Path
 

@@ -1,6 +1,6 @@
 # Web Customer App
 
-Mobile-first customer ordering application built with Next.js 15 App Router.
+Mobile-first customer ordering application built with Next.js 15 App Router, following a Clean Architecture layout under `src/`.
 
 ## Features
 
@@ -65,37 +65,15 @@ pnpm start
 
 ```
 web-customer/
-├── app/                    # Next.js App Router
-│   ├── layout.tsx          # Root layout
-│   ├── page.tsx            # Landing page
-│   ├── menu/               # Menu browsing
-│   ├── cart/               # Shopping cart
-│   ├── checkout/           # Checkout flow
-│   └── tracking/           # Order tracking
-│
 ├── src/
-│   ├── features/           # Feature modules
-│   │   ├── landing/
-│   │   ├── menu-view/
-│   │   ├── cart/
-│   │   ├── checkout/
-│   │   └── order-tracking/
-│   │
-│   ├── shared/             # Shared resources
-│   │   ├── components/     # Reusable components
-│   │   ├── hooks/          # Custom hooks
-│   │   ├── utils/          # Utility functions
-│   │   ├── types/          # TypeScript types
-│   │   └── context/        # React contexts
-│   │
-│   ├── lib/                # Core libraries
-│   │   ├── api/            # API client
-│   │   └── providers/      # React providers
-│   │
+│   ├── app/                # Next.js App Router (pages, layouts, routes)
+│   ├── features/           # Feature modules (UI + logic per feature)
+│   ├── shared/             # Reusable components, hooks, context, utils, types
+│   ├── lib/                # API clients, providers, core utilities
 │   ├── store/              # Global state (Zustand)
-│   └── styles/             # Global styles
-│
-├── public/                 # Static assets
+│   ├── styles/             # Global styles & Tailwind setup
+│   └── assets/             # Images, fonts, static assets
+├── public/                 # Public static assets
 └── package.json
 ```
 
@@ -112,3 +90,14 @@ Key variables:
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Project Architecture](../../docs/frontend/ARCHITECTURE.md)
 - [API Documentation](../../docs/common/OPENAPI.md)
+
+## Conventions
+
+- Path aliases: `@/*` → `./src/*`, `@/app/*` → `./src/app/*`.
+- App Router only; legacy `src/pages/` is removed to avoid route conflicts.
+- Keep page wrappers thin; implement UI logic within `src/features`.
+
+## Tailwind CSS
+
+- Tailwind v4 with PostCSS plugin `@tailwindcss/postcss`.
+- Define global styles in `src/styles/globals.css`.
