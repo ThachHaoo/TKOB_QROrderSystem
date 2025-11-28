@@ -66,7 +66,7 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
             <p>Required roles: <span className="font-semibold text-gray-700">{allowedRoles.join(', ')}</span></p>
           </div>
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/admin/dashboard')}
             className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold"
           >
             Go to Dashboard

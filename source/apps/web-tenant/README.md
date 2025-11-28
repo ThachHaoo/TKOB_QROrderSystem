@@ -75,12 +75,12 @@ web-tenant/
 │   │   │   ├── email-verification/page.tsx
 │   │   │   └── onboarding/page.tsx
 │   │   │
-│   │   ├── (admin)/                   # Route group: Protected admin routes
+│   │   ├── admin/                     # Explicit admin segment: Protected admin routes
 │   │   │   ├── layout.tsx             # Admin layout with navigation
-│   │   │   ├── dashboard/page.tsx     # Each page imports from features/
-│   │   │   ├── menu/page.tsx
-│   │   │   ├── orders/page.tsx
-│   │   │   └── tables/page.tsx
+│   │   │   ├── dashboard/page.tsx     # → /admin/dashboard (imports from features/)
+│   │   │   ├── menu/page.tsx          # → /admin/menu
+│   │   │   ├── orders/page.tsx        # → /admin/orders
+│   │   │   └── tables/page.tsx        # → /admin/tables
 │   │   │
 │   │   ├── api/                       # API routes (if needed for BFF pattern)
 │   │   ├── layout.tsx                 # Root layout

@@ -103,7 +103,7 @@ source/
 │   ├── web-tenant/          # Admin/Staff Portal
 │   │   ├── src/
 │   │   │   ├── app/          # Next.js 15 App Router (Presentation Layer)
-│   │   │   │   ├── (admin)/  # Route group: Protected admin routes
+│   │   │   │   ├── admin/    # Explicit admin route segment: /admin/...
 │   │   │   │   ├── (auth)/   # Route group: Authentication routes
 │   │   │   │   ├── api/      # API routes (optional BFF pattern)
 │   │   │   │   ├── layout.tsx    # Root layout
@@ -163,7 +163,7 @@ source/
 **Key Principles**:
 - **Thin wrappers**: Pages should import from `features/` and render them
 - **No business logic**: All domain logic lives in `src/features/`
-- **Route groups**: Use `(auth)`, `(admin)` for organizing without affecting URLs
+- **Route groups**: Use `(auth)` for organizing without affecting URLs; use explicit `admin/` segment for admin routes.
 - **Server Components by default**: Use `'use client'` only when needed
 
 ### 2. Route Segments & Special Files
@@ -209,11 +209,16 @@ source/
 ```
 web-tenant/
 ├── app/
-│   ├── (admin)/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── dashboard/
-│   │       └── page.tsx
+│   ├── admin/
+│   │   ├── layout.tsx           # Admin layout with sidebar/navigation
+│   │   ├── dashboard/
+│   │   │   └── page.tsx         # → /admin/dashboard
+│   │   ├── menu/
+│   │   │   └── page.tsx         # → /admin/menu
+│   │   ├── orders/
+│   │   │   └── page.tsx         # → /admin/orders
+│   │   └── tables/
+│   │       └── page.tsx         # → /admin/tables
 │   ├── (auth)/
 │   │   └── login/
 │   │       └── page.tsx
@@ -440,7 +445,7 @@ The web-tenant app enforces role-based access control (RBAC) for all sensitive r
 - `server`: Access to order-taking and table management
 
 **Route Groups & Access:**
-- `(admin)`: Accessible by `tenant-admin`, `manager`
+- `admin/*`: Accessible by `tenant-admin`, `manager`
 - `(kitchen)`: Accessible by `kitchen` (KDS)
 - `(server)`: Accessible by `server` (order-taking)
 

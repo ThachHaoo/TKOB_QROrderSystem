@@ -22,6 +22,67 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['@packages/ui'],
   },
+
+  // Redirects: Map old routes to new /admin/* routes
+  async redirects() {
+    return [
+      {
+        source: '/dashboard',
+        destination: '/admin/dashboard',
+        permanent: true,
+      },
+      {
+        source: '/menu',
+        destination: '/admin/menu',
+        permanent: true,
+      },
+      {
+        source: '/menu-modifiers',
+        destination: '/admin/menu-modifiers',
+        permanent: true,
+      },
+      {
+        source: '/tables',
+        destination: '/admin/tables',
+        permanent: true,
+      },
+      {
+        source: '/table-qr-detail',
+        destination: '/admin/table-qr-detail',
+        permanent: true,
+      },
+      {
+        source: '/orders',
+        destination: '/admin/orders',
+        permanent: true,
+      },
+      {
+        source: '/analytics',
+        destination: '/admin/analytics',
+        permanent: true,
+      },
+      {
+        source: '/staff',
+        destination: '/admin/staff',
+        permanent: true,
+      },
+      {
+        source: '/tenant-profile',
+        destination: '/admin/tenant-profile',
+        permanent: true,
+      },
+      {
+        source: '/kds',
+        destination: '/admin/kds',
+        permanent: true,
+      },
+      {
+        source: '/service-board',
+        destination: '/admin/service-board',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
