@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "orval": "orval --config orval.config.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.56.2",
@@ -29,6 +30,7 @@
     "eslint-config-next": "^15.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "orval": "^6.28.0"
   }
 }
