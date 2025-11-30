@@ -65,12 +65,11 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 }) => {
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        {/* Sidebar bên trái */}
-        <Sidebar activeItem={activeItem} onNavigate={onNavigate} />
+      {/* Sidebar bên trái - Fixed */}
+      <Sidebar activeItem={activeItem} onNavigate={onNavigate} />
 
-        {/* Phần thân bên phải */}
-        <div className="flex-1 flex flex-col">
+      {/* Phần thân bên phải - with margin left for fixed sidebar */}
+      <div className="ml-64 flex flex-col min-h-screen">
           {/* TopBar */}
           <TopBar
             restaurantName={restaurantName}
@@ -82,7 +81,6 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           <main className="flex-1 overflow-y-auto">
             {children}
           </main>
-        </div>
       </div>
     </div>
   );
