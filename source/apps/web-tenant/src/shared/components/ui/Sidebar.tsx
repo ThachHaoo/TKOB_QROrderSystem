@@ -20,14 +20,14 @@ export function Sidebar({ activeItem, onNavigate }: SidebarProps) {
   ];
 
   return (
-    <div className="fixed left-0 top-0 w-64 h-screen bg-white border-r border-gray-200 flex flex-col z-40">
-      {/* Logo */}
-      <div className="p-6 border-b border-gray-200">
+    <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 flex-col bg-white border-r border-slate-200 z-40">
+      {/* Logo (aligned with TopBar padding, no bottom border for clean seam) */}
+      <div className="flex items-center h-20 px-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
             <QrCode className="w-6 h-6 text-white" />
           </div>
-          <span className="font-semibold text-gray-900" style={{ fontSize: '20px' }}>TKQR</span>
+          <span className="text-xl font-semibold text-slate-900">TKQR</span>
         </div>
       </div>
 
@@ -45,16 +45,16 @@ export function Sidebar({ activeItem, onNavigate }: SidebarProps) {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                   isActive 
                     ? 'bg-emerald-50 text-emerald-600' 
-                    : 'text-gray-600 hover:bg-gray-50'
+                    : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span style={{ fontSize: '15px', fontWeight: 500 }}>{item.label}</span>
+                <span className="text-[15px] font-medium">{item.label}</span>
               </button>
             );
           })}
         </div>
       </nav>
-    </div>
+    </aside>
   );
 }

@@ -22,12 +22,12 @@ export function TopBar({
   onNavigate 
 }: TopBarProps) {
   return (
-    <div className="sticky top-0 z-30 h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8">
+    <header className="sticky top-0 z-20 flex items-center justify-between px-8 py-4 bg-white border-b border-slate-200">
       <div className="flex items-center gap-4">
-        <h2 className="text-gray-900">{restaurantName}</h2>
+        <h1 className="text-2xl font-semibold text-slate-900">{restaurantName}</h1>
         {showDateFilter && (
           <select 
-            className="px-4 py-2 border border-gray-300 rounded-xl bg-white text-gray-900 cursor-pointer focus:outline-none focus:border-emerald-500"
+            className="px-4 py-2 border border-slate-300 rounded-xl bg-white text-slate-900 cursor-pointer focus:outline-none focus:border-emerald-500"
             value={timePeriod}
             onChange={(e) => onTimePeriodChange?.(e.target.value)}
           >
@@ -42,6 +42,6 @@ export function TopBar({
       <div className="flex items-center gap-4">
         <UserMenu userName={userName} userRole="Admin" avatarColor="emerald" onNavigate={onNavigate} />
       </div>
-    </div>
+    </header>
   );
 }

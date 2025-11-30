@@ -64,24 +64,21 @@ export const AdminShell: React.FC<AdminShellProps> = ({
   children,
 }) => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar bên trái - Fixed */}
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Sidebar - Fixed on desktop, hidden on mobile */}
       <Sidebar activeItem={activeItem} onNavigate={onNavigate} />
 
-      {/* Phần thân bên phải - with margin left for fixed sidebar */}
-      <div className="ml-64 flex flex-col min-h-screen">
-          {/* TopBar */}
-          <TopBar
-            restaurantName={restaurantName}
-            onNavigate={onNavigate}
-            enableDevModeSwitch={enableDevModeSwitch}
-          />
-
-          {/* Nội dung màn hình */}
-          <main className="flex-1 overflow-y-auto">
-            {children}
-          </main>
-      </div>
+      {/* Main scrollable area offset by sidebar width */}
+      <main className="flex-1 md:ml-64 bg-slate-50 flex flex-col">
+        <TopBar
+          restaurantName={restaurantName}
+          onNavigate={onNavigate}
+          enableDevModeSwitch={enableDevModeSwitch}
+        />
+        <div className="px-8 py-6 flex-1">
+          {children}
+        </div>
+      </main>
     </div>
   );
 };
