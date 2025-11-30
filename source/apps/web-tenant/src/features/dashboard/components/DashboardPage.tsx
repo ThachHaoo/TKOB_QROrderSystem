@@ -102,7 +102,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto flex flex-col gap-8">
         {/* Time Period Filter */}
         <div className="flex items-center justify-between">

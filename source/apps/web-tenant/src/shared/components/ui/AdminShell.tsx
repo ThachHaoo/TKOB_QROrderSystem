@@ -79,8 +79,8 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           />
 
           {/* Nội dung màn hình */}
-          <main className="flex-1 overflow-y-auto p-8">
-            <div className="max-w-7xl mx-auto">{children}</div>
+          <main className="flex-1 overflow-y-auto">
+            {children}
           </main>
         </div>
       </div>

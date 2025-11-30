@@ -77,7 +77,7 @@ export function UserMenu({
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-3 pl-4 border-l border-gray-200 hover:bg-gray-50 rounded-xl transition-colors py-2 pr-2"
       >
-        <div className={`w-10 h-10 ${avatarColors.bg} rounded-full flex items-center justify-center flex-shrink-0`}>
+        <div className={`w-10 h-10 ${avatarColors.bg} rounded-full flex items-center justify-center shrink-0`}>
           <span className={avatarColors.text} style={{ fontSize: '15px', fontWeight: 600 }}>
             {userName.split(' ').map(n => n[0]).join('')}
           </span>
