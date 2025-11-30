@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'tertiary';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'destructive';
   children: React.ReactNode;
 }
 
@@ -12,7 +12,8 @@ export function Button({ variant = 'primary', children, className = '', ...props
   const variantClasses = {
     primary: 'bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700',
     secondary: 'bg-white text-emerald-600 border-2 border-emerald-500 hover:bg-emerald-50 active:bg-emerald-100',
-    tertiary: 'bg-transparent text-emerald-600 hover:bg-emerald-50 active:bg-emerald-100'
+    tertiary: 'bg-transparent text-emerald-600 hover:bg-emerald-50 active:bg-emerald-100',
+    destructive: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800'
   } as const;
 
   return (

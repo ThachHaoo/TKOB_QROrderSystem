@@ -96,7 +96,7 @@ export function MenuManagementPage() {
     setIsItemModalOpen(true);
   };
 
-  const handleOpenEditItemModal = (e: React.MouseEvent, item: any) => {
+  const handleOpenEditItemModal = (e: React.MouseEvent, item: typeof menuItems[number]) => {
     e.stopPropagation();
     setItemModalMode('edit');
     setCurrentEditItemId(item.id);
@@ -192,9 +192,6 @@ export function MenuManagementPage() {
         <h2 className="text-gray-900">Menu Management</h2>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => goTo(ROUTES.menuModifiers)}>Modifiers</Button>
-          <Button onClick={handleOpenAddItemModal}>
-            <Plus className="w-4 h-4 mr-2" />Add Item
-          </Button>
         </div>
       </div>
 
@@ -237,7 +234,18 @@ export function MenuManagementPage() {
           <Card className="p-6 flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-gray-900">Items</h3>
-              {isDeleting && <span className="text-sm text-gray-500">Updating...</span>}
+              {isDeleting ? (
+                <span className="text-sm text-gray-500">Updating...</span>
+              ) : (
+                <button
+                  onClick={handleOpenAddItemModal}
+                  className="flex items-center gap-2 px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl transition-all shadow-sm hover:shadow-md active:shadow-inner h-12"
+                  style={{ fontSize: '15px', fontWeight: 600 }}
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Item
+                </button>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto">
               <div key={selectedCategory} className="flex flex-col gap-3">
@@ -301,11 +309,6 @@ export function MenuManagementPage() {
                 )}
               </div>
             </div>
-            <div className="mt-4">
-              <Button onClick={handleOpenAddItemModal}>
-                <Plus className="w-4 h-4 mr-2" />Add Item
-              </Button>
-            </div>
           </Card>
         </div>
 
@@ -346,7 +349,7 @@ export function MenuManagementPage() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 pt-4 border-t border-gray-200">
-                    <Button onClick={(e) => handleOpenEditItemModal(e as any, selectedItem)}>Edit Item</Button>
+                    <Button onClick={() => handleOpenEditItemModal({ stopPropagation: () => {} } as React.MouseEvent, selectedItem)}>Edit Item</Button>
                     <Button variant="secondary" onClick={() => setEditingItem(null)}>Deselect</Button>
                   </div>
                 </div>
