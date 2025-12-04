@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -6,59 +6,102 @@ import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { EnvConfig } from './config/env.validation';
 
+// Import filters
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+
+// Import interceptors
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
 
-  // Sử dụng Pino logger toàn cục
+  // Use Pino logger globally
   app.useLogger(app.get(Logger));
 
+  // Get config service
+  const configService = app.get<ConfigService<EnvConfig, true>>(ConfigService);
+  const port = configService.get('API_PORT', { infer: true });
+  const nodeEnv = configService.get('NODE_ENV', { infer: true });
+
+  // ==================== GLOBAL PREFIX ====================
   app.setGlobalPrefix('api/v1', {
-    exclude: ['/api/v1/*path'],
+    exclude: ['/health'], // Health check endpoint
   });
 
-  // Inject ConfigService với Generic Type <EnvConfig>
-  const configService = app.get<ConfigService<EnvConfig, true>>(ConfigService);
-
-  // Fix CORS config
+  // ==================== CORS ====================
   const corsOrigins = configService.get('CORS_ORIGINS', { infer: true });
   app.enableCors({
     origin: corsOrigins ? corsOrigins.split(',') : '*',
     credentials: true,
   });
 
+  // ==================== EXCEPTION FILTERS ====================
+  // Order matters: Most specific first, most general last
+  const reflector = app.get(Reflector);
+
+  app.useGlobalFilters(
+    new AllExceptionsFilter(), // Catch-all (fallback)
+    new HttpExceptionFilter(), // HTTP exceptions
+    new PrismaExceptionFilter(), // Prisma database errors
+  );
+
+  // ==================== INTERCEPTORS ====================
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(), // Log requests/responses
+    new TransformInterceptor(), // Transform success responses
+    new TimeoutInterceptor(30000), // 30s timeout
+  );
+
+  // ==================== VALIDATION ====================
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
+      whitelist: true, // Strip unknown properties
+      forbidNonWhitelisted: true, // Throw error on unknown properties
+      transform: true, // Auto-transform types
+      transformOptions: {
+        enableImplicitConversion: true, // Convert strings to numbers, etc.
+      },
     }),
   );
 
-  const port = configService.get('API_PORT', { infer: true });
-  const nodeEnv = configService.get('NODE_ENV', { infer: true });
-
-  // Swagger setup (chỉ enable trong development)
+  // ==================== SWAGGER (Development only) ====================
   if (nodeEnv === 'development') {
     const config = new DocumentBuilder()
       .setTitle('QR Ordering API')
       .setDescription('API Documentation for QR Ordering Platform')
       .setVersion('1.0')
       .addBearerAuth()
+      .addTag('Authentication', 'User authentication & registration')
+      .addTag('Tenants', 'Restaurant/tenant management')
+      .addTag('Menu', 'Menu categories & items')
+      .addTag('Tables', 'Table management & QR codes')
+      .addTag('Orders', 'Order placement & management')
+      .addTag('Payments', 'Payment processing')
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api-docs', app, document);
+    SwaggerModule.setup('api-docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true, // Remember auth token
+      },
+    });
   }
 
+  // ==================== START SERVER ====================
   await app.listen(port);
 
   const logger = app.get(Logger);
-  logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`🚀 Application is running on: http://localhost:${port}`);
+  logger.log(`📝 Environment: ${nodeEnv}`);
 
   if (nodeEnv === 'development') {
-    logger.log(`API Documentation: http://localhost:${port}/api-docs`);
+    logger.log(`📚 API Documentation: http://localhost:${port}/api-docs`);
   }
 }
 
