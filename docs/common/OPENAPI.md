@@ -469,7 +469,6 @@ Authorization: Bearer {accessToken}
 PATCH /api/v1/tenants/profile
 Authorization: Bearer {accessToken}
 Content-Type: application/json
-
 ```
 
 **Request Body:**
@@ -480,9 +479,9 @@ Content-Type: application/json
   "description": "Authentic Vietnamese Pho Restaurant",
   "phone": "+84901234567",
   "address": "123 Nguyen Hue, District 1, HCMC",
-  "logoUrl": "https://cdn.example.com/logo.png"
+  "logoUrl": "https://cdn.example.com/logo.png",
+  "slug": "new-pho-ngon-123",
 }
-
 ```
 
 **Response 200 OK:**
@@ -491,7 +490,7 @@ Content-Type: application/json
 {
   "id": "uuid",
   "name": "Phở Ngon 123",
-  "slug": "pho-ngon-123",
+  "slug": "new-pho-ngon-123",
   "description": "Authentic Vietnamese Pho Restaurant",
   "phone": "+84901234567",
   "address": "123 Nguyen Hue, District 1, HCMC",
@@ -499,7 +498,6 @@ Content-Type: application/json
   "onboardingStep": 2,
   "updatedAt": "2025-01-15T10:30:00Z"
 }
-
 ```
 
 ---
@@ -599,7 +597,7 @@ Content-Type: application/json
 
 ---
 
-### 5.5. Configure Payment (Stripe Integration)
+### 5.5. Configure Payment - Stripe Integration (Onboarding Step 4)
 
 Dành cho bảng `TENANT_PAYMENT_CONFIG`. API này liên kết tài khoản Stripe của nhà hàng để nhận tiền.
 
@@ -614,9 +612,7 @@ Content-Type: application/json
 ```json
 {
   "stripeAccountId": "acct_123456789", // ID tài khoản Stripe Connect của nhà hàng
-  "onboardingStep": 5
 }
-
 ```
 
 **Response: 200 OK**
@@ -626,7 +622,8 @@ Content-Type: application/json
   "id": "uuid-payment-config-1",
   "tenantId": "uuid-tenant-123",
   "stripeAccountId": "acct_123456789",
-  "updatedAt": "2025-01-11T12:00:00Z"
+  "updatedAt": "2025-01-11T12:00:00Z",
+  "onboardingStep": 5,
 }
 ```
 
@@ -644,7 +641,7 @@ Authorization: Bearer {accessToken}
 ```json
 {
   "message": "Onboarding completed successfully",
-  "onboardingStep": 5,
+  "onboardingStep": 6,
   "completedAt": "2025-01-15T12:00:00Z"
 }
 ```

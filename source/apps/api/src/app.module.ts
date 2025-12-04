@@ -8,6 +8,7 @@ import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { EmailModule } from './modules/email/email.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { TenantModule } from './modules/tenant/tenant.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AuthModule } from './modules/auth/auth.module';
     RedisModule,
     EmailModule,
     AuthModule,
+    TenantModule,
   ],
   controllers: [AppController],
   providers: [

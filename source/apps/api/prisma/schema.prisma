@@ -32,10 +32,6 @@ enum UserStatus {
 model Tenant {
   id             String       @id @default(uuid()) // PK là UUID
   name           String
-  description    String?
-  phone          String?
-  address        String?
-  logo_url       String?
   slug           String       @unique              // Slug phải unique để làm subdomain/url
   status         TenantStatus @default(DRAFT)      // Mặc định là DRAFT khi mới đăng ký bước 1
   
