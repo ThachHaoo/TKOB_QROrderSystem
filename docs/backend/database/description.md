@@ -7,15 +7,15 @@
 
 ### TENANT
 
-| Field           | Type   | Description                                     |
-| --------------- | ------ | ----------------------------------------------- |
-| id              | string | Primary Key                                     |
-| name            | string | Tên nhà hàng/quán                               |
-| slug            | string | Unique, URL-friendly identifier (e.g. pho-hung) |
-| status          | enum   | DeennRAFT, ACTIVE, SUSPENDED                    |
-| settings        | json   | Cấu hình: màu sắc, tiền tệ, v.v.                |
-| opening_hours   | json   | Giờ mở cửa (bước 2 onboarding)                  |
-| onboarding_step | int    | Tiến trình onboarding (1..4)                    |
+| Field           | Type   | Description                                                        |
+| --------------- | ------ | ------------------------------------------------------------------ |
+| id              | string | Primary Key                                                        |
+| name            | string | Tên nhà hàng/quán                                                  |
+| slug            | string | Unique, URL-friendly identifier (e.g. pho-hung)                    |
+| status          | enum   | DRAFT, ACTIVE, SUSPENDED                                           |
+| settings        | json   | Cấu hình: description, phone, address, logoUrl, language, timezone |
+| opening_hours   | json   | Giờ mở cửa                                                         |
+| onboarding_step | int    | Tiến trình onboarding (1..5)                                       |
 
 ---
 
