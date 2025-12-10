@@ -167,6 +167,7 @@ model MenuItem {
   modifierGroups MenuItemModifier[] // Many-to-Many với ModifierGroup
 
   @@map("menu_items")
+  @@unique([name, tenantId, categoryId], name: "menu_items_name_tenant_category_unique")
   @@index([tenantId, status, available])
   @@index([tenantId, categoryId])
 }

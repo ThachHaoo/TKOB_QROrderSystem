@@ -23,5 +23,5 @@
     "noFallthroughCasesInSwitch": false,
     "types": ["node"]
   },
-  "exclude": ["node_modules", "dist", "build", ".next"]
+  "exclude": ["node_modules", "dist", "build", ".next", "**/*.spec.ts"]
 }
