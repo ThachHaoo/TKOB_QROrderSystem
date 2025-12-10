@@ -15,6 +15,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { MenuItemStatus } from '@prisma/client';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 export class CreateMenuItemDto {
   @ApiProperty({ example: 'Spring Rolls' })
@@ -60,6 +61,86 @@ export class CreateMenuItemDto {
   displayOrder?: number;
 
   @ApiPropertyOptional({ example: ['mod_1', 'mod_2'] })
+  @IsArray()
+  @IsOptional()
+  modifierGroupIds?: string[];
+}
+
+export class MenuItemFiltersDto extends PaginationDto {
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ enum: MenuItemStatus })
+  @IsEnum(MenuItemStatus)
+  @IsOptional()
+  status?: MenuItemStatus;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  available?: boolean;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  search?: string;
+}
+
+export class UpdateMenuItemDto {
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  @MinLength(1)
+  @MaxLength(200)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  categoryId?: string;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  price?: number;
+
+  @ApiPropertyOptional()
+  @IsUrl()
+  @IsOptional()
+  imageUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsArray()
+  @IsOptional()
+  tags?: string[];
+
+  @ApiPropertyOptional()
+  @IsArray()
+  @IsOptional()
+  allergens?: string[];
+
+  @ApiPropertyOptional()
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  displayOrder?: number;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  available?: boolean;
+
+  @ApiPropertyOptional()
   @IsArray()
   @IsOptional()
   modifierGroupIds?: string[];

@@ -29,6 +29,11 @@ export class PaginationDto {
   get take(): number {
     return this.limit ?? 20;
   }
+
+  constructor(page?: number, limit?: number) {
+    this.page = page ?? 1;
+    this.limit = limit ?? 20;
+  }
 }
 
 /**

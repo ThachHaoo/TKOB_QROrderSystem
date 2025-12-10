@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { CreateMenuItemDto } from '../dto/menu-item.dto';
+import type {
+  CreateMenuItemDto,
+  MenuItemFiltersDto,
+  UpdateMenuItemDto,
+} from '../dto/menu-item.dto';
 import { MenuCategoryRepository } from '../repositories/menu-category.repository';
 import { MenuItemsRepository } from '../repositories/menu-item.repository';
 import { ErrorCode, ErrorMessages } from 'src/common/constants/error-codes.constant';
@@ -48,5 +52,45 @@ export class MenuItemsService {
       status: 'DRAFT',
       available: true,
     });
+  }
+
+  async findFiltered(tenantId: string, filters: MenuItemFiltersDto) {
+    return this.menuItemRepo.findFiltered(tenantId, filters);
+  }
+
+  async findById(menuItemId: string) {
+    const item = await this.menuItemRepo.findById(menuItemId);
+    if (!item) {
+      throw new NotFoundException(ErrorMessages[ErrorCode.MENU_ITEM_NOT_FOUND]);
+    }
+    return item;
+  }
+
+  async update(menuItemId: string, dto: UpdateMenuItemDto) {
+    await this.findById(menuItemId);
+
+    if (dto.categoryId) {
+      await this.menuCategoryRepo.findById(dto.categoryId);
+    }
+
+    // Update item
+    const updateData: any = {
+      ...(dto.name && { name: dto.name }),
+      ...(dto.description !== undefined && { description: dto.description }),
+      ...(dto.categoryId && { categoryId: dto.categoryId }),
+      ...(dto.price !== undefined && { price: dto.price }),
+      ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
+      ...(dto.tags !== undefined && { tags: dto.tags }),
+      ...(dto.allergens !== undefined && { allergens: dto.allergens }),
+      ...(dto.displayOrder !== undefined && { displayOrder: dto.displayOrder }),
+      ...(dto.available !== undefined && { available: dto.available }),
+    };
+
+    return await this.menuItemRepo.update(menuItemId, updateData);
+  }
+
+  async delete(menuItemId: string) {
+    await this.findById(menuItemId);
+    return this.menuItemRepo.softDelete(menuItemId);
   }
 }

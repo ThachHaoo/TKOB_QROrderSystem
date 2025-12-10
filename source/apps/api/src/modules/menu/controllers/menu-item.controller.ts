@@ -1,4 +1,16 @@
-import { Body, Controller, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
@@ -6,8 +18,7 @@ import { TenantOwnershipGuard } from 'src/modules/tenant/guards/tenant-ownership
 import { MenuItemsService } from '../services/menu-item.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from 'src/common/interfaces/auth.interface';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { CreateMenuItemDto } from '../dto/menu-item.dto';
+import { CreateMenuItemDto, MenuItemFiltersDto, UpdateMenuItemDto } from '../dto/menu-item.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { MenuItemResponseDto } from '../dto/menu-response.dto';
@@ -29,27 +40,40 @@ export class MenuItemsController {
     return this.menuItemsService.create(user.tenantId, dto);
   }
 
-  // // READ:
-  // async findAll(
-  //   @CurrentUser user: AuthenticatedUser,
-  //   @Query filters: MenuItemFiltersDto,
-  //   @Query pagination: PaginationDto,
-  // ) {
-  //   return this.menuItemsService.findFiltered(user.tenantId, filters, pagination);
-  // }
+  // READ:
+  @Get()
+  @Roles(UserRole.OWNER, UserRole.STAFF, UserRole.KITCHEN)
+  @ApiOperation({ summary: 'Get menu items with filters' })
+  @ApiResponse({ status: 200 })
+  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: MenuItemFiltersDto) {
+    return this.menuItemsService.findFiltered(user.tenantId, query);
+  }
 
-  // // READ: findById(id)
-  // async findOne(@Param('id') id: string) {
-  //   return this.menuItemsService.findById(id);
-  // }
+  // READ: findById(id)
+  @Get(':id')
+  @Roles(UserRole.OWNER, UserRole.STAFF, UserRole.KITCHEN)
+  @ApiOperation({ summary: 'Get menu item by ID' })
+  @ApiResponse({ status: 200, type: MenuItemResponseDto })
+  async findOne(@Param('id') id: string) {
+    return this.menuItemsService.findById(id);
+  }
 
-  // // UPDATE:
-  // async update((@Param('id') id: string, @Body dto: UpdateMenuItemDto) {
-  //   return this.menuItemsService.update(id, dto);
-  // }
+  // UPDATE:
+  @Patch(':id')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @ApiOperation({ summary: 'Update menu item' })
+  @ApiResponse({ status: 200, type: MenuItemResponseDto })
+  async update(@Param('id') id: string, @Body() dto: UpdateMenuItemDto) {
+    return this.menuItemsService.update(id, dto);
+  }
 
-  // // DELETE:
-  // async delete(@Param('id') id: string) {
-  //   await this.menuItemsService.delete(id);
-  // }
+  // DELETE:
+  @Delete(':id')
+  @Roles(UserRole.OWNER)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete (archive) menu item' })
+  @ApiResponse({ status: 204 })
+  async delete(@Param('id') id: string) {
+    await this.menuItemsService.delete(id);
+  }
 }
