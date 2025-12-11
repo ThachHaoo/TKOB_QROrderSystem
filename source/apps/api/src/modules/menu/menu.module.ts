@@ -8,9 +8,15 @@ import { MenuItemsController } from './controllers/menu-item.controller';
 import { ModifierGroupController } from './controllers/modifier-group.controller';
 import { ModifierGroupService } from './services/modifier-group.service';
 import { ModifierGroupRepository } from './repositories/modifier-group.repository';
+import { PublicMenuController } from './controllers/public-menu.controller';
 
 @Module({
-  controllers: [MenuCategoryController, MenuItemsController, ModifierGroupController],
+  controllers: [
+    MenuCategoryController,
+    MenuItemsController,
+    ModifierGroupController,
+    PublicMenuController,
+  ],
   providers: [
     // Services
     MenuCategoryService,

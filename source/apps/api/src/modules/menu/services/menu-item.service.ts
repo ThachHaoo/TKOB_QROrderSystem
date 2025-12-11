@@ -125,4 +125,71 @@ export class MenuItemsService {
     await this.findById(menuItemId);
     return this.menuItemRepo.softDelete(menuItemId);
   }
+
+  async getPublicMenu(tenantId: string) {
+    const items = await this.menuItemRepo.findPublishedMenu(tenantId);
+
+    // Group by category
+    const categoriesMap = new Map<
+      string,
+      { id: string; name: string; displayOrder: number; items: any[] }
+    >();
+
+    for (const item of items) {
+      const categoryId = (item.category as { id: string }).id;
+
+      if (!categoriesMap.has(categoryId)) {
+        categoriesMap.set(categoryId, {
+          id: (item.category as { id: string }).id,
+          name: (item.category as { name: string }).name,
+          displayOrder: (item.category as { displayOrder: number }).displayOrder,
+          items: [],
+        });
+      }
+
+      // Transform modifier groups
+      const modifierGroups = (item.modifierGroups ?? []).map(
+        (mg: { modifierGroup: Record<string, any>; displayOrder: number }) => ({
+          ...mg.modifierGroup,
+          displayOrder: mg.displayOrder,
+        }),
+      );
+
+      categoriesMap.get(categoryId)!.items.push({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        imageUrl: item.imageUrl,
+        tags: item.tags,
+        allergens: item.allergens,
+        modifierGroups,
+      });
+    }
+
+    return {
+      categories: Array.from(categoriesMap.values()).sort(
+        (a, b) => a.displayOrder - b.displayOrder,
+      ),
+      publishedAt: new Date(),
+    };
+  }
+
+  async publish(itemId: string) {
+    await this.findById(itemId); // Verify exists
+
+    return this.menuItemRepo.publish(itemId);
+  }
+
+  async unpublish(itemId: string) {
+    await this.findById(itemId); // Verify exists
+
+    return this.menuItemRepo.unpublish(itemId);
+  }
+
+  async toggleAvailability(itemId: string, available: boolean) {
+    await this.findById(itemId); // Verify exists
+
+    return this.menuItemRepo.toggleAvailability(itemId, available);
+  }
 }

@@ -80,6 +80,7 @@ async function bootstrap() {
       .addTag('Menu - Categories', 'Menu categories management')
       .addTag('Menu - Items', 'Menu items management')
       .addTag('Menu - Modifiers', 'Menu item modifiers management')
+      .addTag('Menu - Public', 'Menu public management')
       .addTag('Tables', 'Table management & QR codes')
       .addTag('Orders', 'Order placement & management')
       .addTag('Payments', 'Payment processing')

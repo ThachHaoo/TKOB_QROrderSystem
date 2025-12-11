@@ -90,4 +90,63 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
       },
     });
   }
+
+  async findPublishedMenu(tenantId: string): Promise<MenuItemWithRelations[]> {
+    return this.prisma.x.menuItem.findMany({
+      where: {
+        tenantId,
+        status: 'PUBLISHED',
+        available: true,
+      },
+      include: {
+        category: true,
+        modifierGroups: {
+          include: {
+            modifierGroup: {
+              include: {
+                options: {
+                  where: { active: true },
+                  orderBy: { displayOrder: 'asc' },
+                },
+              },
+            },
+          },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+      orderBy: [{ category: { displayOrder: 'asc' } }, { displayOrder: 'asc' }],
+    });
+  }
+
+  async publish(itemId: string) {
+    return this.prisma.x.menuItem.update({
+      where: { id: itemId },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Unpublish menu item
+   */
+  async unpublish(itemId: string) {
+    return this.prisma.x.menuItem.update({
+      where: { id: itemId },
+      data: {
+        status: 'DRAFT',
+      },
+    });
+  }
+
+  /**
+   * Toggle availability
+   */
+  async toggleAvailability(itemId: string, available: boolean) {
+    return this.prisma.x.menuItem.update({
+      where: { id: itemId },
+      data: { available },
+    });
+  }
 }

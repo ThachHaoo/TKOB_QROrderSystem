@@ -115,3 +115,15 @@ export class MenuItemResponseDto {
   @ApiPropertyOptional()
   publishedAt?: Date;
 }
+
+export class PublicMenuResponseDto {
+  @ApiProperty({ type: [MenuCategoryResponseDto] })
+  categories: Array<
+    MenuCategoryResponseDto & {
+      items: MenuItemResponseDto[];
+    }
+  >;
+
+  @ApiProperty()
+  publishedAt: Date;
+}

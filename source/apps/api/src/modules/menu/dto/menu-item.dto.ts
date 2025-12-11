@@ -144,3 +144,15 @@ export class UpdateMenuItemDto {
   @IsOptional()
   modifierGroupIds?: string[];
 }
+
+export class PublishMenuItemDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  publish: boolean;
+}
+
+export class ToggleAvailabilityDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  available: boolean;
+}

@@ -18,7 +18,13 @@ import { TenantOwnershipGuard } from 'src/modules/tenant/guards/tenant-ownership
 import { MenuItemsService } from '../services/menu-item.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from 'src/common/interfaces/auth.interface';
-import { CreateMenuItemDto, MenuItemFiltersDto, UpdateMenuItemDto } from '../dto/menu-item.dto';
+import {
+  CreateMenuItemDto,
+  MenuItemFiltersDto,
+  PublishMenuItemDto,
+  ToggleAvailabilityDto,
+  UpdateMenuItemDto,
+} from '../dto/menu-item.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { MenuItemResponseDto } from '../dto/menu-response.dto';
@@ -75,5 +81,26 @@ export class MenuItemsController {
   @ApiResponse({ status: 204 })
   async delete(@Param('id') id: string) {
     await this.menuItemsService.delete(id);
+  }
+
+  // PUBLISH
+  @Post(':id/publish')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @ApiOperation({ summary: 'Publish/Unpublish menu item' })
+  @ApiResponse({ status: 200, type: MenuItemResponseDto })
+  async togglePublish(@Param('id') id: string, @Body() dto: PublishMenuItemDto) {
+    if (dto.publish) {
+      return this.menuItemsService.publish(id);
+    } else {
+      return this.menuItemsService.unpublish(id);
+    }
+  }
+
+  @Patch(':id/availability')
+  @Roles(UserRole.OWNER, UserRole.STAFF, UserRole.KITCHEN)
+  @ApiOperation({ summary: 'Toggle item availability' })
+  @ApiResponse({ status: 200, type: MenuItemResponseDto })
+  async toggleAvailability(@Param('id') id: string, @Body() dto: ToggleAvailabilityDto) {
+    return this.menuItemsService.toggleAvailability(id, dto.available);
   }
 }
