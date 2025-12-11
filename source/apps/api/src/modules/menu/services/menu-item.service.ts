@@ -7,12 +7,14 @@ import type {
 import { MenuCategoryRepository } from '../repositories/menu-category.repository';
 import { MenuItemsRepository } from '../repositories/menu-item.repository';
 import { ErrorCode, ErrorMessages } from 'src/common/constants/error-codes.constant';
+import { ModifierGroupRepository } from '../repositories/modifier-group.repository';
 
 @Injectable()
 export class MenuItemsService {
   constructor(
     private readonly menuItemRepo: MenuItemsRepository,
     private readonly menuCategoryRepo: MenuCategoryRepository,
+    private readonly modifierGroupRepo: ModifierGroupRepository,
   ) {}
 
   async create(tenantId: string, dto: CreateMenuItemDto) {
@@ -38,8 +40,15 @@ export class MenuItemsService {
       throw new NotFoundException(ErrorMessages[ErrorCode.MENU_CATEGORY_NOT_FOUND]);
     }
 
+    // Verify modifier groups exist (if provided)
+    if (dto.modifierGroupIds && dto.modifierGroupIds.length > 0) {
+      for (const groupId of dto.modifierGroupIds) {
+        await this.modifierGroupRepo.findById(groupId);
+      }
+    }
+
     // Create item
-    return this.menuItemRepo.create({
+    const item = await this.menuItemRepo.create({
       tenantId,
       name: dto.name,
       description: dto.description,
@@ -52,6 +61,14 @@ export class MenuItemsService {
       status: 'DRAFT',
       available: true,
     });
+
+    // Attach modifier groups
+    if (dto.modifierGroupIds && dto.modifierGroupIds.length > 0) {
+      await this.menuItemRepo.attachModifierGroups(item.id, dto.modifierGroupIds);
+    }
+
+    // Return with details
+    return this.menuItemRepo.findByIdWithDetails(item.id);
   }
 
   async findFiltered(tenantId: string, filters: MenuItemFiltersDto) {
@@ -73,6 +90,13 @@ export class MenuItemsService {
       await this.menuCategoryRepo.findById(dto.categoryId);
     }
 
+    // Verify modifier groups if changed
+    if (dto.modifierGroupIds && dto.modifierGroupIds.length > 0) {
+      for (const groupId of dto.modifierGroupIds) {
+        await this.modifierGroupRepo.findById(groupId);
+      }
+    }
+
     // Update item
     const updateData: any = {
       ...(dto.name && { name: dto.name }),
@@ -86,7 +110,15 @@ export class MenuItemsService {
       ...(dto.available !== undefined && { available: dto.available }),
     };
 
-    return await this.menuItemRepo.update(menuItemId, updateData);
+    await this.menuItemRepo.update(menuItemId, updateData);
+
+    // Update modifier groups if provided
+    if (dto.modifierGroupIds !== undefined) {
+      await this.menuItemRepo.attachModifierGroups(menuItemId, dto.modifierGroupIds);
+    }
+
+    // Return updated item
+    return this.menuItemRepo.findByIdWithDetails(menuItemId);
   }
 
   async delete(menuItemId: string) {

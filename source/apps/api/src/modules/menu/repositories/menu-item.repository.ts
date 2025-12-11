@@ -5,10 +5,53 @@ import { BaseRepository } from 'src/database/repositories/base.repository';
 import { MenuItemFiltersDto } from '../dto/menu-item.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 
+export interface MenuItemWithRelations extends MenuItem {
+  category?: any;
+  modifierGroups?: any[];
+}
+
 @Injectable()
 export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuItemDelegate> {
   constructor(private readonly prisma: PrismaService) {
     super(prisma.menuItem);
+  }
+
+  async findByIdWithDetails(itemId: string): Promise<MenuItemWithRelations | null> {
+    return this.prisma.x.menuItem.findUnique({
+      where: { id: itemId },
+      include: {
+        category: true,
+        modifierGroups: {
+          include: {
+            modifierGroup: {
+              include: {
+                options: {
+                  where: { active: true },
+                  orderBy: { displayOrder: 'asc' },
+                },
+              },
+            },
+          },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+  }
+
+  async attachModifierGroups(itemId: string, modifierGroupIds: string[]) {
+    // Delete existing relations
+    await this.prisma.menuItemModifier.deleteMany({
+      where: { menuItemId: itemId },
+    });
+
+    // Create new relations
+    await this.prisma.menuItemModifier.createMany({
+      data: modifierGroupIds.map((groupId, index) => ({
+        menuItemId: itemId,
+        modifierGroupId: groupId,
+        displayOrder: index,
+      })),
+    });
   }
 
   async findFiltered(tenantId: string, filters: MenuItemFiltersDto) {
