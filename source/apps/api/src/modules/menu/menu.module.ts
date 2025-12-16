@@ -29,7 +29,8 @@ import { PublicMenuController } from './controllers/public-menu.controller';
     ModifierGroupRepository,
   ],
   exports: [
-    // Export services for use in other modules (e.g., Orders module)
+    // Export services for use in other modules (e.g., Orders, Table modules)
+    MenuItemsService,
   ],
 })
 export class MenuModule {}

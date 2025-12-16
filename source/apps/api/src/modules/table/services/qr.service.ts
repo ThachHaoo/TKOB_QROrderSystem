@@ -1,6 +1,13 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  UnauthorizedException,
+  GoneException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnvConfig } from 'src/config/env.validation';
+import { TableRepository } from '../repositories/table.repository';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
 
@@ -17,7 +24,10 @@ export class QrService {
   private readonly customerAppUrl: string;
   private readonly maxAgeInDays: number;
 
-  constructor(private readonly config: ConfigService<EnvConfig, true>) {
+  constructor(
+    private readonly config: ConfigService<EnvConfig, true>,
+    private readonly tableRepo: TableRepository,
+  ) {
     // Load config với fallback values
     this.secret = this.config.get('JWT_SECRET', { infer: true }) || 'fallback-secret-key-change-in-production';
     this.customerAppUrl = this.config.get('CUSTOMER_APP_URL', { infer: true }) || 'http://localhost:3001';
@@ -56,11 +66,11 @@ export class QrService {
   }
 
   /**
-   * Validate QR token
+   * Validate QR token (with database check for invalidation)
    * Throws exception if invalid
    * Returns decoded payload if valid
    */
-  validateToken(token: string): QrTokenPayload {
+  async validateToken(token: string): Promise<QrTokenPayload> {
     try {
       // Split token into payload and signature
       const parts = token.split('.');
@@ -77,26 +87,42 @@ export class QrService {
         .digest('base64url');
 
       if (signature !== expectedSignature) {
-        throw new UnauthorizedException('Invalid QR signature');
+        throw new UnauthorizedException('QR code không hợp lệ');
       }
 
       // Decode payload
       const payloadString = Buffer.from(payloadBase64, 'base64url').toString('utf-8');
       const payload: QrTokenPayload = JSON.parse(payloadString);
 
+      // Check database for invalidation
+      const table = await this.tableRepo.findByQrToken(token);
+      if (!table) {
+        throw new BadRequestException('Mã QR không tồn tại trong hệ thống');
+      }
+
+      if (table.qrInvalidatedAt) {
+        throw new GoneException(
+          'Mã QR đã bị vô hiệu hóa. Vui lòng yêu cầu nhân viên hỗ trợ.',
+        );
+      }
+
       // Check expiration (optional)
       const ageInDays = (Date.now() - payload.timestamp) / (1000 * 60 * 60 * 24);
       if (ageInDays > this.maxAgeInDays) {
-        throw new UnauthorizedException('QR code has expired. Please ask staff for assistance.');
+        throw new UnauthorizedException('Mã QR đã hết hạn. Vui lòng yêu cầu nhân viên hỗ trợ.');
       }
 
       return payload;
     } catch (error) {
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException ||
+        error instanceof GoneException
+      ) {
         throw error;
       }
       this.logger.error('QR validation error:', error);
-      throw new BadRequestException('Invalid QR token');
+      throw new BadRequestException('Mã QR không hợp lệ');
     }
   }
 

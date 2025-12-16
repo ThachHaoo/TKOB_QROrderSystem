@@ -169,16 +169,24 @@ export class TableController {
   @Get(':id/qr/download')
   @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Download QR code image' })
-  @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg'] })
-  @ApiResponse({ status: 200, description: 'QR code image' })
+  @ApiOperation({ summary: 'Download QR code (PNG/SVG/PDF)' })
+  @ApiQuery({ name: 'format', required: false, enum: ['png', 'svg', 'pdf'], description: 'Default: png' })
+  @ApiResponse({ status: 200, description: 'QR code file' })
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   async downloadQr(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
-    @Query('format') format: 'png' | 'svg' = 'png',
+    @Query('format') format: 'png' | 'svg' | 'pdf' = 'png',
     @Res() res: Response,
   ): Promise<void> {
+    if (format === 'pdf') {
+      const pdf = await this.service.getQrCodePdf(id, user.tenantId);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="table-${id}-qr.pdf"`);
+      res.send(pdf);
+      return;
+    }
+
     const image = await this.service.getQrCodeImage(id, user.tenantId, format);
 
     if (format === 'svg') {
@@ -189,6 +197,31 @@ export class TableController {
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Content-Disposition', `attachment; filename="table-${id}-qr.png"`);
       res.send(image);
+    }
+  }
+
+  @Get('qr/download-all')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Download all QR codes (ZIP or multi-page PDF)' })
+  @ApiQuery({ name: 'format', required: false, enum: ['zip', 'pdf'], description: 'Default: zip' })
+  @ApiResponse({ status: 200, description: 'ZIP file or PDF with all QR codes' })
+  @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
+  async downloadAllQr(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('format') format: 'zip' | 'pdf' = 'zip',
+    @Res() res: Response,
+  ): Promise<void> {
+    if (format === 'pdf') {
+      const pdf = await this.service.getAllQrCodesPdf(user.tenantId);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="all-tables-qr.pdf"`);
+      res.send(pdf);
+    } else {
+      const zip = await this.service.getAllQrCodesZip(user.tenantId);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="all-tables-qr.zip"`);
+      res.send(zip);
     }
   }
 

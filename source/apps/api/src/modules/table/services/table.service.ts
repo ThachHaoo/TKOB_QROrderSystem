@@ -9,9 +9,11 @@ import {
 import { Prisma, Table, TableStatus } from '@prisma/client';
 import { TableRepository } from '../repositories/table.repository';
 import { QrService } from './qr.service';
+import { PdfService } from './pdf.service';
 import { CreateTableDto } from '../dto/create-table.dto';
 import { UpdateTableDto } from '../dto/update-table.dto';
 import { RegenerateQrResponseDto } from '../dto/table-response.dto';
+import archiver from 'archiver';
 
 @Injectable()
 export class TableService {
@@ -20,6 +22,7 @@ export class TableService {
   constructor(
     private readonly repo: TableRepository,
     private readonly qrService: QrService,
+    private readonly pdfService: PdfService,
   ) {}
 
   /**
@@ -178,6 +181,96 @@ export class TableService {
     }
 
     return this.qrService.generateQrCodeImage(table.qrToken, format);
+  }
+
+  /**
+   * Get QR code as PDF
+   */
+  async getQrCodePdf(tableId: string, tenantId: string): Promise<Buffer> {
+    const table = await this.findById(tableId);
+
+    // Verify belongs to tenant
+    if (table.tenantId !== tenantId) {
+      throw new ForbiddenException('Table does not belong to your restaurant');
+    }
+
+    if (!table.qrToken) {
+      throw new BadRequestException('Table does not have a QR code yet');
+    }
+
+    // Generate QR code as data URL
+    const qrCodeImage = await this.qrService.generateQrCodeImage(table.qrToken, 'png');
+    const qrDataUrl = `data:image/png;base64,${(qrCodeImage as Buffer).toString('base64')}`;
+
+    return this.pdfService.generateSingleQrPdf({
+      tableNumber: table.tableNumber,
+      qrCodeDataUrl: qrDataUrl,
+      location: table.location ?? undefined,
+      instructions: 'Scan to view menu and place order',
+    });
+  }
+
+  /**
+   * Get all QR codes as ZIP file
+   */
+  async getAllQrCodesZip(tenantId: string): Promise<Buffer> {
+    const tables = await this.repo.findByTenantId(tenantId, { activeOnly: true });
+
+    if (tables.length === 0) {
+      throw new BadRequestException('No active tables found');
+    }
+
+    return new Promise((resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+
+      archive.on('data', (chunk) => chunks.push(chunk));
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('error', reject);
+
+      // Add each table's QR code as PNG
+      const promises = tables.map(async (table) => {
+        if (!table.qrToken) return;
+
+        const qrImage = await this.qrService.generateQrCodeImage(table.qrToken, 'png');
+        archive.append(qrImage as Buffer, { name: `table-${table.tableNumber}.png` });
+      });
+
+      Promise.all(promises)
+        .then(() => {
+          archive.finalize();
+        })
+        .catch(reject);
+    });
+  }
+
+  /**
+   * Get all QR codes as multi-page PDF
+   */
+  async getAllQrCodesPdf(tenantId: string): Promise<Buffer> {
+    const tables = await this.repo.findByTenantId(tenantId, { activeOnly: true });
+
+    if (tables.length === 0) {
+      throw new BadRequestException('No active tables found');
+    }
+
+    // Generate QR data URLs for all tables
+    const tableOptions = await Promise.all(
+      tables
+        .filter((t) => t.qrToken)
+        .map(async (table) => {
+          const qrCodeImage = await this.qrService.generateQrCodeImage(table.qrToken!, 'png');
+          const qrDataUrl = `data:image/png;base64,${(qrCodeImage as Buffer).toString('base64')}`;
+
+          return {
+            tableNumber: table.tableNumber,
+            qrCodeDataUrl: qrDataUrl,
+            location: table.location ?? undefined,
+          };
+        }),
+    );
+
+    return this.pdfService.generateMultiPageQrPdf(tableOptions);
   }
 
   /**
