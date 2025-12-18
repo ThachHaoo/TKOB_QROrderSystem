@@ -125,13 +125,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
         {/* Content - Only this part scrolls */}
         <main className={`flex-1 bg-slate-50 ${disableContentScroll ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-          {disableContentScroll ? (
-            children
-          ) : (
-            <div className="px-8 py-6">
-              {children}
-            </div>
-          )}
+          {children}
         </main>
       </div>
     </div>

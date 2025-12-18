@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { RoleGuard } from '@/shared/components/auth';
-import { OrderManagementPage } from '@/features/order-management';
+import { OrdersPage } from '@/features/orders';
 
 export const metadata: Metadata = {
   title: 'Orders | TKOB Admin',
@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <RoleGuard allowedRoles={['admin', 'waiter']}>
-      <OrderManagementPage />
+    <RoleGuard allowedRoles={['admin']}>
+      <OrdersPage />
     </RoleGuard>
   );
 }
