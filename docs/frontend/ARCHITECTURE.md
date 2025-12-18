@@ -18,7 +18,7 @@ The MVP will focus on the essential flows:
 
 # Frontend Architecture – Unified Restaurant Ordering Platform (Next.js 15+ App Router)
 
-**Project:** QR Dine-in Ordering Platform  
+**Project:** TKQR-in Ordering Platform  
 **Architecture:** Feature-Based Clean Architecture with Next.js 15 App Router  
 **Tech Stack:** Next.js 15, React 19, TypeScript, TailwindCSS v4  
 **Last Updated:** 2025-11-28

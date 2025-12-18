@@ -59,7 +59,7 @@ export interface AdminShellProps {
 export const AdminShell: React.FC<AdminShellProps> = ({
   activeItem,
   onNavigate,
-  restaurantName = 'The Bistro',
+  restaurantName = 'TKOB Restaurant',
   enableDevModeSwitch = true,
   children,
 }) => {

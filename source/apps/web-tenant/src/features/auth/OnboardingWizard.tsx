@@ -483,7 +483,7 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
               <span className="text-white" style={{ fontSize: '24px' }}>🍽️</span>
             </div>
             <div>
-              <h2 className="text-gray-900">Welcome to QR Dine</h2>
+              <h2 className="text-gray-900">Welcome to TKQR</h2>
               <p className="text-gray-600" style={{ fontSize: '14px' }}>
                 Let's set up your restaurant
               </p>
