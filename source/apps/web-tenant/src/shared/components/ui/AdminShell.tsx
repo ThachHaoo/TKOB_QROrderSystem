@@ -80,7 +80,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
   // Auto-disable scroll for pages that need custom scroll handling
   const disableContentScroll = useMemo(() => {
-    return pathname.includes('/admin/menu');
+    return pathname.includes('/admin/menu') || pathname.includes('/admin/dashboard');
   }, [pathname]);
 
   // Auto-handle navigation with Next.js router

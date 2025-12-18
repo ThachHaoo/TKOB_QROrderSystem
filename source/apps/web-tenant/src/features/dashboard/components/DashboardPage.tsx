@@ -257,9 +257,9 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Page Header */}
-      <div className="px-6 pt-3 pb-2 border-b border-gray-200 bg-white">
+    <div className="flex flex-col bg-gray-50 h-full overflow-hidden">
+      {/* Page Header - Sticky */}
+      <div className="shrink-0 px-6 pt-3 pb-2 border-b border-gray-200 bg-white sticky top-0 z-10">
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-1">
             <h2 className="text-gray-900" style={{ fontSize: '26px', fontWeight: 700, lineHeight: '1.2', letterSpacing: '-0.02em' }}>
@@ -284,8 +284,8 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
           {/* KPI Cards */}
           <div className="grid grid-cols-4 gap-6">
