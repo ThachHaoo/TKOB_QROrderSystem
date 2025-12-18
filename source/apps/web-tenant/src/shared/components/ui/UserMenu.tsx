@@ -58,7 +58,7 @@ export function UserMenu({
 
   const handleAccountSettings = () => {
     setIsOpen(false);
-    // Future: navigate to account settings page
+    onNavigate?.('account-settings');
   };
 
   const handleSwitchToKDS = () => {

@@ -15,6 +15,7 @@ export const ROUTES = {
   orders: '/admin/orders',
   analytics: '/admin/analytics',
   staff: '/admin/staff',
+  accountSettings: '/admin/account-settings',
   tenantProfile: '/admin/tenant-profile',
   kds: '/admin/kds',
   serviceBoard: '/admin/service-board',

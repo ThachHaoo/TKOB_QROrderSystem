@@ -22,6 +22,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     if (pathname.includes('/admin/analytics')) return 'analytics';
     if (pathname.includes('/admin/staff')) return 'staff';
     if (pathname.includes('/admin/tenant-profile')) return 'tenant-profile';
+    if (pathname.includes('/admin/account-settings')) return 'tenant-profile';
     return 'dashboard';
   }, [pathname]);
 
@@ -37,6 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       analytics: ROUTES.analytics,
       staff: ROUTES.staff,
       'tenant-profile': ROUTES.tenantProfile,
+      'account-settings': ROUTES.accountSettings,
       login: ROUTES.login,
       kds: ROUTES.kds,
       'service-board': ROUTES.serviceBoard,

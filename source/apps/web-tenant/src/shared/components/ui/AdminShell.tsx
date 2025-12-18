@@ -12,6 +12,7 @@ export type AdminScreenId =
   | 'analytics'
   | 'staff'
   | 'tenant-profile'
+  | 'account-settings'
   // dùng cho devmode / logout / chuyển role
   | 'login'
   | 'kds'
