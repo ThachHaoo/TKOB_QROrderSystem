@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, User, LogOut } from 'lucide-react';
+import { ChevronDown, User, LogOut, Code } from 'lucide-react';
+import { useAuth } from '@/shared/context/AuthContext';
+import type { UserRole } from '@/shared/context/AuthContext';
 
 import type { AdminScreenId } from './AdminShell';
 
@@ -61,9 +63,12 @@ export function UserMenu({
 
   const avatarColors = getAvatarColors();
 
+  const { logout, switchRole } = useAuth();
+  const isDev = process.env.NODE_ENV === 'development';
+
   const handleLogout = () => {
     setIsOpen(false);
-    onNavigate?.('login');
+    logout();
   };
 
   const handleAccountSettings = () => {
@@ -71,19 +76,9 @@ export function UserMenu({
     onNavigate?.('account-settings');
   };
 
-  const handleSwitchToKDS = () => {
+  const handleSwitchRole = (role: UserRole) => {
     setIsOpen(false);
-    onNavigate?.('kds');
-  };
-
-  const handleSwitchToWaiter = () => {
-    setIsOpen(false);
-    onNavigate?.('service-board');
-  };
-
-  const handleSwitchToAdmin = () => {
-    setIsOpen(false);
-    onNavigate?.('dashboard');
+    switchRole(role);
   };
 
   return (
@@ -117,36 +112,42 @@ export function UserMenu({
             </span>
           </button>
 
-          {/* Dev section */}
-          <div className="px-4 py-2">
-            <div className="text-gray-500" style={{ fontSize: '11px', fontWeight: 500 }}>
-              Dev: switch role…
-            </div>
-          </div>
-          <button
-            onClick={handleSwitchToKDS}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-gray-700" style={{ fontSize: '13px' }}>
-              → KDS Board
-            </span>
-          </button>
-          <button
-            onClick={handleSwitchToWaiter}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-gray-700" style={{ fontSize: '13px' }}>
-              → Waiter / Service Board
-            </span>
-          </button>
-          <button
-            onClick={handleSwitchToAdmin}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-gray-700" style={{ fontSize: '13px' }}>
-              → Admin Dashboard
-            </span>
-          </button>
+          {/* Dev section - only show in development */}
+          {isDev && (
+            <>
+              <div className="border-t border-gray-200 my-2"></div>
+              <div className="px-4 py-2 flex items-center gap-2">
+                <Code className="w-3 h-3 text-purple-600" />
+                <div className="text-purple-600" style={{ fontSize: '11px', fontWeight: 600 }}>
+                  DEV MODE: Switch Role
+                </div>
+              </div>
+              <button
+                onClick={() => handleSwitchRole('kds')}
+                className="w-full px-4 py-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="text-gray-700" style={{ fontSize: '13px' }}>
+                  → KDS (Kitchen Display)
+                </span>
+              </button>
+              <button
+                onClick={() => handleSwitchRole('waiter')}
+                className="w-full px-4 py-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="text-gray-700" style={{ fontSize: '13px' }}>
+                  → Waiter (Service Board)
+                </span>
+              </button>
+              <button
+                onClick={() => handleSwitchRole('admin')}
+                className="w-full px-4 py-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="text-gray-700" style={{ fontSize: '13px' }}>
+                  → Admin (Dashboard)
+                </span>
+              </button>
+            </>
+          )}
 
           {/* Separator */}
           <div className="border-t border-gray-200 my-2"></div>

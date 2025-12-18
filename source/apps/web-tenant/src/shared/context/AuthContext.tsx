@@ -1,7 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/routes';
+import { getHomeRouteForRole, canAccessRoute } from '@/lib/navigation';
+import type { UserRole as NavigationUserRole } from '@/lib/navigation';
 
 // User role type matching RBAC requirements (3 roles only)
 export type UserRole = 'admin' | 'kds' | 'waiter';
@@ -22,6 +25,9 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   devLogin: (role: UserRole) => void; // For dev mode quick login
+  switchRole: (role: UserRole) => void; // Dev mode role switching
+  getDefaultRoute: () => string; // Get home route for current user role
+  canAccess: (path: string) => boolean; // Check if current user can access path
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -33,6 +39,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   // Check for existing auth token on mount
   useEffect(() => {
@@ -113,6 +120,50 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('devRole', role); // Store role for persistence
     setUser(mockUser);
   };
+// Dev mode: Switch role on the fly
+  const switchRole = useCallback(
+    (role: UserRole) => {
+      if (process.env.NODE_ENV !== 'development') {
+        console.warn('Role switching only available in development');
+        return;
+      }
+
+      const roleNames = {
+        admin: 'Admin User',
+        kds: 'Kitchen Display User',
+        waiter: 'Waiter User',
+      };
+
+      const mockUser: User = {
+        id: role === 'admin' ? '1' : role === 'kds' ? '2' : '3',
+        email: `${role}@restaurant.com`,
+        name: roleNames[role],
+        role,
+        tenantId: 'tenant-001',
+      };
+
+      setUser(mockUser);
+      localStorage.setItem('devRole', role);
+      
+      const homeRoute = getHomeRouteForRole(role as NavigationUserRole);
+      router.push(homeRoute);
+    },
+    [router]
+  );
+
+  // Get the default home route for current user
+  const getDefaultRoute = useCallback(() => {
+    return user ? getHomeRouteForRole(user.role as NavigationUserRole) : ROUTES.login;
+  }, [user]);
+
+  // Check if current user can access a specific path
+  const canAccess = useCallback(
+    (path: string) => {
+      if (!user) return false;
+      return canAccessRoute(user.role as NavigationUserRole, path);
+    },
+    [user]
+  );
 
   return (
     <AuthContext.Provider
@@ -122,6 +173,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading,
         login,
         logout,
+        devLogin,
+        switchRole,
+        getDefaultRoute,
+        canAccess
         devLogin,
       }}
     >

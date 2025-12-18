@@ -17,6 +17,7 @@ export function Login({ onNavigate }: LoginProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [language, setLanguage] = useState('EN');
   const { devLogin } = useAuth();
+  const isDev = process.env.NODE_ENV === 'development';
 
   const handleLogin = (role: 'admin' | 'kds' | 'waiter' = 'admin') => {
     // Route to appropriate starting screen based on role
@@ -144,49 +145,54 @@ export function Login({ onNavigate }: LoginProps) {
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-gray-200"></div>
-
-          {/* Dev mode shortcuts */}
-          <div className="flex flex-col gap-3">
-            <p className="text-gray-500 text-center" style={{ fontSize: '12px' }}>
-              Dev mode: Login as different roles
-            </p>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleDevLogin('admin')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-emerald-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                Admin
-              </button>
-              
-              <button
-                onClick={() => handleDevLogin('kds')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-amber-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                KDS
-              </button>
-              
-              <button
-                onClick={() => handleDevLogin('waiter')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-orange-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                Waiter
-              </button>
-              
-              <button
-                onClick={() => onNavigate?.(ROUTES.staffInvitationSignup)}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                Staff Invitation
-              </button>
-            </div>
-          </div>
+          {/* Dev mode shortcuts - only show in development */}
+          {isDev && (
+            <>
+              <div className="border-t border-gray-200"></div>
+              <div className="flex flex-col gap-3">
+                <p className="text-purple-600 text-center flex items-center justify-center gap-2" style={{ fontSize: '12px', fontWeight: 600 }}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                  DEV MODE: Quick Login
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleDevLogin('admin')}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    👤 Admin
+                  </button>
+                  
+                  <button
+                    onClick={() => handleDevLogin('kds')}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    🍳 KDS
+                  </button>
+                  
+                  <button
+                    onClick={() => handleDevLogin('waiter')}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    🍽️ Waiter
+                  </button>
+                  
+                  <button
+                    onClick={() => onNavigate?.(ROUTES.staffInvitationSignup)}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    ✉️ Staff Invite
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>
