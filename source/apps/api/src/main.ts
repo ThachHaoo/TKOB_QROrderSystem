@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from './config/env.validation';
+import cookieParser from 'cookie-parser';
 
 // Import filters
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -26,6 +27,10 @@ async function bootstrap() {
   const configService = app.get<ConfigService<EnvConfig, true>>(ConfigService);
   const port = configService.get('API_PORT', { infer: true });
   const nodeEnv = configService.get('NODE_ENV', { infer: true });
+
+  // ==================== COOKIE PARSER ====================
+  // Required for session-based QR ordering (Haidilao style)
+  app.use(cookieParser());
 
   // ==================== GLOBAL PREFIX ====================
   app.setGlobalPrefix('api/v1', {
