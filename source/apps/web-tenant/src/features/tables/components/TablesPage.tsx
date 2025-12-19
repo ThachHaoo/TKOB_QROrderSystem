@@ -51,6 +51,7 @@ export function TablesPage() {
   const [isDownloadingQR, setIsDownloadingQR] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isFetchingTableDetails, setIsFetchingTableDetails] = useState(false);
+  const [isPrintingQR, setIsPrintingQR] = useState(false);
   
   // QR Code printing ref
   const qrPrintRef = useRef<HTMLDivElement>(null);
@@ -154,6 +155,36 @@ export function TablesPage() {
     } catch (error) {
       console.error('Failed to download QR code:', error);
       setIsDownloadingQR(false);
+    }
+  };
+
+  // Print wrapper with state management
+  const handlePrintQRWrapper = async () => {
+    if (!selectedTable || !qrPrintRef.current) {
+      setToastMessage('QR code not loaded. Please try again.');
+      setToastType('error');
+      setShowSuccessToast(true);
+      return;
+    }
+
+    try {
+      setIsPrintingQR(true);
+      // Wait a moment to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Trigger the print
+      await handlePrintQR();
+      
+      setToastMessage('Print dialog opened');
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      console.error('Print failed:', error);
+      setToastMessage('Print failed: ' + (error?.message || 'Please try again'));
+      setToastType('error');
+      setShowSuccessToast(true);
+    } finally {
+      setIsPrintingQR(false);
     }
   };
   
@@ -1218,13 +1249,13 @@ export function TablesPage() {
                 {isDownloadingQR ? 'Downloading...' : 'Save Image'}
               </button>
               <button
-                onClick={() => handlePrintQR()}
-                disabled={selectedTable.status === 'inactive'}
+                onClick={handlePrintQRWrapper}
+                disabled={selectedTable.status === 'inactive' || isPrintingQR}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 text-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
                 style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px' }}
               >
                 <Printer className="w-5 h-5" />
-                Print
+                {isPrintingQR ? 'Loading...' : 'Print'}
               </button>
             </div>
           </div>
