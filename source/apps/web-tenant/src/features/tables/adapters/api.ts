@@ -30,8 +30,14 @@ export class TablesApiAdapter implements ITablesAdapter {
       console.log('🌐 [API Adapter] Response type:', typeof result);
       console.log('🌐 [API Adapter] Is Array:', Array.isArray(result));
       return result;
-    } catch (error) {
-      console.error('🌐 [API Adapter] Error:', error);
+    } catch (error: any) {
+      console.error('🌐 [API Adapter] Error calling tableControllerFindAll:', {
+        params,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        errorData: error.response?.data,
+      });
       throw error;
     }
   }

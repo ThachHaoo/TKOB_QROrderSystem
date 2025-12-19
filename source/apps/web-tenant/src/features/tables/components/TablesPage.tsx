@@ -9,6 +9,7 @@ import { TableFormFields } from './TableFormFields';
 import { Plus, X, QrCode, Users, Download, Printer, Edit, RefreshCcw } from 'lucide-react';
 import {
   useTablesList,
+  useTableById,
   useCreateTable,
   useUpdateTable,
   useDeleteTable,
@@ -20,7 +21,7 @@ interface Table {
   id: string;
   name: string;
   capacity: number;
-  status: 'free' | 'occupied' | 'reserved' | 'inactive';
+  status: 'available' | 'occupied' | 'reserved' | 'inactive';
   zone: 'indoor' | 'outdoor' | 'patio' | 'vip';
   tableNumber: number;
   createdAt: Date;
@@ -40,7 +41,12 @@ export function TablesPage() {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  const [pendingStatusChange, setPendingStatusChange] = useState<'free' | 'occupied' | 'reserved' | 'inactive' | null>(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState<'available' | 'occupied' | 'reserved' | 'inactive' | null>(null);
+  
+  // Loading states
+  const [isDownloadingQR, setIsDownloadingQR] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [isFetchingTableDetails, setIsFetchingTableDetails] = useState(false);
   
   // Filter and sort state
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -53,30 +59,52 @@ export function TablesPage() {
     capacity: '',
     zone: 'indoor',
     tableNumber: '',
-    status: 'free' as 'free' | 'occupied' | 'reserved' | 'inactive',
+    status: 'available' as 'available' | 'occupied' | 'reserved' | 'inactive',
     description: '',
   });
 
-  // React Query hooks - replace mock data with real API calls
+  // React Query hooks - Backend-Driven filtering & sorting
   const statusFilter = selectedStatus !== 'All' 
     ? selectedStatus.toUpperCase().replace(' ', '_') as 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE'
     : undefined;
   
   const locationFilter = selectedZone !== 'All Locations' ? selectedZone : undefined;
   
+  // Map frontend sortOption to backend sortBy/sortOrder
+  const getSortParams = () => {
+    switch (sortOption) {
+      case 'Sort by: Table Number (Ascending)':
+        return { sortBy: 'tableNumber' as const, sortOrder: 'ASC' as const };
+      case 'Sort by: Capacity (Ascending)':
+        return { sortBy: 'capacity' as const, sortOrder: 'ASC' as const };
+      case 'Sort by: Capacity (Descending)':
+        return { sortBy: 'capacity' as const, sortOrder: 'DESC' as const };
+      case 'Sort by: Creation Date (Newest)':
+        return { sortBy: 'createdAt' as const, sortOrder: 'DESC' as const };
+      default:
+        return { sortBy: 'tableNumber' as const, sortOrder: 'ASC' as const };
+    }
+  };
+  
+  const sortParams = getSortParams();
+  
   const { data: tablesData, isLoading, error } = useTablesList({
     status: statusFilter,
     location: locationFilter,
-    activeOnly: false,
+    sortBy: sortParams.sortBy,
+    sortOrder: sortParams.sortOrder,
   });
   
   // Debug logging
   React.useEffect(() => {
-    console.log('📊 [TablesPage] Component State:', {
+    console.log('📊 [TablesPage] Backend-Driven Query:', {
       statusFilter,
       locationFilter,
+      sortBy: sortParams.sortBy,
+      sortOrder: sortParams.sortOrder,
       isLoading,
       hasError: !!error,
+      errorDetails: error,
       tablesDataType: typeof tablesData,
       tablesDataIsArray: Array.isArray(tablesData),
       dataCount: tablesData?.length || 0,
@@ -85,9 +113,9 @@ export function TablesPage() {
       console.error('❌ [TablesPage] API Error:', error);
     }
     if (tablesData) {
-      console.log('✅ [TablesPage] Raw API Response:', tablesData);
+      console.log('✅ [TablesPage] Backend returned filtered & sorted data:', tablesData);
     }
-  }, [tablesData, isLoading, error, statusFilter, locationFilter]);
+  }, [tablesData, isLoading, error, statusFilter, locationFilter, sortParams.sortBy, sortParams.sortOrder]);
   
   const createTableMutation = useCreateTable();
   const updateTableMutation = useUpdateTable();
@@ -95,17 +123,27 @@ export function TablesPage() {
   const updateStatusMutation = useUpdateTableStatus();
   const regenerateQRMutation = useRegenerateQR();
 
+  // Standardized error handler
+  const handleApiError = (error: any, defaultMessage: string) => {
+    const errorMessage = error?.response?.data?.error?.message || error?.message || defaultMessage;
+    console.error('❌ API Error:', error);
+    setToastMessage(errorMessage);
+    setToastType('error');
+    setShowSuccessToast(true);
+  };
+
   // Map API response to component's Table interface
+  // Backend returns already filtered & sorted data - no additional processing needed
   const tables = useMemo(() => {
     if (!tablesData) return [];
     return tablesData.map(t => ({
       id: t.id || 'unknown',
       name: t.tableNumber || 'Unnamed',
       capacity: t.capacity || 0,
-      status: (t.status === 'AVAILABLE' ? 'free' 
+      status: (t.status === 'AVAILABLE' ? 'available' 
         : t.status === 'OCCUPIED' ? 'occupied' 
         : t.status === 'RESERVED' ? 'reserved' 
-        : 'inactive') as 'free' | 'occupied' | 'reserved' | 'inactive',
+        : 'inactive') as 'available' | 'occupied' | 'reserved' | 'inactive',
       zone: ((t.location || 'indoor').toLowerCase()) as 'indoor' | 'outdoor' | 'patio' | 'vip',
       tableNumber: parseInt((t.tableNumber || '0').replace(/\D/g, '')) || 0,
       createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
@@ -174,33 +212,78 @@ export function TablesPage() {
   };
 
   const handleOpenAddModal = () => {
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'available', description: '' });
     setShowAddModal(true);
   };
 
   const handleCloseAddModal = () => {
     setShowAddModal(false);
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'available', description: '' });
   };
 
-  const handleOpenEditModal = () => {
-    if (selectedTable) {
+  const handleOpenEditModal = async () => {
+    if (!selectedTable) return;
+    
+    setIsFetchingTableDetails(true);
+    try {
+      console.log('🔍 [GET /tables/:id] Request:', { id: selectedTable.id });
+      
+      // Fetch fresh data from server
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tables/${selectedTable.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error(`Failed to fetch table: ${response.statusText}`);
+      
+      const result = await response.json();
+      const freshTable = result.data;
+      
+      console.log('✅ [GET /tables/:id] Response:', freshTable);
+      
+      // Map fresh data to component format
+      const mappedTable = {
+        id: freshTable.id,
+        name: freshTable.tableNumber,
+        capacity: freshTable.capacity,
+        status: (freshTable.status === 'AVAILABLE' ? 'available' 
+          : freshTable.status === 'OCCUPIED' ? 'occupied'
+          : freshTable.status === 'RESERVED' ? 'reserved'
+          : 'inactive') as 'available' | 'occupied' | 'reserved' | 'inactive',
+        zone: freshTable.location?.toLowerCase() || 'indoor',
+        tableNumber: parseInt(freshTable.tableNumber?.replace('Table ', '') || '0'),
+        description: freshTable.description || '',
+      };
+      
+      // Update selectedTable with fresh data
+      setSelectedTable(mappedTable);
+      
+      // Set form data
       setFormData({
-        name: selectedTable.name,
-        capacity: selectedTable.capacity.toString(),
-        zone: selectedTable.zone,
-        tableNumber: selectedTable.tableNumber.toString(),
-        status: selectedTable.status,
-        description: selectedTable.description || '',
+        name: mappedTable.name,
+        capacity: mappedTable.capacity.toString(),
+        zone: mappedTable.zone,
+        tableNumber: mappedTable.tableNumber.toString(),
+        status: mappedTable.status,
+        description: mappedTable.description || '',
       });
+      
       setShowEditModal(true);
       setShowQRModal(false);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to fetch table details');
+    } finally {
+      setIsFetchingTableDetails(false);
     }
   };
 
   const handleCloseEditModal = () => {
     setShowEditModal(false);
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'available', description: '' });
   };
 
   const handleEditTable = async () => {
@@ -253,12 +336,12 @@ export function TablesPage() {
 
     try {
       // Map status to API format
-      const apiStatus = formData.status === 'free' ? 'AVAILABLE'
+      const apiStatus = formData.status === 'available' ? 'AVAILABLE'
         : formData.status === 'occupied' ? 'OCCUPIED'
         : formData.status === 'reserved' ? 'RESERVED'
         : 'INACTIVE';
 
-      await updateTableMutation.mutateAsync({
+      const payload = {
         id: selectedTable.id,
         data: {
           tableNumber: `Table ${formData.tableNumber}`,
@@ -268,7 +351,11 @@ export function TablesPage() {
           displayOrder: parseInt(formData.tableNumber),
           status: apiStatus,
         },
-      });
+      };
+
+      console.log('📝 [PUT /tables/:id] Request:', payload);
+      const result = await updateTableMutation.mutateAsync(payload);
+      console.log('✅ [PUT /tables/:id] Response:', result);
 
       setToastMessage('Table updated successfully');
       setToastType('success');
@@ -276,9 +363,7 @@ export function TablesPage() {
       handleCloseEditModal();
       setSelectedTable(null);
     } catch (error: any) {
-      setToastMessage(error?.message || 'Failed to update table');
-      setToastType('error');
-      setShowSuccessToast(true);
+      handleApiError(error, 'Failed to update table');
     }
   };
 
@@ -296,62 +381,155 @@ export function TablesPage() {
     }
   };
 
-  const handleDownloadAll = () => {
-    setToastMessage(`Downloading ${tables.length} QR codes...`);
-    setToastType('success');
-    setShowSuccessToast(true);
+  const handleDownloadAll = async () => {
+    setIsDownloadingAll(true);
+    try {
+      console.log('📥 [GET /tables/qr/download-all] Request:', { count: tables.length });
+      
+      // Call API endpoint for ZIP download
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tables/qr/download-all`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all-qr-codes-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`✅ [GET /tables/qr/download-all] Downloaded ${tables.length} QR codes`);
+      
+      setToastMessage(`Downloaded ${tables.length} QR codes`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to download QR codes');
+    } finally {
+      setIsDownloadingAll(false);
+    }
   };
 
   const handleRegenerateQR = async () => {
     if (!selectedTable) return;
     
     try {
-      await regenerateQRMutation.mutateAsync(selectedTable.id);
+      console.log('🔄 [POST /tables/:id/qr/generate] Request:', { id: selectedTable.id });
+      const result = await regenerateQRMutation.mutateAsync(selectedTable.id);
+      console.log('✅ [POST /tables/:id/qr/generate] Response:', result);
+      
+      // Auto-refresh modal with new QR data
+      if (result) {
+        setSelectedTable(prev => prev ? {
+          ...prev,
+          // QR data will be refreshed via React Query invalidation
+        } : null);
+      }
+      
       setToastMessage(`QR code regenerated for ${selectedTable.name}`);
       setToastType('success');
       setShowSuccessToast(true);
     } catch (error: any) {
-      setToastMessage(error?.message || 'Failed to regenerate QR code');
-      setToastType('error');
-      setShowSuccessToast(true);
+      handleApiError(error, 'Failed to regenerate QR code');
     }
   };
 
   const handleActivateTable = async () => {
     if (!selectedTable) return;
     
+    // Optimistic update
+    const previousStatus = selectedTable.status;
+    setSelectedTable({ ...selectedTable, status: 'available' });
+    
     try {
-      await updateStatusMutation.mutateAsync({
-        id: selectedTable.id,
-        status: 'AVAILABLE',
-      });
-      setSelectedTable({ ...selectedTable, status: 'free' });
+      const payload = { id: selectedTable.id, status: 'AVAILABLE' as const };
+      console.log('🔄 [PATCH /tables/:id/status] Activate Request:', payload);
+      
+      const result = await updateStatusMutation.mutateAsync(payload);
+      console.log('✅ [PATCH /tables/:id/status] Activate Response:', result);
+      
       setToastMessage(`${selectedTable.name} activated successfully`);
       setToastType('success');
       setShowSuccessToast(true);
     } catch (error: any) {
-      setToastMessage(error?.message || 'Failed to activate table');
-      setToastType('error');
-      setShowSuccessToast(true);
+      // Rollback optimistic update on error
+      setSelectedTable({ ...selectedTable, status: previousStatus });
+      handleApiError(error, 'Failed to activate table');
     }
   };
 
   const handleDeactivateTable = async () => {
     if (!selectedTable) return;
     
+    // Optimistic update
+    const previousStatus = selectedTable.status;
+    setSelectedTable({ ...selectedTable, status: 'inactive' });
+    
     try {
-      await updateStatusMutation.mutateAsync({
-        id: selectedTable.id,
-        status: 'INACTIVE',
-      });
-      setSelectedTable({ ...selectedTable, status: 'inactive' });
+      const payload = { id: selectedTable.id, status: 'INACTIVE' as const };
+      console.log('🔄 [PATCH /tables/:id/status] Deactivate Request:', payload);
+      
+      const result = await updateStatusMutation.mutateAsync(payload);
+      console.log('✅ [PATCH /tables/:id/status] Deactivate Response:', result);
+      
       setToastMessage(`${selectedTable.name} deactivated successfully`);
       setToastType('success');
       setShowSuccessToast(true);
     } catch (error: any) {
-      setToastMessage(error?.message || 'Failed to deactivate table');
-      setToastType('error');
+      // Rollback optimistic update on error
+      setSelectedTable({ ...selectedTable, status: previousStatus });
+      handleApiError(error, 'Failed to deactivate table');
+    }
+  };
+
+  const handleDownloadQR = async (format: 'png' | 'pdf') => {
+    if (!selectedTable) return;
+    
+    setIsDownloadingQR(true);
+    try {
+      console.log(`📥 [GET /tables/:id/qr/download] Request:`, { id: selectedTable.id, format });
+      
+      // Call API endpoint
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tables/${selectedTable.id}/qr/download?format=${format}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedTable.name}-QR.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`✅ [GET /tables/:id/qr/download] Downloaded: ${format}`);
+      
+      setToastMessage(`QR code downloaded as ${format.toUpperCase()}`);
+      setToastType('success');
       setShowSuccessToast(true);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to download QR code');
+    } finally {
+      setIsDownloadingQR(false);
     }
   };
 
@@ -382,8 +560,8 @@ export function TablesPage() {
   // Helper functions
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'free':
-        return { variant: 'success' as const, label: 'Free', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' };
+      case 'available':
+        return { variant: 'success' as const, label: 'Available', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' };
       case 'occupied':
         return { variant: 'warning' as const, label: 'Occupied', color: 'bg-amber-100 text-amber-700 border-amber-300' };
       case 'reserved':
@@ -410,39 +588,8 @@ export function TablesPage() {
     }
   };
 
-  const filterAndSortTables = (tables: Table[]) => {
-    let filteredTables = tables;
-
-    // Filter by status
-    if (selectedStatus !== 'All') {
-      filteredTables = filteredTables.filter(table => table.status === selectedStatus);
-    }
-
-    // Filter by zone
-    if (selectedZone !== 'All Locations') {
-      filteredTables = filteredTables.filter(table => table.zone === selectedZone);
-    }
-
-    // Sort by option
-    switch (sortOption) {
-      case 'Sort by: Table Number (Ascending)':
-        filteredTables = filteredTables.sort((a, b) => a.tableNumber - b.tableNumber);
-        break;
-      case 'Sort by: Capacity (Ascending)':
-        filteredTables = filteredTables.sort((a, b) => a.capacity - b.capacity);
-        break;
-      case 'Sort by: Capacity (Descending)':
-        filteredTables = filteredTables.sort((a, b) => b.capacity - a.capacity);
-        break;
-      case 'Sort by: Creation Date (Newest)':
-        filteredTables = filteredTables.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
-      default:
-        break;
-    }
-
-    return filteredTables;
-  };
+  // Backend-Driven: No need for client-side filtering/sorting
+  // Backend returns already filtered & sorted data based on params
 
   return (
     <>
@@ -461,7 +608,8 @@ export function TablesPage() {
               {tables.length > 0 && (
                 <button
                   onClick={handleDownloadAll}
-                  className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-emerald-500 text-gray-700 hover:text-emerald-700 transition-all flex-1 md:flex-none"
+                  disabled={isDownloadingAll}
+                  className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-emerald-500 text-gray-700 hover:text-emerald-700 transition-all flex-1 md:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
                     fontSize: 'clamp(13px, 4vw, 15px)', 
                     fontWeight: 600, 
@@ -469,9 +617,18 @@ export function TablesPage() {
                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                   }}
                 >
-                  <Download className="w-4 sm:w-5 h-4 sm:h-5" />
-                  <span className="hidden sm:inline">Download All QR Codes</span>
-                  <span className="sm:hidden">Download</span>
+                  {isDownloadingAll ? (
+                    <>
+                      <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 sm:w-5 h-4 sm:h-5" />
+                      <span className="hidden sm:inline">Download All QR Codes</span>
+                      <span className="sm:hidden">Download</span>
+                    </>
+                  )}
                 </button>
               )}
               <button
@@ -507,9 +664,9 @@ export function TablesPage() {
               <p className="text-gray-900" style={{ fontSize: 'clamp(20px, 6vw, 28px)', fontWeight: 700 }}>{tables.length}</p>
             </Card>
             <Card className="p-4 sm:p-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <p className="text-gray-500 mb-1" style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 500 }}>Free</p>
+              <p className="text-gray-500 mb-1" style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 500 }}>Available</p>
               <p className="text-emerald-600" style={{ fontSize: 'clamp(20px, 6vw, 28px)', fontWeight: 700 }}>
-                {tables.filter(t => t.status === 'free').length}
+                {tables.filter(t => t.status === 'available').length}
               </p>
             </Card>
             <Card className="p-4 sm:p-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -536,7 +693,7 @@ export function TablesPage() {
                 style={{ fontSize: 'clamp(13px, 4vw, 15px)', borderRadius: '4px', height: '48px' }}
               >
                 <option value="All">All Statuses</option>
-                <option value="free">Free</option>
+                <option value="available">Available</option>
                 <option value="occupied">Occupied</option>
                 <option value="reserved">Reserved</option>
                 <option value="inactive">Inactive</option>
@@ -607,7 +764,7 @@ export function TablesPage() {
                 </button>
               </div>
             </Card>
-          ) : filterAndSortTables(tables).length === 0 ? (
+          ) : tables.length === 0 ? (
             <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <div className="flex flex-col items-center justify-center">
                 <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-md flex items-center justify-center mb-4">
@@ -641,7 +798,7 @@ export function TablesPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {filterAndSortTables(tables).map((table) => {
+              {tables.map((table) => {
                 const statusConfig = getStatusConfig(table.status);
                 
                 return (
@@ -889,22 +1046,22 @@ export function TablesPage() {
           {/* Action Buttons */}
           <div className="flex gap-3">
             <button
-              onClick={handleDownloadPNG}
-              disabled={selectedTable.status === 'inactive'}
+              onClick={() => handleDownloadQR('png')}
+              disabled={selectedTable.status === 'inactive' || isDownloadingQR}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
               style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
             >
               <Download className="w-5 h-5" />
-              Download PNG
+              {isDownloadingQR ? 'Downloading...' : 'Download PNG'}
             </button>
             <button
-              onClick={handleDownloadPDF}
-              disabled={selectedTable.status === 'inactive'}
+              onClick={() => handleDownloadQR('pdf')}
+              disabled={selectedTable.status === 'inactive' || isDownloadingQR}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
               style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
             >
               <Download className="w-5 h-5" />
-              Download PDF
+              {isDownloadingQR ? 'Downloading...' : 'Download PDF'}
             </button>
             <button
               onClick={handlePrintQR}
@@ -1068,7 +1225,7 @@ export function TablesPage() {
             </>
           ) : (
             <p className="text-gray-700" style={{ fontSize: '15px', lineHeight: '1.6' }}>
-              This will restore the table to <strong>Free</strong> status and allow customers to place new orders.
+              This will restore the table to <strong>Available</strong> status and allow customers to place new orders.
             </p>
           )}
         </Modal>

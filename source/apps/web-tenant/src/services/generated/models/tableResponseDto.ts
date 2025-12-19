@@ -8,17 +8,19 @@
 import type { TableResponseDtoStatus } from './tableResponseDtoStatus';
 
 export interface TableResponseDto {
-  active?: boolean;
-  capacity?: number;
-  createdAt?: string;
+  active: boolean;
+  capacity: number;
+  createdAt: string;
   description?: string;
-  displayOrder?: number;
-  id?: string;
+  displayOrder: number;
+  id: string;
   location?: string;
+  /** URL to download QR code */
   qrCodeUrl?: string;
+  /** QR code generation timestamp */
   qrGeneratedAt?: string;
-  status?: TableResponseDtoStatus;
-  tableNumber?: string;
-  tenantId?: string;
-  updatedAt?: string;
+  status: TableResponseDtoStatus;
+  tableNumber: string;
+  tenantId: string;
+  updatedAt: string;
 }

@@ -7,7 +7,7 @@ interface FormData {
   capacity: string;
   zone: string;
   tableNumber: string;
-  status: 'free' | 'occupied' | 'reserved' | 'inactive';
+  status: 'available' | 'occupied' | 'reserved' | 'inactive';
   description: string;
 }
 
@@ -94,11 +94,11 @@ export function TableFormFields({ formData, setFormData, autoFocus = true }: Tab
         <div className="relative">
           <select
             value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'free' | 'occupied' | 'reserved' | 'inactive' })}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'available' | 'occupied' | 'reserved' | 'inactive' })}
             className="w-full px-4 py-3 pr-10 border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all appearance-none"
             style={{ fontSize: '15px', borderRadius: '4px', height: '48px' }}
           >
-            <option value="free">Free</option>
+            <option value="available">Available</option>
             <option value="occupied">Occupied</option>
             <option value="reserved">Reserved</option>
             <option value="inactive">Inactive</option>

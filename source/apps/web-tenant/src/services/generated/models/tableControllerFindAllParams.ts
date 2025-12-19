@@ -6,9 +6,13 @@
  * OpenAPI spec version: 1.0
  */
 import type { TableControllerFindAllStatus } from './tableControllerFindAllStatus';
+import type { TableControllerFindAllSortBy } from './tableControllerFindAllSortBy';
+import type { TableControllerFindAllSortOrder } from './tableControllerFindAllSortOrder';
 
 export type TableControllerFindAllParams = {
 activeOnly?: boolean;
 status?: TableControllerFindAllStatus;
 location?: string;
+sortBy?: TableControllerFindAllSortBy;
+sortOrder?: TableControllerFindAllSortOrder;
 };

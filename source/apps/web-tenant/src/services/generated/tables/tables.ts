@@ -20,6 +20,11 @@ import type {
 } from '@tanstack/react-query'
 import type {
   CreateTableDto,
+  RegenerateQrResponseDto,
+  TableControllerBulkUpdateStatus200,
+  TableControllerBulkUpdateStatusBody,
+  TableControllerDownloadAllQrParams,
+  TableControllerDownloadQrParams,
   TableControllerFindAllParams,
   TableControllerUpdateStatusBody,
   TableResponseDto,
@@ -47,7 +52,7 @@ export const tableControllerCreate = (
   
 
 
-export const getTableControllerCreateMutationOptions = <TError = unknown,
+export const getTableControllerCreateMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerCreate>>, TError,{data: CreateTableDto}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof tableControllerCreate>>, TError,{data: CreateTableDto}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -68,12 +73,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type TableControllerCreateMutationResult = NonNullable<Awaited<ReturnType<typeof tableControllerCreate>>>
     export type TableControllerCreateMutationBody = CreateTableDto
-    export type TableControllerCreateMutationError = unknown
+    export type TableControllerCreateMutationError = void
 
     /**
  * @summary Create new table with auto QR generation
  */
-export const useTableControllerCreate = <TError = unknown,
+export const useTableControllerCreate = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerCreate>>, TError,{data: CreateTableDto}, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof tableControllerCreate>>,
@@ -149,6 +154,67 @@ export const useTableControllerFindAll = <TData = Awaited<ReturnType<typeof tabl
 
 
 /**
+ * @summary Get distinct locations for filter dropdown
+ */
+export const tableControllerGetLocations = (
+    
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<string[]>(
+      {url: `/api/v1/admin/tables/locations`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+export const getTableControllerGetLocationsQueryKey = () => {
+    return [`/api/v1/admin/tables/locations`] as const;
+    }
+
+    
+export const getTableControllerGetLocationsQueryOptions = <TData = Awaited<ReturnType<typeof tableControllerGetLocations>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerGetLocations>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTableControllerGetLocationsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tableControllerGetLocations>>> = ({ signal }) => tableControllerGetLocations(signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof tableControllerGetLocations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type TableControllerGetLocationsQueryResult = NonNullable<Awaited<ReturnType<typeof tableControllerGetLocations>>>
+export type TableControllerGetLocationsQueryError = unknown
+
+/**
+ * @summary Get distinct locations for filter dropdown
+ */
+export const useTableControllerGetLocations = <TData = Awaited<ReturnType<typeof tableControllerGetLocations>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerGetLocations>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getTableControllerGetLocationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
  * @summary Get table by ID
  */
 export const tableControllerFindOne = (
@@ -169,7 +235,7 @@ export const getTableControllerFindOneQueryKey = (id: string,) => {
     }
 
     
-export const getTableControllerFindOneQueryOptions = <TData = Awaited<ReturnType<typeof tableControllerFindOne>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerFindOne>>, TError, TData>>, }
+export const getTableControllerFindOneQueryOptions = <TData = Awaited<ReturnType<typeof tableControllerFindOne>>, TError = void>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerFindOne>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
@@ -188,12 +254,12 @@ const {query: queryOptions} = options ?? {};
 }
 
 export type TableControllerFindOneQueryResult = NonNullable<Awaited<ReturnType<typeof tableControllerFindOne>>>
-export type TableControllerFindOneQueryError = unknown
+export type TableControllerFindOneQueryError = void
 
 /**
  * @summary Get table by ID
  */
-export const useTableControllerFindOne = <TData = Awaited<ReturnType<typeof tableControllerFindOne>>, TError = unknown>(
+export const useTableControllerFindOne = <TData = Awaited<ReturnType<typeof tableControllerFindOne>>, TError = void>(
  id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerFindOne>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
@@ -228,7 +294,7 @@ export const tableControllerUpdate = (
   
 
 
-export const getTableControllerUpdateMutationOptions = <TError = unknown,
+export const getTableControllerUpdateMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerUpdate>>, TError,{id: string;data: UpdateTableDto}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof tableControllerUpdate>>, TError,{id: string;data: UpdateTableDto}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -249,12 +315,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type TableControllerUpdateMutationResult = NonNullable<Awaited<ReturnType<typeof tableControllerUpdate>>>
     export type TableControllerUpdateMutationBody = UpdateTableDto
-    export type TableControllerUpdateMutationError = unknown
+    export type TableControllerUpdateMutationError = void
 
     /**
  * @summary Update table
  */
-export const useTableControllerUpdate = <TError = unknown,
+export const useTableControllerUpdate = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerUpdate>>, TError,{id: string;data: UpdateTableDto}, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof tableControllerUpdate>>,
@@ -283,7 +349,7 @@ export const tableControllerDelete = (
   
 
 
-export const getTableControllerDeleteMutationOptions = <TError = unknown,
+export const getTableControllerDeleteMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerDelete>>, TError,{id: string}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof tableControllerDelete>>, TError,{id: string}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -304,12 +370,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type TableControllerDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof tableControllerDelete>>>
     
-    export type TableControllerDeleteMutationError = unknown
+    export type TableControllerDeleteMutationError = void
 
     /**
  * @summary Delete table (soft delete)
  */
-export const useTableControllerDelete = <TError = unknown,
+export const useTableControllerDelete = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerDelete>>, TError,{id: string}, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof tableControllerDelete>>,
@@ -331,7 +397,7 @@ export const tableControllerUpdateStatus = (
  ) => {
       
       
-      return customInstance<void>(
+      return customInstance<TableResponseDto>(
       {url: `/api/v1/admin/tables/${id}/status`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: tableControllerUpdateStatusBody
@@ -377,6 +443,246 @@ export const useTableControllerUpdateStatus = <TError = unknown,
       > => {
 
       const mutationOptions = getTableControllerUpdateStatusMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    /**
+ * @summary Regenerate QR code for table
+ */
+export const tableControllerRegenerateQr = (
+    id: string,
+ ) => {
+      
+      
+      return customInstance<RegenerateQrResponseDto>(
+      {url: `/api/v1/admin/tables/${id}/qr/generate`, method: 'POST'
+    },
+      );
+    }
+  
+
+
+export const getTableControllerRegenerateQrMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerRegenerateQr>>, TError,{id: string}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof tableControllerRegenerateQr>>, TError,{id: string}, TContext> => {
+const {mutation: mutationOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tableControllerRegenerateQr>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  tableControllerRegenerateQr(id,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TableControllerRegenerateQrMutationResult = NonNullable<Awaited<ReturnType<typeof tableControllerRegenerateQr>>>
+    
+    export type TableControllerRegenerateQrMutationError = unknown
+
+    /**
+ * @summary Regenerate QR code for table
+ */
+export const useTableControllerRegenerateQr = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerRegenerateQr>>, TError,{id: string}, TContext>, }
+): UseMutationResult<
+        Awaited<ReturnType<typeof tableControllerRegenerateQr>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+
+      const mutationOptions = getTableControllerRegenerateQrMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    /**
+ * @summary Download QR code (PNG/SVG/PDF)
+ */
+export const tableControllerDownloadQr = (
+    id: string,
+    params?: TableControllerDownloadQrParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/v1/admin/tables/${id}/qr/download`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+export const getTableControllerDownloadQrQueryKey = (id: string,
+    params?: TableControllerDownloadQrParams,) => {
+    return [`/api/v1/admin/tables/${id}/qr/download`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getTableControllerDownloadQrQueryOptions = <TData = Awaited<ReturnType<typeof tableControllerDownloadQr>>, TError = unknown>(id: string,
+    params?: TableControllerDownloadQrParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerDownloadQr>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTableControllerDownloadQrQueryKey(id,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tableControllerDownloadQr>>> = ({ signal }) => tableControllerDownloadQr(id,params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof tableControllerDownloadQr>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type TableControllerDownloadQrQueryResult = NonNullable<Awaited<ReturnType<typeof tableControllerDownloadQr>>>
+export type TableControllerDownloadQrQueryError = unknown
+
+/**
+ * @summary Download QR code (PNG/SVG/PDF)
+ */
+export const useTableControllerDownloadQr = <TData = Awaited<ReturnType<typeof tableControllerDownloadQr>>, TError = unknown>(
+ id: string,
+    params?: TableControllerDownloadQrParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerDownloadQr>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getTableControllerDownloadQrQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * @summary Download all QR codes (ZIP or multi-page PDF)
+ */
+export const tableControllerDownloadAllQr = (
+    params?: TableControllerDownloadAllQrParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/v1/admin/tables/qr/download-all`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+export const getTableControllerDownloadAllQrQueryKey = (params?: TableControllerDownloadAllQrParams,) => {
+    return [`/api/v1/admin/tables/qr/download-all`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getTableControllerDownloadAllQrQueryOptions = <TData = Awaited<ReturnType<typeof tableControllerDownloadAllQr>>, TError = unknown>(params?: TableControllerDownloadAllQrParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerDownloadAllQr>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTableControllerDownloadAllQrQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tableControllerDownloadAllQr>>> = ({ signal }) => tableControllerDownloadAllQr(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof tableControllerDownloadAllQr>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type TableControllerDownloadAllQrQueryResult = NonNullable<Awaited<ReturnType<typeof tableControllerDownloadAllQr>>>
+export type TableControllerDownloadAllQrQueryError = unknown
+
+/**
+ * @summary Download all QR codes (ZIP or multi-page PDF)
+ */
+export const useTableControllerDownloadAllQr = <TData = Awaited<ReturnType<typeof tableControllerDownloadAllQr>>, TError = unknown>(
+ params?: TableControllerDownloadAllQrParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tableControllerDownloadAllQr>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getTableControllerDownloadAllQrQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * @summary Bulk update table status
+ */
+export const tableControllerBulkUpdateStatus = (
+    tableControllerBulkUpdateStatusBody: TableControllerBulkUpdateStatusBody,
+ ) => {
+      
+      
+      return customInstance<TableControllerBulkUpdateStatus200>(
+      {url: `/api/v1/admin/tables/bulk/status`, method: 'PATCH',
+      headers: {'Content-Type': 'application/json', },
+      data: tableControllerBulkUpdateStatusBody
+    },
+      );
+    }
+  
+
+
+export const getTableControllerBulkUpdateStatusMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerBulkUpdateStatus>>, TError,{data: TableControllerBulkUpdateStatusBody}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof tableControllerBulkUpdateStatus>>, TError,{data: TableControllerBulkUpdateStatusBody}, TContext> => {
+const {mutation: mutationOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tableControllerBulkUpdateStatus>>, {data: TableControllerBulkUpdateStatusBody}> = (props) => {
+          const {data} = props ?? {};
+
+          return  tableControllerBulkUpdateStatus(data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TableControllerBulkUpdateStatusMutationResult = NonNullable<Awaited<ReturnType<typeof tableControllerBulkUpdateStatus>>>
+    export type TableControllerBulkUpdateStatusMutationBody = TableControllerBulkUpdateStatusBody
+    export type TableControllerBulkUpdateStatusMutationError = unknown
+
+    /**
+ * @summary Bulk update table status
+ */
+export const useTableControllerBulkUpdateStatus = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tableControllerBulkUpdateStatus>>, TError,{data: TableControllerBulkUpdateStatusBody}, TContext>, }
+): UseMutationResult<
+        Awaited<ReturnType<typeof tableControllerBulkUpdateStatus>>,
+        TError,
+        {data: TableControllerBulkUpdateStatusBody},
+        TContext
+      > => {
+
+      const mutationOptions = getTableControllerBulkUpdateStatusMutationOptions(options);
 
       return useMutation(mutationOptions);
     }

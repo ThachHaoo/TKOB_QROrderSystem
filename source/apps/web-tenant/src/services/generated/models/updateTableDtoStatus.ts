@@ -6,6 +6,9 @@
  * OpenAPI spec version: 1.0
  */
 
+/**
+ * Table status
+ */
 export type UpdateTableDtoStatus = typeof UpdateTableDtoStatus[keyof typeof UpdateTableDtoStatus];
 
 

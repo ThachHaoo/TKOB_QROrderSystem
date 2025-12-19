@@ -8,12 +8,17 @@
 
 export interface CreateTableDto {
   /**
+   * Number of seats (1-20)
    * @minimum 1
    * @maximum 20
    */
   capacity: number;
+  /** Additional description */
   description?: string;
+  /** Display order for sorting */
   displayOrder?: number;
+  /** Table location/zone */
   location?: string;
+  /** Table number/name (unique per tenant) */
   tableNumber: string;
 }

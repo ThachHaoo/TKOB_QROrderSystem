@@ -8,15 +8,22 @@
 import type { UpdateTableDtoStatus } from './updateTableDtoStatus';
 
 export interface UpdateTableDto {
+  /** Active status (soft delete) */
   active?: boolean;
   /**
+   * Number of seats
    * @minimum 1
    * @maximum 20
    */
   capacity?: number;
+  /** Additional description */
   description?: string;
+  /** Display order */
   displayOrder?: number;
+  /** Table location/zone */
   location?: string;
+  /** Table status */
   status?: UpdateTableDtoStatus;
+  /** Table number/name */
   tableNumber?: string;
 }

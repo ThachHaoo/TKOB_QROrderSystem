@@ -65,12 +65,15 @@ export const customInstance = <T>(config: any): Promise<T> => {
     return data;
   }).catch((error) => {
     const duration = Date.now() - startTime;
+    const errorData = error.response?.data || {};
     console.error('🌐 [customInstance] Error:', {
       method: config.method,
       url: config.url,
       duration: `${duration}ms`,
-      error: error.response?.data || error.message,
       status: error.response?.status,
+      statusText: error.response?.statusText,
+      errorMessage: errorData?.error?.message || errorData?.message || error.message,
+      fullError: errorData,
     });
     throw error;
   });
