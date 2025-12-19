@@ -1,39 +1,63 @@
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Card } from '@/shared/components/ui/Card';
 import { QrCode } from 'lucide-react';
 import { useAuth } from '@/shared/context/AuthContext';
 import { ROUTES } from '@/lib/routes';
+import { config } from '@/lib/config';
 import "../../styles/globals.css";
 
 interface LoginProps {
   onNavigate?: (screen: string) => void;
 }
 
+interface LoginFormData {
+  email: string;
+  password: string;
+}
+
 export function Login({ onNavigate }: LoginProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [language, setLanguage] = useState('EN');
+  const [serverError, setServerError] = useState<string | null>(null);
   const { devLogin } = useAuth();
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = config.useMockData;
 
-  const handleLogin = (role: 'admin' | 'kds' | 'waiter' = 'admin') => {
-    // In development mode, use mock authentication
-    if (isDev) {
-      devLogin(role);
-      return;
-    }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    mode: 'onTouched',
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
 
-    // In production, this would call real authentication API
-    // For now, route to appropriate screen
-    if (role === 'admin') {
+  const onSubmit = async (_data: LoginFormData) => {
+    try {
+      setServerError(null);
+      
+      // In development mode, use mock authentication
+      if (isDev) {
+        devLogin('admin');
+        return;
+      }
+
+      // In production, this would call real authentication API
+      // TODO: Replace with actual API call using _data
+      // Example: await authService.login(_data.email, _data.password);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Simulate error for demo (remove in real implementation)
+      // throw new Error('Invalid credentials');
+      
       onNavigate?.(ROUTES.dashboard);
-    } else if (role === 'kds') {
-      onNavigate?.(ROUTES.kds);
-    } else if (role === 'waiter') {
-      onNavigate?.(ROUTES.waiter);
+    } catch {
+      setServerError('Wrong Email or Username');
     }
   };
 
@@ -79,22 +103,49 @@ export function Login({ onNavigate }: LoginProps) {
           </div>
 
           {/* Form */}
-          <div className="flex flex-col gap-4">
-            <Input
-              label="Email"
-              type="email"
-              placeholder="admin@restaurant.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            {/* Server Error Message */}
+            {serverError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                <p className="text-red-600 text-sm">{serverError}</p>
+              </div>
+            )}
+
+            {/* Email Field */}
+            <div className="flex flex-col gap-1">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="admin@restaurant.com"
+                autoComplete="email"
+                {...register('email', {
+                  required: 'Email is required',
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: 'Invalid email format',
+                  },
+                })}
+              />
+              {errors.email && (
+                <p className="text-red-500 text-sm">{errors.email.message}</p>
+              )}
+            </div>
             
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            {/* Password Field */}
+            <div className="flex flex-col gap-1">
+              <Input
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                {...register('password', {
+                  required: 'Password is required',
+                })}
+              />
+              {errors.password && (
+                <p className="text-red-500 text-sm">{errors.password.message}</p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -108,6 +159,7 @@ export function Login({ onNavigate }: LoginProps) {
               </label>
               
               <button 
+                type="button"
                 onClick={() => onNavigate?.(ROUTES.forgotPassword)}
                 className="text-emerald-500 hover:text-emerald-600 transition-colors" 
                 style={{ fontSize: '14px', fontWeight: 500 }}
@@ -115,14 +167,19 @@ export function Login({ onNavigate }: LoginProps) {
                 Forgot password?
               </button>
             </div>
-          </div>
+
+            {/* Submit Button */}
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Logging in...' : 'Log in'}
+            </Button>
+          </form>
 
           {/* Actions */}
           <div className="flex flex-col gap-4">
-            <Button onClick={() => handleLogin('admin')} className="w-full">
-              Log in
-            </Button>
-            
             {/* Divider with text */}
             <div className="flex items-center gap-3">
               <div className="flex-1 border-t border-gray-200"></div>
@@ -134,8 +191,17 @@ export function Login({ onNavigate }: LoginProps) {
 
             {/* Google Login Button */}
             <button
-              onClick={() => handleLogin('admin')}
-              className="w-full flex items-center justify-center gap-3 px-5 py-3 border border-gray-300 rounded-xl bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => {
+                setServerError(null);
+                if (isDev) {
+                  devLogin('admin');
+                } else {
+                  onNavigate?.(ROUTES.dashboard);
+                }
+              }}
+              className="w-full flex items-center justify-center gap-3 px-5 py-3 border border-gray-300 rounded-xl bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ height: '48px' }}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
