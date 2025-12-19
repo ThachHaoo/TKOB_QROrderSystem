@@ -52,6 +52,13 @@ export function TablesPage() {
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedZone, setSelectedZone] = useState('All Locations');
   const [sortOption, setSortOption] = useState('Sort by: Table Number (Ascending)');
+  
+  // Clear all filters handler
+  const clearFilters = () => {
+    setSelectedStatus('All');
+    setSelectedZone('All Locations');
+    // Filters will auto-refetch via React Query when state changes
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -87,12 +94,16 @@ export function TablesPage() {
   }, [sortOption]);
   
   // Call API with all backend-driven filtering and sorting params
-  const { data: tablesData, isLoading, error } = useTablesList({
+  const { data: apiResponse, isLoading, error } = useTablesList({
     status: statusFilter,
     location: locationFilter,
     sortBy: sortParams.sortBy,
     sortOrder: sortParams.sortOrder,
   });
+  
+  // Extract data and metadata from response
+  const tablesData = apiResponse?.data;
+  const meta = apiResponse?.meta || { totalAll: 0, totalFiltered: 0 };
   
   // Debug logging
   React.useEffect(() => {
@@ -109,6 +120,7 @@ export function TablesPage() {
       tablesDataType: typeof tablesData,
       tablesDataIsArray: Array.isArray(tablesData),
       dataCount: tablesData?.length || 0,
+      meta,
     });
     if (error) {
       console.error('❌ [TablesPage] API Error:', error);
@@ -116,7 +128,7 @@ export function TablesPage() {
     if (tablesData) {
       console.log('✅ [TablesPage] Backend returned filtered & sorted data:', tablesData);
     }
-  }, [tablesData, isLoading, error, statusFilter, locationFilter, sortParams]);
+  }, [tablesData, isLoading, error, statusFilter, locationFilter, sortParams, meta]);
   
   const createTableMutation = useCreateTable();
   const updateTableMutation = useUpdateTable();
@@ -765,7 +777,7 @@ export function TablesPage() {
                 </button>
               </div>
             </Card>
-          ) : tables.length === 0 ? (
+          ) : meta.totalAll === 0 ? (
             <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <div className="flex flex-col items-center justify-center">
                 <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-md flex items-center justify-center mb-4">
@@ -795,6 +807,30 @@ export function TablesPage() {
                     </>
                   )}
                 </button>
+              </div>
+            </Card>
+          ) : meta.totalFiltered === 0 ? (
+            <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-amber-100 rounded-md flex items-center justify-center mb-4">
+                  <QrCode className="w-8 sm:w-10 h-8 sm:h-10 text-amber-500" />
+                </div>
+                <h4 className="text-gray-900 mb-2" style={{ fontSize: 'clamp(16px, 5vw, 18px)', fontWeight: 600 }}>
+                  No tables match your filters
+                </h4>
+                <p className="text-gray-600 mb-6" style={{ fontSize: 'clamp(13px, 4vw, 15px)' }}>
+                  Try changing or clearing filters to see your tables.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={clearFilters}
+                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                    style={{ fontSize: 'clamp(13px, 4vw, 15px)', fontWeight: 600, borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                  >
+                    <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
+                    Clear filters
+                  </button>
+                </div>
               </div>
             </Card>
           ) : (
