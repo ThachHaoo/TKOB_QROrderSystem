@@ -11,7 +11,7 @@ export const ROUTES = {
   menuModifiers: '/admin/menu/modifiers',
   menuItemModifiers: '/admin/menu-item-modifiers',
   tables: '/admin/tables',
-  tableQRDetail: '/admin/table-qr-detail',
+  tableQRDetail: (tableId: string) => `/admin/tables/${tableId}/qr`,
   orders: '/admin/orders',
   analytics: '/admin/analytics',
   staff: '/admin/staff',
@@ -22,6 +22,8 @@ export const ROUTES = {
   // Waiter routes
   waiter: '/waiter',
   waiterServiceBoard: '/waiter',
+  // Public menu preview
+  menuPreview: '/menu',
   // Auth routes
   forgotPassword: '/auth/forgot-password',
   resetPassword: '/auth/reset-password',
