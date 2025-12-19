@@ -14,9 +14,21 @@ import type {
  * List tables query
  */
 export const useTablesList = (params?: TableControllerFindAllParams) => {
+  // Fix: Backend's activeOnly logic is inverted
+  // activeOnly=false should get all tables, but backend treats it as "active = false"
+  // So we need to send activeOnly=true to get active tables
+  const queryParams = params 
+    ? { ...params, activeOnly: true } 
+    : { activeOnly: true };
+  
   return useQuery({
-    queryKey: ['tables', 'list', params],
-    queryFn: () => tablesService.listTables(params),
+    queryKey: ['tables', 'list', queryParams],
+    queryFn: async () => {
+      console.log('🔍 [useTablesList] Calling API with params:', queryParams);
+      const result = await tablesService.listTables(queryParams as TableControllerFindAllParams);
+      console.log('📦 [useTablesList] Raw response:', result);
+      return result;
+    },
     staleTime: 30 * 1000, // 30 seconds
   });
 };

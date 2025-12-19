@@ -23,7 +23,17 @@ import {
 
 export class TablesApiAdapter implements ITablesAdapter {
   async listTables(params?: TableControllerFindAllParams): Promise<TableResponseDto[]> {
-    return tableControllerFindAll(params);
+    console.log('🌐 [API Adapter] Calling tableControllerFindAll with params:', params);
+    try {
+      const result = await tableControllerFindAll(params);
+      console.log('🌐 [API Adapter] tableControllerFindAll response:', result);
+      console.log('🌐 [API Adapter] Response type:', typeof result);
+      console.log('🌐 [API Adapter] Is Array:', Array.isArray(result));
+      return result;
+    } catch (error) {
+      console.error('🌐 [API Adapter] Error:', error);
+      throw error;
+    }
   }
 
   async getTableById(id: string): Promise<TableResponseDto> {

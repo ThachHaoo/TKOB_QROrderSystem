@@ -70,6 +70,25 @@ export function TablesPage() {
     activeOnly: false,
   });
   
+  // Debug logging
+  React.useEffect(() => {
+    console.log('📊 [TablesPage] Component State:', {
+      statusFilter,
+      locationFilter,
+      isLoading,
+      hasError: !!error,
+      tablesDataType: typeof tablesData,
+      tablesDataIsArray: Array.isArray(tablesData),
+      dataCount: tablesData?.length || 0,
+    });
+    if (error) {
+      console.error('❌ [TablesPage] API Error:', error);
+    }
+    if (tablesData) {
+      console.log('✅ [TablesPage] Raw API Response:', tablesData);
+    }
+  }, [tablesData, isLoading, error, statusFilter, locationFilter]);
+  
   const createTableMutation = useCreateTable();
   const updateTableMutation = useUpdateTable();
   const deleteTableMutation = useDeleteTable();
@@ -118,19 +137,26 @@ export function TablesPage() {
 
     // Use mutation to create table
     try {
-      await createTableMutation.mutateAsync({
+      const payload = {
         tableNumber: `Table ${formData.tableNumber}`,
         capacity: parseInt(formData.capacity),
         location: formData.zone.charAt(0).toUpperCase() + formData.zone.slice(1),
         description: formData.description,
         displayOrder: parseInt(formData.tableNumber),
-      });
+      };
+      
+      console.log('🆕 Creating Table - Request:', payload);
+      
+      const result = await createTableMutation.mutateAsync(payload);
+      
+      console.log('✅ Table Created - Response:', result);
       
       setToastMessage('Table created successfully');
       setToastType('success');
       setShowSuccessToast(true);
       handleCloseAddModal();
     } catch (error: any) {
+      console.error('❌ Create Table Error:', error);
       setToastMessage(error?.message || 'Failed to create table');
       setToastType('error');
       setShowSuccessToast(true);

@@ -17,7 +17,10 @@ class TablesService {
    * Get all tables with optional filters
    */
   async listTables(params?: TableControllerFindAllParams): Promise<TableResponseDto[]> {
-    return tablesAdapter.listTables(params);
+    console.log('🔧 [tablesService.listTables] Params:', params);
+    const result = await tablesAdapter.listTables(params);
+    console.log('🔧 [tablesService.listTables] Adapter result:', result);
+    return result;
   }
 
   /**
