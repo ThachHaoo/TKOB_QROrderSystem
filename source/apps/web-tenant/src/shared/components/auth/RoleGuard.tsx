@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, UserRole } from '@/shared/context/AuthContext';
 import { ROUTES } from '@/lib/routes';
@@ -13,6 +13,11 @@ interface RoleGuardProps {
 export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     // If not authenticated and not loading, redirect to login
@@ -20,6 +25,11 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       router.push(ROUTES.login);
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Don't render anything until client is mounted to avoid hydration mismatch
+  if (!isMounted) {
+    return null;
+  }
 
   // Show loading state
   if (isLoading) {

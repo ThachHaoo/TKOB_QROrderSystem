@@ -33,4 +33,9 @@ api.interceptors.response.use(
   }
 );
 
+// Orval custom mutator function
+export const customInstance = <T>(config: any): Promise<T> => {
+  return api(config).then(({ data }) => data);
+};
+
 export default api;

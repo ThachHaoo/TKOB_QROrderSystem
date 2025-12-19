@@ -1,0 +1,500 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "QR Ordering API",
+    "description": "API Documentation for QR Ordering Platform",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/register/submit": {
+      "post": {
+        "operationId": "AuthController_registerSubmit",
+        "summary": "Step 1: Submit registration & receive OTP",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterSubmitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration data validated, OTP sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSubmitResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register/confirm": {
+      "post": {
+        "operationId": "AuthController_registerConfirm",
+        "summary": "Step 2: Confirm OTP & create account",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterConfirmDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "User login",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "summary": "Refresh access token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New access token generated"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "summary": "Logout user",
+        "tags": ["Authentication"],
+        "security": [{"bearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Logged out successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "operationId": "AuthController_logoutAll",
+        "summary": "Logout from all devices",
+        "tags": ["Authentication"],
+        "security": [{"bearer": []}],
+        "responses": {
+          "204": {
+            "description": "Logged out from all devices"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_getMe",
+        "summary": "Get current user profile",
+        "tags": ["Authentication"],
+        "security": [{"bearer": []}],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tables": {
+      "post": {
+        "operationId": "TableController_create",
+        "summary": "Create new table with auto QR generation",
+        "tags": ["Tables"],
+        "security": [{"bearer": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTableDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Table created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableResponseDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "TableController_findAll",
+        "summary": "Get all tables with filters",
+        "tags": ["Tables"],
+        "security": [{"bearer": []}],
+        "parameters": [
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "schema": {"type": "boolean"}
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["AVAILABLE", "OCCUPIED", "RESERVED", "INACTIVE"]
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tables list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TableResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tables/{id}": {
+      "get": {
+        "operationId": "TableController_findOne",
+        "summary": "Get table by ID",
+        "tags": ["Tables"],
+        "security": [{"bearer": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Table details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableResponseDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "TableController_update",
+        "summary": "Update table",
+        "tags": ["Tables"],
+        "security": [{"bearer": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTableDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Table updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableResponseDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "TableController_delete",
+        "summary": "Delete table (soft delete)",
+        "tags": ["Tables"],
+        "security": [{"bearer": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Table deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/tables/{id}/status": {
+      "patch": {
+        "operationId": "TableController_updateStatus",
+        "summary": "Update table status only",
+        "tags": ["Tables"],
+        "security": [{"bearer": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["AVAILABLE", "OCCUPIED", "RESERVED", "INACTIVE"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "RegisterSubmitDto": {
+        "type": "object",
+        "required": ["email", "password", "fullName", "tenantName", "slug"],
+        "properties": {
+          "email": {"type": "string"},
+          "password": {"type": "string", "minLength": 8},
+          "fullName": {"type": "string"},
+          "tenantName": {"type": "string"},
+          "slug": {"type": "string"}
+        }
+      },
+      "RegisterSubmitResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {"type": "string"},
+          "registrationToken": {"type": "string"},
+          "expiresIn": {"type": "number"}
+        }
+      },
+      "RegisterConfirmDto": {
+        "type": "object",
+        "required": ["registrationToken", "otp"],
+        "properties": {
+          "registrationToken": {"type": "string"},
+          "otp": {"type": "string"}
+        }
+      },
+      "LoginDto": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {"type": "string"},
+          "password": {"type": "string"},
+          "deviceInfo": {"type": "string"}
+        }
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {"type": "string"},
+          "refreshToken": {"type": "string"},
+          "expiresIn": {"type": "number"},
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "email": {"type": "string"},
+              "fullName": {"type": "string"},
+              "role": {"type": "string"},
+              "tenantId": {"type": "string"}
+            }
+          },
+          "tenant": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string"},
+              "name": {"type": "string"},
+              "slug": {"type": "string"},
+              "status": {"type": "string"},
+              "onboardingStep": {"type": "number"}
+            }
+          }
+        }
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": {
+          "refreshToken": {"type": "string"}
+        }
+      },
+      "LogoutDto": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": {
+          "refreshToken": {"type": "string"}
+        }
+      },
+      "CreateTableDto": {
+        "type": "object",
+        "required": ["tableNumber", "capacity"],
+        "properties": {
+          "tableNumber": {"type": "string"},
+          "capacity": {"type": "number", "minimum": 1, "maximum": 20},
+          "location": {"type": "string"},
+          "description": {"type": "string"},
+          "displayOrder": {"type": "number"}
+        }
+      },
+      "UpdateTableDto": {
+        "type": "object",
+        "properties": {
+          "tableNumber": {"type": "string"},
+          "capacity": {"type": "number", "minimum": 1, "maximum": 20},
+          "location": {"type": "string"},
+          "description": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["AVAILABLE", "OCCUPIED", "RESERVED", "INACTIVE"]
+          },
+          "active": {"type": "boolean"},
+          "displayOrder": {"type": "number"}
+        }
+      },
+      "TableResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "tenantId": {"type": "string"},
+          "tableNumber": {"type": "string"},
+          "capacity": {"type": "number"},
+          "location": {"type": "string"},
+          "description": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["AVAILABLE", "OCCUPIED", "RESERVED", "INACTIVE"]
+          },
+          "active": {"type": "boolean"},
+          "displayOrder": {"type": "number"},
+          "qrCodeUrl": {"type": "string"},
+          "qrGeneratedAt": {"type": "string", "format": "date-time"},
+          "createdAt": {"type": "string", "format": "date-time"},
+          "updatedAt": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}

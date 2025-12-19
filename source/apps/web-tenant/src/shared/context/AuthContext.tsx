@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/lib/routes';
 import { getHomeRouteForRole, canAccessRoute } from '@/lib/navigation';
 import type { UserRole as NavigationUserRole } from '@/lib/navigation';
+import { useLogin, useLogout, useCurrentUser } from '@/features/auth/hooks/useAuth';
 
 // User role type matching RBAC requirements (3 roles only)
 export type UserRole = 'admin' | 'kds' | 'waiter';
@@ -38,53 +39,45 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  
+  // Use React Query hooks
+  const loginMutation = useLogin();
+  const logoutMutation = useLogout();
+  const { data: currentUserData, isLoading, refetch } = useCurrentUser({
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('authToken'),
+  });
 
-  // Check for existing auth token on mount
+  // Sync user state with React Query data
   useEffect(() => {
-    const checkAuth = async () => {
-      if (typeof window === 'undefined') return;
-
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          // TODO: Validate token with backend and get user data
-          // For now, return a hardcoded admin user
-          const mockUser: User = {
-            id: '1',
-            email: 'admin@example.com',
-            name: 'Admin User',
-            role: 'admin',
-            tenantId: 'tenant-001',
-          };
-          setUser(mockUser);
-        } catch (error) {
-          console.error('Auth check failed:', error);
-          localStorage.removeItem('authToken');
-        }
-      }
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, []);
+    if (currentUserData?.user && 
+        currentUserData.user.id && 
+        currentUserData.user.email && 
+        currentUserData.user.fullName &&
+        currentUserData.user.role &&
+        currentUserData.user.tenantId) {
+      const mappedUser: User = {
+        id: currentUserData.user.id,
+        email: currentUserData.user.email,
+        name: currentUserData.user.fullName,
+        role: (currentUserData.user.role.toLowerCase() === 'owner' 
+          ? 'admin' 
+          : currentUserData.user.role.toLowerCase() === 'kitchen' 
+            ? 'kds' 
+            : 'waiter') as UserRole,
+        tenantId: currentUserData.user.tenantId,
+      };
+      setUser(mappedUser);
+    } else if (!isLoading) {
+      setUser(null);
+    }
+  }, [currentUserData, isLoading]);
 
   const login = async (email: string, password: string) => {
-    // TODO: Implement actual login API call
     try {
-      // Mock login for now - returns admin by default
-      const mockToken = 'mock-jwt-token';
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: 'Admin User',
-        role: 'admin',
-        tenantId: 'tenant-001',
-      };
-
-      localStorage.setItem('authToken', mockToken);
-      setUser(mockUser);
+      await loginMutation.mutateAsync({ email, password });
+      // Refetch current user after successful login
+      await refetch();
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -92,22 +85,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('devRole');
+    const refreshToken = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('refreshToken='))
+      ?.split('=')[1];
     
-    // Remove auth cookie
-    document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    
-    setUser(null);
-    if (typeof window !== 'undefined') {
-      window.location.href = ROUTES.login;
+    if (refreshToken) {
+      logoutMutation.mutate(refreshToken);
+    } else {
+      // Fallback: clear local state
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('devRole');
+      document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      setUser(null);
+      
+      if (typeof window !== 'undefined') {
+        window.location.href = ROUTES.login;
+      }
     }
   };
 
-  // Dev mode: instant login with specific role
+  // Dev mode quick login - bypasses API
   const devLogin = (role: UserRole) => {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn('devLogin only available in development');
+      return;
+    }
+
     const roleNames = {
-      admin: 'Admin User',
+      admin: 'Admin Display User',
       kds: 'Kitchen Display User',
       waiter: 'Waiter User',
     };
@@ -152,7 +159,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
   };
-// Dev mode: Switch role on the fly
+
+  // Dev mode: Switch role on the fly
   const switchRole = useCallback(
     (role: UserRole) => {
       if (process.env.NODE_ENV !== 'development') {

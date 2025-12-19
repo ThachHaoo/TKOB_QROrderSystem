@@ -1,12 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Toast } from '@/shared/components/ui/Toast';
 import { Modal } from '@/shared/components/ui/Modal';
 import { TableFormFields } from './TableFormFields';
 import { Plus, X, QrCode, Users, Download, Printer, Edit, RefreshCcw } from 'lucide-react';
+import {
+  useTablesList,
+  useCreateTable,
+  useUpdateTable,
+  useDeleteTable,
+  useUpdateTableStatus,
+  useRegenerateQR,
+} from '@/features/tables/hooks/useTables';
 
 interface Table {
   id: string;
@@ -49,37 +57,45 @@ export function TablesPage() {
     description: '',
   });
 
-  // Mock data
-  const initialTables: Table[] = [
-    { id: '1', name: 'Table 1', capacity: 4, status: 'free', zone: 'indoor', tableNumber: 1, createdAt: new Date('2023-10-01') },
-    { id: '2', name: 'Table 2', capacity: 2, status: 'occupied', zone: 'indoor', tableNumber: 2, createdAt: new Date('2023-10-02') },
-    { id: '3', name: 'Table 3', capacity: 6, status: 'free', zone: 'outdoor', tableNumber: 3, createdAt: new Date('2023-10-03') },
-    { id: '4', name: 'Table 4', capacity: 4, status: 'reserved', zone: 'outdoor', tableNumber: 4, createdAt: new Date('2023-10-04') },
-    { id: '5', name: 'Table 5', capacity: 4, status: 'free', zone: 'patio', tableNumber: 5, createdAt: new Date('2023-10-05') },
-    { id: '6', name: 'Table 6', capacity: 2, status: 'occupied', zone: 'patio', tableNumber: 6, createdAt: new Date('2023-10-06') },
-    { id: '7', name: 'Table 7', capacity: 2, status: 'free', zone: 'indoor', tableNumber: 7, createdAt: new Date('2023-10-07') },
-    { id: '8', name: 'Table 8', capacity: 4, status: 'free', zone: 'indoor', tableNumber: 8, createdAt: new Date('2023-10-08') },
-    { id: '9', name: 'Table 9', capacity: 8, status: 'free', zone: 'vip', tableNumber: 9, createdAt: new Date('2023-10-09') },
-    { id: '10', name: 'Table 10', capacity: 6, status: 'free', zone: 'vip', tableNumber: 10, createdAt: new Date('2023-10-10') },
-    { id: '11', name: 'Table 11', capacity: 4, status: 'free', zone: 'outdoor', tableNumber: 11, createdAt: new Date('2023-10-11') },
-    { id: '12', name: 'Table 12', capacity: 2, status: 'reserved', zone: 'patio', tableNumber: 12, createdAt: new Date('2023-10-12') },
-    { id: '13', name: 'Table 13', capacity: 4, status: 'inactive', zone: 'indoor', tableNumber: 13, createdAt: new Date('2023-10-13'), hasActiveOrders: true, description: 'Under maintenance' },
-  ];
+  // React Query hooks - replace mock data with real API calls
+  const statusFilter = selectedStatus !== 'All' 
+    ? selectedStatus.toUpperCase().replace(' ', '_') as 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE'
+    : undefined;
+  
+  const locationFilter = selectedZone !== 'All Locations' ? selectedZone : undefined;
+  
+  const { data: tablesData, isLoading, error } = useTablesList({
+    status: statusFilter,
+    location: locationFilter,
+    activeOnly: false,
+  });
+  
+  const createTableMutation = useCreateTable();
+  const updateTableMutation = useUpdateTable();
+  const deleteTableMutation = useDeleteTable();
+  const updateStatusMutation = useUpdateTableStatus();
+  const regenerateQRMutation = useRegenerateQR();
 
-  const [tables, setTables] = useState<Table[]>(initialTables);
+  // Map API response to component's Table interface
+  const tables = useMemo(() => {
+    if (!tablesData) return [];
+    return tablesData.map(t => ({
+      id: t.id || 'unknown',
+      name: t.tableNumber || 'Unnamed',
+      capacity: t.capacity || 0,
+      status: (t.status === 'AVAILABLE' ? 'free' 
+        : t.status === 'OCCUPIED' ? 'occupied' 
+        : t.status === 'RESERVED' ? 'reserved' 
+        : 'inactive') as 'free' | 'occupied' | 'reserved' | 'inactive',
+      zone: ((t.location || 'indoor').toLowerCase()) as 'indoor' | 'outdoor' | 'patio' | 'vip',
+      tableNumber: parseInt((t.tableNumber || '0').replace(/\D/g, '')) || 0,
+      createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
+      description: t.description || '',
+      hasActiveOrders: t.status === 'OCCUPIED',
+    }));
+  }, [tablesData]);
 
-  // Modal handlers
-  const handleOpenAddModal = () => {
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
-    setShowAddModal(true);
-  };
-
-  const handleCloseAddModal = () => {
-    setShowAddModal(false);
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
-  };
-
-  const handleAddTable = () => {
+  const handleAddTable = async () => {
     // Validate required fields
     if (!formData.tableNumber || !formData.capacity) {
       setToastMessage('Please fill in all required fields');
@@ -100,24 +116,25 @@ export function TablesPage() {
       return;
     }
 
-    const tableName = formData.name.trim() || `Table ${formData.tableNumber}`;
-
-    const newTable: Table = {
-      id: `new-${Date.now()}`,
-      name: tableName,
-      capacity: parseInt(formData.capacity),
-      status: formData.status,
-      zone: formData.zone as 'indoor' | 'outdoor' | 'patio' | 'vip',
-      tableNumber: parseInt(formData.tableNumber),
-      createdAt: new Date(),
-      description: formData.description.trim() || undefined,
-    };
-
-    setTables([...tables, newTable]);
-    setToastMessage(`Table "${tableName}" added successfully`);
-    setToastType('success');
-    setShowSuccessToast(true);
-    handleCloseAddModal();
+    // Use mutation to create table
+    try {
+      await createTableMutation.mutateAsync({
+        tableNumber: `Table ${formData.tableNumber}`,
+        capacity: parseInt(formData.capacity),
+        location: formData.zone.charAt(0).toUpperCase() + formData.zone.slice(1),
+        description: formData.description,
+        displayOrder: parseInt(formData.tableNumber),
+      });
+      
+      setToastMessage('Table created successfully');
+      setToastType('success');
+      setShowSuccessToast(true);
+      handleCloseAddModal();
+    } catch (error: any) {
+      setToastMessage(error?.message || 'Failed to create table');
+      setToastType('error');
+      setShowSuccessToast(true);
+    }
   };
 
   const handleOpenQRModal = (table: Table) => {
@@ -128,6 +145,16 @@ export function TablesPage() {
   const handleCloseQRModal = () => {
     setShowQRModal(false);
     setSelectedTable(null);
+  };
+
+  const handleOpenAddModal = () => {
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
+    setShowAddModal(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
   };
 
   const handleOpenEditModal = () => {
@@ -150,7 +177,7 @@ export function TablesPage() {
     setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
   };
 
-  const handleEditTable = () => {
+  const handleEditTable = async () => {
     if (!selectedTable) return;
 
     // Validate required fields
@@ -192,33 +219,41 @@ export function TablesPage() {
       return;
     }
 
-    performTableUpdate();
+    await performTableUpdate();
   };
 
-  const performTableUpdate = () => {
+  const performTableUpdate = async () => {
     if (!selectedTable) return;
 
-    const updatedTables = tables.map(table => {
-      if (table.id === selectedTable.id) {
-        return {
-          ...table,
-          name: formData.name.trim() || `Table ${formData.tableNumber}`,
-          capacity: parseInt(formData.capacity),
-          zone: formData.zone as 'indoor' | 'outdoor' | 'patio' | 'vip',
-          tableNumber: parseInt(formData.tableNumber),
-          status: formData.status,
-          description: formData.description.trim() || undefined,
-        };
-      }
-      return table;
-    });
+    try {
+      // Map status to API format
+      const apiStatus = formData.status === 'free' ? 'AVAILABLE'
+        : formData.status === 'occupied' ? 'OCCUPIED'
+        : formData.status === 'reserved' ? 'RESERVED'
+        : 'INACTIVE';
 
-    setTables(updatedTables);
-    setToastMessage('Table updated successfully');
-    setToastType('success');
-    setShowSuccessToast(true);
-    handleCloseEditModal();
-    setSelectedTable(null);
+      await updateTableMutation.mutateAsync({
+        id: selectedTable.id,
+        data: {
+          tableNumber: `Table ${formData.tableNumber}`,
+          capacity: parseInt(formData.capacity),
+          location: formData.zone.charAt(0).toUpperCase() + formData.zone.slice(1),
+          description: formData.description.trim() || undefined,
+          displayOrder: parseInt(formData.tableNumber),
+          status: apiStatus,
+        },
+      });
+
+      setToastMessage('Table updated successfully');
+      setToastType('success');
+      setShowSuccessToast(true);
+      handleCloseEditModal();
+      setSelectedTable(null);
+    } catch (error: any) {
+      setToastMessage(error?.message || 'Failed to update table');
+      setToastType('error');
+      setShowSuccessToast(true);
+    }
   };
 
   const handleConfirmStatusChange = () => {
@@ -241,42 +276,57 @@ export function TablesPage() {
     setShowSuccessToast(true);
   };
 
-  const handleRegenerateQR = () => {
-    if (selectedTable) {
+  const handleRegenerateQR = async () => {
+    if (!selectedTable) return;
+    
+    try {
+      await regenerateQRMutation.mutateAsync(selectedTable.id);
       setToastMessage(`QR code regenerated for ${selectedTable.name}`);
       setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      setToastMessage(error?.message || 'Failed to regenerate QR code');
+      setToastType('error');
       setShowSuccessToast(true);
     }
   };
 
-  const handleActivateTable = () => {
+  const handleActivateTable = async () => {
     if (!selectedTable) return;
-    const updatedTables = tables.map(table => {
-      if (table.id === selectedTable.id) {
-        return { ...table, status: 'free' as const };
-      }
-      return table;
-    });
-    setTables(updatedTables);
-    setSelectedTable({ ...selectedTable, status: 'free' });
-    setToastMessage(`${selectedTable.name} activated successfully`);
-    setToastType('success');
-    setShowSuccessToast(true);
+    
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: selectedTable.id,
+        status: 'AVAILABLE',
+      });
+      setSelectedTable({ ...selectedTable, status: 'free' });
+      setToastMessage(`${selectedTable.name} activated successfully`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      setToastMessage(error?.message || 'Failed to activate table');
+      setToastType('error');
+      setShowSuccessToast(true);
+    }
   };
 
-  const handleDeactivateTable = () => {
+  const handleDeactivateTable = async () => {
     if (!selectedTable) return;
-    const updatedTables = tables.map(table => {
-      if (table.id === selectedTable.id) {
-        return { ...table, status: 'inactive' as const };
-      }
-      return table;
-    });
-    setTables(updatedTables);
-    setSelectedTable({ ...selectedTable, status: 'inactive' });
-    setToastMessage(`${selectedTable.name} deactivated successfully`);
-    setToastType('success');
-    setShowSuccessToast(true);
+    
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: selectedTable.id,
+        status: 'INACTIVE',
+      });
+      setSelectedTable({ ...selectedTable, status: 'inactive' });
+      setToastMessage(`${selectedTable.name} deactivated successfully`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      setToastMessage(error?.message || 'Failed to deactivate table');
+      setToastType('error');
+      setShowSuccessToast(true);
+    }
   };
 
   const handleDownloadPNG = () => {
@@ -400,7 +450,8 @@ export function TablesPage() {
               )}
               <button
                 onClick={handleOpenAddModal}
-                className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all flex-1 md:flex-none"
+                disabled={createTableMutation.isPending}
+                className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all flex-1 md:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
                   fontSize: 'clamp(13px, 4vw, 15px)', 
                   fontWeight: 600, 
@@ -408,8 +459,17 @@ export function TablesPage() {
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
-                Add Table
+                {createTableMutation.isPending ? (
+                  <>
+                    <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
+                    Add Table
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -488,7 +548,40 @@ export function TablesPage() {
           </div>
 
           {/* Tables Grid */}
-          {filterAndSortTables(tables).length === 0 ? (
+          {isLoading ? (
+            <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-md flex items-center justify-center mb-4 animate-pulse">
+                  <QrCode className="w-8 sm:w-10 h-8 sm:h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-600" style={{ fontSize: 'clamp(13px, 4vw, 15px)' }}>
+                  Loading tables...
+                </p>
+              </div>
+            </Card>
+          ) : error ? (
+            <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-red-100 rounded-md flex items-center justify-center mb-4">
+                  <X className="w-8 sm:w-10 h-8 sm:h-10 text-red-400" />
+                </div>
+                <h4 className="text-gray-900 mb-2" style={{ fontSize: 'clamp(16px, 5vw, 18px)', fontWeight: 600 }}>
+                  Failed to load tables
+                </h4>
+                <p className="text-gray-600 mb-6" style={{ fontSize: 'clamp(13px, 4vw, 15px)' }}>
+                  {error?.message || 'An error occurred while loading tables'}
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                  style={{ fontSize: 'clamp(13px, 4vw, 15px)', fontWeight: 600, borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                >
+                  <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
+                  Retry
+                </button>
+              </div>
+            </Card>
+          ) : filterAndSortTables(tables).length === 0 ? (
             <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <div className="flex flex-col items-center justify-center">
                 <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-md flex items-center justify-center mb-4">
@@ -502,11 +595,21 @@ export function TablesPage() {
                 </p>
                 <button
                   onClick={handleOpenAddModal}
-                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                  disabled={createTableMutation.isPending}
+                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ fontSize: 'clamp(13px, 4vw, 15px)', fontWeight: 600, borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                 >
-                  <Plus className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
-                  Add Table
+                  {createTableMutation.isPending ? (
+                    <>
+                      <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
+                      Add Table
+                    </>
+                  )}
                 </button>
               </div>
             </Card>
@@ -589,14 +692,21 @@ export function TablesPage() {
                   handleDeactivateTable();
                 }
               }}
-              className={`flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 border text-gray-700 transition-colors whitespace-nowrap ${
+              disabled={updateStatusMutation.isPending}
+              className={`flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 border text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                 selectedTable.status === 'inactive'
                   ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-700 hover:text-emerald-800'
                   : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700 hover:text-amber-800'
               }`}
               style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
             >
-              {selectedTable.status === 'inactive' ? (
+              {updateStatusMutation.isPending ? (
+                <>
+                  <RefreshCcw className="w-4 h-4 shrink-0 animate-spin" />
+                  <span className="hidden md:inline">Processing...</span>
+                  <span className="md:hidden">...</span>
+                </>
+              ) : selectedTable.status === 'inactive' ? (
                 <>
                   <span className="hidden md:inline">Activate</span>
                   <span className="md:hidden">Activate</span>
@@ -625,13 +735,13 @@ export function TablesPage() {
                 e.stopPropagation();
                 handleRegenerateQR();
               }}
-              disabled={selectedTable.status === 'inactive'}
+              disabled={selectedTable.status === 'inactive' || regenerateQRMutation.isPending}
               className="flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white whitespace-nowrap"
               style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
             >
-              <RefreshCcw className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">Regenerate QR</span>
-              <span className="md:hidden">Regen</span>
+              <RefreshCcw className={`w-4 h-4 shrink-0 ${regenerateQRMutation.isPending ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">{regenerateQRMutation.isPending ? 'Regenerating...' : 'Regenerate QR'}</span>
+              <span className="md:hidden">{regenerateQRMutation.isPending ? 'Regen...' : 'Regen'}</span>
             </button>
             <button
               onClick={handleCloseQRModal}
@@ -808,18 +918,26 @@ export function TablesPage() {
           <>
             <button
               onClick={handleCloseAddModal}
-              className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              disabled={createTableMutation.isPending}
+              className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
             >
               Cancel
             </button>
             <button
               onClick={handleAddTable}
-              disabled={!formData.capacity || !formData.tableNumber}
-              className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              disabled={!formData.capacity || !formData.tableNumber || createTableMutation.isPending}
+              className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
             >
-              Add Table
+              {createTableMutation.isPending ? (
+                <>
+                  <RefreshCcw className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Add Table'
+              )}
             </button>
           </>
         }
@@ -838,18 +956,26 @@ export function TablesPage() {
             <>
               <button
                 onClick={handleCloseEditModal}
-                className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                disabled={updateTableMutation.isPending}
+                className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleEditTable}
-                disabled={!formData.capacity || !formData.tableNumber}
-                className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                disabled={!formData.capacity || !formData.tableNumber || updateTableMutation.isPending}
+                className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
               >
-                Save Changes
+                {updateTableMutation.isPending ? (
+                  <>
+                    <RefreshCcw className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </button>
             </>
           }
