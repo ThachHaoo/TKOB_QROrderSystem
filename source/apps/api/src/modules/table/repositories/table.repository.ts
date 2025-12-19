@@ -11,6 +11,7 @@ export class TableRepository extends BaseRepository<Table, Prisma.TableDelegate>
 
   /**
    * Find all tables by tenantId with optional filters
+   * Returns filtered tables along with metadata (totalAll, totalFiltered)
    */
   async findByTenantId(
     tenantId: string,
@@ -21,10 +22,16 @@ export class TableRepository extends BaseRepository<Table, Prisma.TableDelegate>
       sortBy?: 'tableNumber' | 'capacity' | 'createdAt';
       sortOrder?: 'asc' | 'desc';
     },
-  ): Promise<Table[]> {
-    const where: Prisma.TableWhereInput = {
+  ): Promise<{ tables: Table[]; totalAll: number; totalFiltered: number }> {
+    // Base query for this tenant (no filters)
+    const baseWhere: Prisma.TableWhereInput = {
       tenantId,
       ...(options?.activeOnly !== undefined && { active: options.activeOnly }),
+    };
+
+    // Filtered query (with status/location filters)
+    const filteredWhere: Prisma.TableWhereInput = {
+      ...baseWhere,
       ...(options?.status && { status: options.status }),
       // Case-insensitive location filter (also include NULL for 'indoor' since that's the default)
       ...(options?.location && { 
@@ -39,7 +46,14 @@ export class TableRepository extends BaseRepository<Table, Prisma.TableDelegate>
       ? { [options.sortBy]: options.sortOrder || 'asc' }
       : { displayOrder: 'asc' };
 
-    return this.findAll({ where, orderBy });
+    // Execute queries in parallel for efficiency
+    const [tables, totalAll, totalFiltered] = await Promise.all([
+      this.findAll({ where: filteredWhere, orderBy }),
+      (this.delegate as any).count({ where: baseWhere }),
+      (this.delegate as any).count({ where: filteredWhere }),
+    ]);
+
+    return { tables, totalAll, totalFiltered };
   }
 
   /**
