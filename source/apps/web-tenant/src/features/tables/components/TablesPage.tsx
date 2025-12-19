@@ -6,7 +6,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Toast } from '@/shared/components/ui/Toast';
 import { Modal } from '@/shared/components/ui/Modal';
 import { TableFormFields } from './TableFormFields';
-import { Plus, X, QrCode, Users, Download, Printer, Edit, ChevronDown, RefreshCcw } from 'lucide-react';
+import { Plus, X, QrCode, Users, Download, Printer, Edit, RefreshCcw } from 'lucide-react';
 
 interface Table {
   id: string;
@@ -249,6 +249,27 @@ export function TablesPage() {
     }
   };
 
+  const handleActivateTable = () => {
+    if (!selectedTable) return;
+    const updatedTables = tables.map(table => {
+      if (table.id === selectedTable.id) {
+        return { ...table, status: 'free' as const };
+      }
+      return table;
+    });
+    setTables(updatedTables);
+    setSelectedTable({ ...selectedTable, status: 'free' });
+    setToastMessage(`${selectedTable.name} activated successfully`);
+    setToastType('success');
+    setShowSuccessToast(true);
+  };
+
+  const handleDeactivateTable = () => {
+    if (!selectedTable) return;
+    setPendingStatusChange('inactive');
+    setShowDeactivateConfirm(true);
+  };
+
   const handleDownloadPNG = () => {
     if (selectedTable) {
       setToastMessage(`QR code (PNG) for ${selectedTable.name} downloaded`);
@@ -355,7 +376,7 @@ export function TablesPage() {
               {tables.length > 0 && (
                 <button
                   onClick={handleDownloadAll}
-                  className="flex items-center justify-center xs:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-emerald-500 text-gray-700 hover:text-emerald-700 transition-all flex-1 xs:flex-none md:flex-none"
+                  className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-emerald-500 text-gray-700 hover:text-emerald-700 transition-all flex-1 md:flex-none"
                   style={{ 
                     fontSize: 'clamp(13px, 4vw, 15px)', 
                     fontWeight: 600, 
@@ -370,7 +391,7 @@ export function TablesPage() {
               )}
               <button
                 onClick={handleOpenAddModal}
-                className="flex items-center justify-center xs:justify-start gap-2 px-4 sm:px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all flex-1 xs:flex-none md:flex-none"
+                className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all flex-1 md:flex-none"
                 style={{ 
                   fontSize: 'clamp(13px, 4vw, 15px)', 
                   fontWeight: 600, 
@@ -412,11 +433,11 @@ export function TablesPage() {
 
           {/* Filter and Sort */}
           <div className="flex flex-col md:flex-row lg:flex-nowrap md:items-center gap-3 md:gap-4 mb-4">
-            <div className="relative flex-1 xs:flex-none xs:min-w-40 sm:min-w-45 lg:flex-none lg:min-w-fit">
+            <div className="relative flex-1 md:flex-none md:min-w-40 sm:min-w-45 lg:flex-none lg:min-w-fit">
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full px-3 xs:px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
+                className="w-full px-3 md:px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
                 style={{ fontSize: 'clamp(13px, 4vw, 15px)', borderRadius: '4px', height: '48px' }}
               >
                 <option value="All">All Statuses</option>
@@ -425,14 +446,13 @@ export function TablesPage() {
                 <option value="reserved">Reserved</option>
                 <option value="inactive">Inactive</option>
               </select>
-              <ChevronDown className="absolute right-3 xs:right-4 top-1/2 transform -translate-y-1/2 w-4 xs:w-5 h-4 xs:h-5 text-gray-400 pointer-events-none" />
             </div>
 
-            <div className="relative flex-1 xs:flex-none xs:min-w-40 sm:min-w-45 lg:flex-none lg:min-w-fit">
+            <div className="relative flex-1 md:flex-none md:min-w-40 sm:min-w-45 lg:flex-none lg:min-w-fit">
               <select
                 value={selectedZone}
                 onChange={(e) => setSelectedZone(e.target.value)}
-                className="w-full px-3 xs:px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
+                className="w-full px-3 md:px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
                 style={{ fontSize: 'clamp(13px, 4vw, 15px)', borderRadius: '4px', height: '48px' }}
               >
                 <option value="All Locations">All Locations</option>
@@ -441,14 +461,13 @@ export function TablesPage() {
                 <option value="patio">Patio</option>
                 <option value="vip">VIP</option>
               </select>
-              <ChevronDown className="absolute right-3 xs:right-4 top-1/2 transform -translate-y-1/2 w-4 xs:w-5 h-4 xs:h-5 text-gray-400 pointer-events-none" />
             </div>
 
-            <div className="relative flex-1 xs:flex-none xs:min-w-40 sm:min-w-45 lg:flex-none lg:min-w-fit">
+            <div className="relative flex-1 md:flex-none md:min-w-40 sm:min-w-45 lg:flex-none lg:min-w-fit">
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
-                className="w-full px-3 xs:px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
+                className="w-full px-3 md:px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
                 style={{ fontSize: 'clamp(13px, 4vw, 15px)', borderRadius: '4px', height: '48px' }}
               >
                 <option value="Sort by: Table Number (Ascending)">Sort by: Table Number (Ascending)</option>
@@ -456,7 +475,6 @@ export function TablesPage() {
                 <option value="Sort by: Capacity (Descending)">Sort by: Capacity (Descending)</option>
                 <option value="Sort by: Creation Date (Newest)">Sort by: Creation Date (Newest)</option>
               </select>
-              <ChevronDown className="absolute right-3 xs:right-4 top-1/2 transform -translate-y-1/2 w-4 xs:w-5 h-4 xs:h-5 text-gray-400 pointer-events-none" />
             </div>
           </div>
 
@@ -552,18 +570,46 @@ export function TablesPage() {
           closeButton={false}
         >
           {/* Custom Header Actions */}
-          <div className="absolute top-4 sm:top-6 right-4 sm:right-6 flex flex-col xs:flex-row xs:items-center gap-2 z-10">
+          <div className="absolute top-4 sm:top-6 right-4 sm:right-6 flex flex-col md:flex-row md:items-center gap-2 z-10">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (selectedTable.status === 'inactive') {
+                  handleActivateTable();
+                } else {
+                  handleDeactivateTable();
+                }
+              }}
+              className={`flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 border text-gray-700 transition-colors whitespace-nowrap ${
+                selectedTable.status === 'inactive'
+                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-700 hover:text-emerald-800'
+                  : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700 hover:text-amber-800'
+              }`}
+              style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
+            >
+              {selectedTable.status === 'inactive' ? (
+                <>
+                  <span className="hidden md:inline">Activate</span>
+                  <span className="md:hidden">Activate</span>
+                </>
+              ) : (
+                <>
+                  <span className="hidden md:inline">Deactivate</span>
+                  <span className="md:hidden">Deactivate</span>
+                </>
+              )}
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleOpenEditModal();
               }}
-              className="flex items-center justify-center xs:justify-start gap-2 px-3 xs:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 transition-colors whitespace-nowrap"
+              className="flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 transition-colors whitespace-nowrap"
               style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
             >
               <Edit className="w-4 h-4 shrink-0" />
-              <span className="hidden xs:inline">Edit Table</span>
-              <span className="xs:hidden">Edit</span>
+              <span className="hidden md:inline">Edit Table</span>
+              <span className="md:hidden">Edit</span>
             </button>
             <button
               onClick={(e) => {
@@ -571,16 +617,16 @@ export function TablesPage() {
                 handleRegenerateQR();
               }}
               disabled={selectedTable.status === 'inactive'}
-              className="flex items-center justify-center xs:justify-start gap-2 px-3 xs:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white whitespace-nowrap"
+              className="flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white whitespace-nowrap"
               style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
             >
               <RefreshCcw className="w-4 h-4 shrink-0" />
-              <span className="hidden xs:inline">Regenerate QR</span>
-              <span className="xs:hidden">Regen</span>
+              <span className="hidden md:inline">Regenerate QR</span>
+              <span className="md:hidden">Regen</span>
             </button>
             <button
               onClick={handleCloseQRModal}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors self-end xs:self-auto"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors self-end md:self-auto"
             >
               <X className="w-5 h-5 text-gray-400" />
             </button>
