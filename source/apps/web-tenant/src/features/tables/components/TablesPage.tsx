@@ -266,8 +266,17 @@ export function TablesPage() {
 
   const handleDeactivateTable = () => {
     if (!selectedTable) return;
-    setPendingStatusChange('inactive');
-    setShowDeactivateConfirm(true);
+    const updatedTables = tables.map(table => {
+      if (table.id === selectedTable.id) {
+        return { ...table, status: 'inactive' as const };
+      }
+      return table;
+    });
+    setTables(updatedTables);
+    setSelectedTable({ ...selectedTable, status: 'inactive' });
+    setToastMessage(`${selectedTable.name} deactivated successfully`);
+    setToastType('success');
+    setShowSuccessToast(true);
   };
 
   const handleDownloadPNG = () => {
