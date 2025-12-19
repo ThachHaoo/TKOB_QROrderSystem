@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { ReactQueryProvider } from '@/lib/providers/ReactQueryProvider';
 import { AuthProvider } from '@/shared/context/AuthContext';
+import { Toaster } from 'sonner';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -13,6 +14,7 @@ export function Providers({ children }: ProvidersProps) {
     <ReactQueryProvider>
       <AuthProvider>
         {children}
+        <Toaster richColors position="top-right" />
       </AuthProvider>
     </ReactQueryProvider>
   );

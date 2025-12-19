@@ -1,6 +1,6 @@
 # Hướng dẫn Đóng góp (Contributing Guide)
 
-> Cảm ơn bạn đã quan tâm đến việc đóng góp cho **QR Dine-in Ordering Platform**! Tài liệu này sẽ giúp bạn hiểu quy trình và tiêu chuẩn để tham gia phát triển dự án.
+> Cảm ơn bạn đã quan tâm đến việc đóng góp cho **TKQR-in Ordering Platform**! Tài liệu này sẽ giúp bạn hiểu quy trình và tiêu chuẩn để tham gia phát triển dự án.
 
 - **Version**: 1.0
 - **Last Updated**: 2025-01-11

@@ -1,6 +1,6 @@
 # Hướng dẫn Cài đặt Môi trường Phát triển
 
-> Tài liệu này hướng dẫn chi tiết cách thiết lập môi trường phát triển local cho **QR Dine-in Ordering Platform**.
+> Tài liệu này hướng dẫn chi tiết cách thiết lập môi trường phát triển local cho **TKQR-in Ordering Platform**.
 
 - **Version**: 1.0
 - **Last Updated**: 2025-01-11
@@ -383,7 +383,7 @@ JWT_SECRET="your-super-secret-jwt-key"
 # filepath: apps/web-customer/.env
 
 VITE_API_URL=http://localhost:3000
-VITE_APP_NAME="QR Dine-in"
+VITE_APP_NAME="TKQR-in"
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
@@ -392,7 +392,7 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 # filepath: apps/web-staff/.env
 
 VITE_API_URL=http://localhost:3000
-VITE_APP_NAME="QR Dine-in Staff"
+VITE_APP_NAME="TKQR-in Staff"
 VITE_WS_URL=ws://localhost:3000
 ```
 

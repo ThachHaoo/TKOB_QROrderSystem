@@ -1,6 +1,6 @@
-# OpenAPI Specification – QR Dine‑in Ordering Platform
+# OpenAPI Specification – TKQR‑in Ordering Platform
 
-> Tài liệu này mô tả đầy đủ REST API của hệ thống QR Dine-in Ordering Platform theo chuẩn **OpenAPI 3.0**.
+> Tài liệu này mô tả đầy đủ REST API của hệ thống TKQR-in Ordering Platform theo chuẩn **OpenAPI 3.0**.
 
 - **Version**: 1.0.0
 - **Base URL**: `https://api.qr-ordering.com/v1`
@@ -1317,10 +1317,10 @@ if (signature !== expectedSignature) {
 
 openapi: 3.0.3
 info:
-  title: QR Dine-in Ordering Platform API
+  title: TKQR-in Ordering Platform API
   version: 1.0.0
   description: |
-    REST API cho hệ thống QR Dine-in Ordering Platform.
+    REST API cho hệ thống TKQR-in Ordering Platform.
     Multi-tenant platform cho phép nhà hàng quản lý menu, orders, và thanh toán.
   contact:
     email: dev@qr-ordering.com

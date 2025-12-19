@@ -4,7 +4,9 @@ import { Input } from '@/shared/components/ui/Input';
 import { Card } from '@/shared/components/ui/Card';
 import { QrCode } from 'lucide-react';
 import { useAuth } from '@/shared/context/AuthContext';
+import { ROUTES } from '@/lib/routes';
 import "../../styles/globals.css";
+
 interface LoginProps {
   onNavigate?: (screen: string) => void;
 }
@@ -15,21 +17,38 @@ export function Login({ onNavigate }: LoginProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [language, setLanguage] = useState('EN');
   const { devLogin } = useAuth();
+  const isDev = process.env.NODE_ENV === 'development';
 
-  const handleLogin = () => {
-    onNavigate?.('/admin/dashboard');
+  const handleLogin = (role: 'admin' | 'kds' | 'waiter' = 'admin') => {
+    // In development mode, use mock authentication
+    if (isDev) {
+      devLogin(role);
+      return;
+    }
+
+    // In production, this would call real authentication API
+    // For now, route to appropriate screen
+    if (role === 'admin') {
+      onNavigate?.(ROUTES.dashboard);
+    } else if (role === 'kds') {
+      onNavigate?.(ROUTES.kds);
+    } else if (role === 'waiter') {
+      onNavigate?.(ROUTES.waiter);
+    }
   };
 
   const handleDevLogin = (role: 'admin' | 'kds' | 'waiter') => {
-    devLogin(role);
-    // Navigate based on role
-    if (role === 'admin') {
-      onNavigate?.('/admin/dashboard');
-    } else if (role === 'kds') {
-      onNavigate?.('/admin/kds');
-    } else if (role === 'waiter') {
-      onNavigate?.('/admin/service-board');
+    console.log('[Login] handleDevLogin called with role:', role);
+    
+    // Clear any stale data from localStorage
+    if (typeof window !== 'undefined') {
+      console.log('[Login] Clearing localStorage before devLogin');
+      localStorage.clear();
     }
+    
+    // devLogin already handles navigation via router.push in AuthContext
+    devLogin(role);
+    console.log('[Login] handleDevLogin completed');
   };
 
   return (
@@ -89,7 +108,7 @@ export function Login({ onNavigate }: LoginProps) {
               </label>
               
               <button 
-                onClick={() => onNavigate?.('/forgot-password')}
+                onClick={() => onNavigate?.(ROUTES.forgotPassword)}
                 className="text-emerald-500 hover:text-emerald-600 transition-colors" 
                 style={{ fontSize: '14px', fontWeight: 500 }}
               >
@@ -100,14 +119,40 @@ export function Login({ onNavigate }: LoginProps) {
 
           {/* Actions */}
           <div className="flex flex-col gap-4">
-            <Button onClick={handleLogin} className="w-full">
+            <Button onClick={() => handleLogin('admin')} className="w-full">
               Log in
-            </Button>            <div className="text-center">
+            </Button>
+            
+            {/* Divider with text */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-gray-200"></div>
+              <span className="text-gray-400 text-center" style={{ fontSize: '12px', fontWeight: 500 }}>
+                or continue with
+              </span>
+              <div className="flex-1 border-t border-gray-200"></div>
+            </div>
+
+            {/* Google Login Button */}
+            <button
+              onClick={() => handleLogin('admin')}
+              className="w-full flex items-center justify-center gap-3 px-5 py-3 border border-gray-300 rounded-xl bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all"
+              style={{ height: '48px' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.64 9.20443C17.64 8.56625 17.5827 7.95262 17.4764 7.36353H9V10.8449H13.8436C13.635 11.9699 13.0009 12.9231 12.0477 13.5613V15.8194H14.9564C16.6582 14.2526 17.64 11.9453 17.64 9.20443Z" fill="#4285F4"/>
+                <path d="M8.99976 18C11.4298 18 13.467 17.1941 14.9561 15.8195L12.0475 13.5613C11.2416 14.1013 10.2107 14.4204 8.99976 14.4204C6.65567 14.4204 4.67158 12.8372 3.96385 10.71H0.957031V13.0418C2.43794 15.9831 5.48158 18 8.99976 18Z" fill="#34A853"/>
+                <path d="M3.96409 10.7098C3.78409 10.1698 3.68182 9.59301 3.68182 8.99983C3.68182 8.40665 3.78409 7.82983 3.96409 7.28983V4.95801H0.957273C0.347727 6.17301 0 7.54755 0 8.99983C0 10.4521 0.347727 11.8266 0.957273 13.0416L3.96409 10.7098Z" fill="#FBBC05"/>
+                <path d="M8.99976 3.57955C10.3211 3.57955 11.5075 4.03364 12.4402 4.92545L15.0216 2.34409C13.4629 0.891818 11.4257 0 8.99976 0C5.48158 0 2.43794 2.01682 0.957031 4.95818L3.96385 7.29C4.67158 5.16273 6.65567 3.57955 8.99976 3.57955Z" fill="#EA4335"/>
+              </svg>
+              <span style={{ fontSize: '15px', fontWeight: 600 }}>Continue with Google</span>
+            </button>
+            
+            <div className="text-center">
               <span className="text-gray-600" style={{ fontSize: '14px' }}>
                 Don&apos;t have an account?{' '}
               </span>
               <button 
-                onClick={() => onNavigate?.('/signup')}
+                onClick={() => onNavigate?.(ROUTES.signup)}
                 className="text-emerald-500 hover:text-emerald-600 transition-colors" 
                 style={{ fontSize: '14px', fontWeight: 500 }}
               >
@@ -116,49 +161,54 @@ export function Login({ onNavigate }: LoginProps) {
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-gray-200"></div>
-
-          {/* Dev mode shortcuts */}
-          <div className="flex flex-col gap-3">
-            <p className="text-gray-500 text-center" style={{ fontSize: '12px' }}>
-              Dev mode (for developers only – remove in production)
-            </p>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => handleDevLogin('admin')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-emerald-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                🔐 Login as Admin
-              </button>
-              
-              <button
-                onClick={() => handleDevLogin('kds')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-amber-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                👨‍🍳 Login as KDS
-              </button>
-              
-              <button
-                onClick={() => handleDevLogin('waiter')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-blue-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                🧑‍💼 Login as Waiter
-              </button>
-              
-              <button
-                onClick={() => onNavigate?.('/staff-invitation')}
-                className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-500 transition-all"
-                style={{ fontSize: '13px', fontWeight: 500 }}
-              >
-                ✉️ Staff Invitation
-              </button>
-            </div>
-          </div>
+          {/* Dev mode shortcuts - only show in development */}
+          {isDev && (
+            <>
+              <div className="border-t border-gray-200"></div>
+              <div className="flex flex-col gap-3">
+                <p className="text-purple-600 text-center flex items-center justify-center gap-2" style={{ fontSize: '12px', fontWeight: 600 }}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                  DEV MODE: Quick Login
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleDevLogin('admin')}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    👤 Admin
+                  </button>
+                  
+                  <button
+                    onClick={() => handleDevLogin('kds')}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    🍳 KDS
+                  </button>
+                  
+                  <button
+                    onClick={() => handleDevLogin('waiter')}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    🍽️ Waiter
+                  </button>
+                  
+                  <button
+                    onClick={() => onNavigate?.(ROUTES.staffInvitationSignup)}
+                    className="px-3 py-2 border border-purple-300 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-500 transition-all"
+                    style={{ fontSize: '13px', fontWeight: 500 }}
+                  >
+                    ✉️ Staff Invite
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>

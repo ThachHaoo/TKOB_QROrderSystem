@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, User, LogOut } from 'lucide-react';
+import { ChevronDown, User, LogOut, Code } from 'lucide-react';
+import { useAuth } from '@/shared/context/AuthContext';
+import type { UserRole } from '@/shared/context/AuthContext';
 
 import type { AdminScreenId } from './AdminShell';
 
@@ -44,6 +46,16 @@ export function UserMenu({
         return { bg: 'bg-amber-100', text: 'text-amber-600' };
       case 'orange':
         return { bg: 'bg-orange-100', text: 'text-orange-600' };
+      case 'blue':
+        return { bg: 'bg-blue-100', text: 'text-blue-600' };
+      case 'purple':
+        return { bg: 'bg-purple-100', text: 'text-purple-600' };
+      case 'rose':
+        return { bg: 'bg-rose-100', text: 'text-rose-600' };
+      case 'teal':
+        return { bg: 'bg-teal-100', text: 'text-teal-600' };
+      case 'indigo':
+        return { bg: 'bg-indigo-100', text: 'text-indigo-600' };
       default:
         return { bg: 'bg-emerald-100', text: 'text-emerald-600' };
     }
@@ -51,24 +63,22 @@ export function UserMenu({
 
   const avatarColors = getAvatarColors();
 
+  const { logout, switchRole } = useAuth();
+  const isDev = process.env.NODE_ENV === 'development';
+
   const handleLogout = () => {
     setIsOpen(false);
-    onNavigate?.('login');
+    logout();
   };
 
   const handleAccountSettings = () => {
     setIsOpen(false);
-    // Future: navigate to account settings page
+    onNavigate?.('account-settings');
   };
 
-  const handleSwitchToKDS = () => {
+  const handleSwitchRole = (role: UserRole) => {
     setIsOpen(false);
-    onNavigate?.('kds');
-  };
-
-  const handleSwitchToWaiter = () => {
-    setIsOpen(false);
-    onNavigate?.('service-board');
+    switchRole(role);
   };
 
   return (
@@ -102,28 +112,42 @@ export function UserMenu({
             </span>
           </button>
 
-          {/* Dev section */}
-          <div className="px-4 py-2">
-            <div className="text-gray-500" style={{ fontSize: '11px', fontWeight: 500 }}>
-              Dev: switch role…
-            </div>
-          </div>
-          <button
-            onClick={handleSwitchToKDS}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-gray-700" style={{ fontSize: '13px' }}>
-              → KDS Board
-            </span>
-          </button>
-          <button
-            onClick={handleSwitchToWaiter}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-gray-700" style={{ fontSize: '13px' }}>
-              → Waiter / Service Board
-            </span>
-          </button>
+          {/* Dev section - only show in development */}
+          {isDev && (
+            <>
+              <div className="border-t border-gray-200 my-2"></div>
+              <div className="px-4 py-2 flex items-center gap-2">
+                <Code className="w-3 h-3 text-purple-600" />
+                <div className="text-purple-600" style={{ fontSize: '11px', fontWeight: 600 }}>
+                  DEV MODE: Switch Role
+                </div>
+              </div>
+              <button
+                onClick={() => handleSwitchRole('kds')}
+                className="w-full px-4 py-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="text-gray-700" style={{ fontSize: '13px' }}>
+                  → KDS (Kitchen Display)
+                </span>
+              </button>
+              <button
+                onClick={() => handleSwitchRole('waiter')}
+                className="w-full px-4 py-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="text-gray-700" style={{ fontSize: '13px' }}>
+                  → Waiter (Service Board)
+                </span>
+              </button>
+              <button
+                onClick={() => handleSwitchRole('admin')}
+                className="w-full px-4 py-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="text-gray-700" style={{ fontSize: '13px' }}>
+                  → Admin (Dashboard)
+                </span>
+              </button>
+            </>
+          )}
 
           {/* Separator */}
           <div className="border-t border-gray-200 my-2"></div>

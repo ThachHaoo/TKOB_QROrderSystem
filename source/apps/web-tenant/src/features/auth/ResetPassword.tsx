@@ -3,23 +3,19 @@ import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
 import { Card } from '@/shared/components/ui/Card';
 import { QrCode, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ROUTES } from '@/lib/routes';
+import "../../styles/globals.css";
 
 interface ResetPasswordProps {
   onNavigate?: (path: string) => void;
-  token?: string | null;
-  email?: string | null;
 }
 
-export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) {
+export function ResetPassword({ onNavigate }: ResetPasswordProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [language, setLanguage] = useState('EN');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [linkState, setLinkState] = useState<'valid' | 'invalid'>('valid'); // Simulate link validation
   const [passwordStrength, setPasswordStrength] = useState(0);
-
-  // Determine if token is valid (in real app, this would be validated by API)
-  const isTokenValid = !!token;
 
   const handlePasswordChange = (value: string) => {
     setPassword(value);
@@ -46,34 +42,12 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
     return 'Strong';
   };
 
-  const isFormValid = password && confirmPassword && password === confirmPassword && passwordStrength >= 2;
-
-  const handleResetPassword = async () => {
-    if (!isFormValid || !token) return;
-
-    setIsSubmitting(true);
-    try {
-      // TODO: Call the reset-password API
-      // await authService.resetPassword({ token, password });
-      console.log('Resetting password with token:', token);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setIsSuccess(true);
-
-      // Redirect to login after success
-      setTimeout(() => {
-        onNavigate?.('/login');
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to reset password:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleResetPassword = () => {
+    onNavigate?.(ROUTES.login);
   };
 
   // Invalid/Expired link state
-  if (!isTokenValid) {
+  if (linkState === 'invalid') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
         {/* Language selector */}
@@ -105,12 +79,12 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
             </div>
 
             <div className="flex flex-col gap-3 w-full">
-              <Button onClick={() => onNavigate?.('/forgot-password')} className="w-full">
+              <Button onClick={() => onNavigate?.(ROUTES.forgotPassword)} className="w-full">
                 Request new link
               </Button>
               <div className="text-center">
                 <button 
-                  onClick={() => onNavigate?.('/login')}
+                  onClick={() => onNavigate?.(ROUTES.login)}
                   className="text-emerald-500 hover:text-emerald-600 transition-colors" 
                   style={{ fontSize: '14px', fontWeight: 500 }}
                 >
@@ -118,32 +92,17 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
                 </button>
               </div>
             </div>
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
-  // Success state
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-        <Card className="w-full max-w-md p-8">
-          <div className="flex flex-col items-center gap-8">
-            <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-10 h-10 text-emerald-500" />
+            {/* Demo toggle - remove in production */}
+            <div className="pt-4 border-t border-gray-200 w-full">
+              <button
+                onClick={() => setLinkState('valid')}
+                className="text-gray-400 hover:text-gray-600 transition-colors w-full text-center"
+                style={{ fontSize: '12px' }}
+              >
+                (Demo: Show valid state)
+              </button>
             </div>
-
-            <div className="flex flex-col items-center gap-3 text-center">
-              <h2 className="text-gray-900">Password reset successful!</h2>
-              <p className="text-gray-600">
-                Your password has been updated. Redirecting to login...
-              </p>
-            </div>
-
-            <Button onClick={() => onNavigate?.('/login')} className="w-full">
-              Go to login
-            </Button>
           </div>
         </Card>
       </div>
@@ -183,15 +142,13 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
           {/* Form */}
           <div className="flex flex-col gap-4">
             {/* Read-only email */}
-            {email && (
-              <div className="flex flex-col gap-2">
-                <label className="text-gray-900">Email</label>
-                <div className="px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  <span style={{ fontSize: '14px' }}>{email}</span>
-                </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-gray-900">Email</label>
+              <div className="px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <span style={{ fontSize: '14px' }}>admin@restaurant.com</span>
               </div>
-            )}
+            </div>
 
             {/* New password */}
             <div className="flex flex-col gap-2">
@@ -201,7 +158,6 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
                 placeholder="Enter a strong password"
                 value={password}
                 onChange={(e) => handlePasswordChange(e.target.value)}
-                disabled={isSubmitting}
               />
               {password && (
                 <div className="flex flex-col gap-2">
@@ -230,7 +186,6 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
-              disabled={isSubmitting}
             />
 
             {/* Password requirements */}
@@ -251,20 +206,31 @@ export function ResetPassword({ onNavigate, token, email }: ResetPasswordProps) 
             <Button 
               onClick={handleResetPassword} 
               className="w-full"
-              disabled={!isFormValid || isSubmitting}
+              disabled={!password || !confirmPassword || password !== confirmPassword}
             >
-              {isSubmitting ? 'Resetting...' : 'Reset password'}
+              Reset password
             </Button>
             
             <div className="text-center">
               <button 
-                onClick={() => onNavigate?.('/login')}
+                onClick={() => onNavigate?.(ROUTES.login)}
                 className="text-emerald-500 hover:text-emerald-600 transition-colors" 
                 style={{ fontSize: '14px', fontWeight: 500 }}
               >
                 Back to login
               </button>
             </div>
+          </div>
+
+          {/* Demo toggle - remove in production */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={() => setLinkState('invalid')}
+              className="text-gray-400 hover:text-gray-600 transition-colors w-full text-center"
+              style={{ fontSize: '12px' }}
+            >
+              (Demo: Show invalid/expired state)
+            </button>
           </div>
         </div>
       </Card>

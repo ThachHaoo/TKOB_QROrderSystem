@@ -1,4 +1,4 @@
-# Kiến trúc Hệ thống – QR Dine‑in Ordering Platform
+# Kiến trúc Hệ thống – TKQR‑in Ordering Platform
 
 > **Mục đích**: Mô tả kiến trúc tổng thể, các thành phần chính, luồng dữ liệu, công nghệ và quyết định thiết kế cho nền tảng gọi món QR đa tenant.
 
