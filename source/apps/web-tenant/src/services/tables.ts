@@ -58,7 +58,11 @@ class TablesService {
     id: string,
     status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE'
   ): Promise<TableResponseDto> {
-    return tablesAdapter.updateTableStatus(id, status);
+    console.log('🔧 [tablesService.updateTableStatus] Direct call bypassing adapter:', { id, status });
+    // TEMPORARY FIX: Bypass adapter and call generated function directly
+    const { tableControllerUpdateStatus } = await import('@/services/generated/tables/tables');
+    console.log('🔧 [tablesService.updateTableStatus] Calling tableControllerUpdateStatus directly');
+    return tableControllerUpdateStatus(id, { status });
   }
 
   /**

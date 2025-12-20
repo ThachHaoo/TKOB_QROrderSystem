@@ -285,7 +285,7 @@ export const tableControllerUpdate = (
       
       
       return customInstance<TableResponseDto>(
-      {url: `/api/v1/admin/tables/${id}`, method: 'PATCH',
+      {url: `/api/v1/admin/tables/${id}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateTableDto
     },

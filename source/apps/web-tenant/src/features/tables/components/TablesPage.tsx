@@ -31,6 +31,7 @@ interface Table {
   createdAt: Date;
   description?: string;
   hasActiveOrders?: boolean;
+  qrToken?: string;
 }
 
 export function TablesPage() {
@@ -302,6 +303,7 @@ export function TablesPage() {
       createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
       description: t.description || '',
       hasActiveOrders: t.status === 'OCCUPIED',
+      qrToken: t.qrToken, // Map qrToken from API response
     }));
   }, [tablesData]);
 
@@ -520,10 +522,37 @@ export function TablesPage() {
     }
   };
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = async () => {
+    if (!selectedTable || !pendingStatusChange) return;
+    
     setShowDeactivateConfirm(false);
+    const statusToSet = pendingStatusChange.toUpperCase() as 'INACTIVE' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
     setPendingStatusChange(null);
-    performTableUpdate();
+    
+    try {
+      console.log('🔄 [PATCH /tables/:id/status] Request:', { 
+        id: selectedTable.id, 
+        status: statusToSet 
+      });
+      
+      await updateStatusMutation.mutateAsync({
+        id: selectedTable.id,
+        status: statusToSet,
+      });
+      
+      console.log('✅ [PATCH /tables/:id/status] Success');
+      setToastMessage(`Table ${statusToSet === 'INACTIVE' ? 'deactivated' : 'reactivated'} successfully`);
+      setToastType('success');
+      setShowSuccessToast(true);
+      handleCloseEditModal();
+      setSelectedTable(null);
+    } catch (error: any) {
+      handleApiError(error, `Failed to ${statusToSet === 'INACTIVE' ? 'deactivate' : 'reactivate'} table`);
+      // Revert form status on error
+      if (selectedTable) {
+        setFormData({ ...formData, status: selectedTable.status });
+      }
+    }
   };
 
   const handleCancelStatusChange = () => {
@@ -581,13 +610,12 @@ export function TablesPage() {
       const result = await regenerateQRMutation.mutateAsync(selectedTable.id);
       console.log('✅ [POST /tables/:id/qr/generate] Response:', result);
       
-      // Auto-refresh modal with new QR data
-      if (result) {
-        setSelectedTable(prev => prev ? {
-          ...prev,
-          // QR data will be refreshed via React Query invalidation
-        } : null);
-      }
+      // Update qrToken from response to display new QR code
+      setSelectedTable(prev => prev ? {
+        ...prev,
+        qrToken: result.qrToken, // Update with new token
+      } : null);
+      console.log('✅ QR Token regenerated:', result.qrToken);
       
       setToastMessage(`QR code regenerated for ${selectedTable.name}`);
       setToastType('success');
@@ -623,6 +651,16 @@ export function TablesPage() {
 
   const handleDeactivateTable = async () => {
     if (!selectedTable) return;
+
+    // Show confirmation dialog (allow deactivation for all statuses)
+    setPendingStatusChange('inactive');
+    setShowDeactivateConfirm(true);
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (!selectedTable) return;
+    
+    setShowDeactivateConfirm(false);
     
     // Optimistic update
     const previousStatus = selectedTable.status;
@@ -630,19 +668,28 @@ export function TablesPage() {
     
     try {
       const payload = { id: selectedTable.id, status: 'INACTIVE' as const };
-      console.log('🔄 [PATCH /tables/:id/status] Deactivate Request:', payload);
+      console.log('🔄 [handleConfirmDeactivate] Full payload:', JSON.stringify(payload, null, 2));
+      console.log('🔄 [handleConfirmDeactivate] Payload id:', payload.id);
+      console.log('🔄 [handleConfirmDeactivate] Payload status:', payload.status);
+      console.log('🔄 [handleConfirmDeactivate] Selected table:', selectedTable);
       
       const result = await updateStatusMutation.mutateAsync(payload);
-      console.log('✅ [PATCH /tables/:id/status] Deactivate Response:', result);
+      console.log('✅ [handleConfirmDeactivate] Success response:', result);
       
       setToastMessage(`${selectedTable.name} deactivated successfully`);
       setToastType('success');
       setShowSuccessToast(true);
     } catch (error: any) {
       // Rollback optimistic update on error
+      console.error('❌ [handleConfirmDeactivate] Error caught:', error);
+      console.error('❌ [handleConfirmDeactivate] Error response:', error.response);
+      console.error('❌ [handleConfirmDeactivate] Error data:', error.response?.data);
+      console.error('❌ [handleConfirmDeactivate] Error status:', error.response?.status);
       setSelectedTable({ ...selectedTable, status: previousStatus });
       handleApiError(error, 'Failed to deactivate table');
     }
+    
+    setPendingStatusChange(null);
   };
 
   const handleDownloadQR = async (format: 'png' | 'pdf') => {
@@ -1140,7 +1187,7 @@ export function TablesPage() {
                 className="flex items-center justify-center p-4 bg-white rounded"
               >
                 <QRCode 
-                  value={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/qr/${selectedTable.id}`}
+                  value={selectedTable.qrToken ? `http://localhost:3000/menu?token=${selectedTable.qrToken}` : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/qr/${selectedTable.id}`}
                   size={256}
                   level="H"
                   bgColor="#FFFFFF"
@@ -1401,10 +1448,19 @@ export function TablesPage() {
                 <li>Preserve all order history</li>
               </ul>
               
-              {selectedTable.hasActiveOrders && (
+              {selectedTable.status === 'occupied' || selectedTable.status === 'reserved' ? (
+                <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl">
+                  <p className="text-red-900" style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: 600 }}>
+                    <strong>⚠️ Critical Warning:</strong> This table currently has active orders ({selectedTable.status === 'occupied' ? 'Occupied' : 'Reserved'}). 
+                  </p>
+                  <p className="text-red-800 mt-2" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                    Deactivating will prevent new orders but <strong>will not cancel existing orders</strong>. Customers may continue to receive orders on this table.
+                  </p>
+                </div>
+              ) : (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <p className="text-amber-900" style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: 500 }}>
-                    <strong>Warning:</strong> This table currently has active orders. Deactivating it will prevent new orders but will not affect existing ones.
+                    <strong>Note:</strong> This table is available and has no active orders.
                   </p>
                 </div>
               )}

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -108,7 +109,7 @@ export class TableController {
     return this.transformToResponse(table);
   }
 
-  @Patch(':id')
+  @Put(':id')
   @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update table' })
@@ -265,6 +266,7 @@ export class TableController {
       active: table.active,
       displayOrder: table.displayOrder,
       qrCodeUrl: table.qrToken ? `/api/v1/admin/tables/${table.id}/qr/download` : undefined,
+      qrToken: table.qrToken ?? undefined,
       qrGeneratedAt: table.qrTokenCreatedAt ?? undefined,
       createdAt: table.createdAt,
       updatedAt: table.updatedAt,

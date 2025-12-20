@@ -26,8 +26,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401 && typeof window !== 'undefined') {
+      console.warn('⚠️ [axios] 401 Unauthorized - Token may be invalid or expired');
       localStorage.removeItem('authToken');
-      // window.location.href = '/login';
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        console.log('🔄 [axios] Redirecting to login page...');
+        // window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -66,15 +71,48 @@ export const customInstance = <T>(config: any): Promise<T> => {
   }).catch((error) => {
     const duration = Date.now() - startTime;
     const errorData = error.response?.data || {};
-    console.error('🌐 [customInstance] Error:', {
-      method: config.method,
-      url: config.url,
+    
+    // Better error logging with proper error info extraction
+    const errorInfo = {
+      method: config.method?.toUpperCase() || 'UNKNOWN',
+      url: config.url || 'UNKNOWN',
       duration: `${duration}ms`,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      errorMessage: errorData?.error?.message || errorData?.message || error.message,
-      fullError: errorData,
-    });
+      status: error.response?.status || error.code || 'UNKNOWN',
+      statusText: error.response?.statusText || '',
+      errorMessage: errorData?.error?.message || errorData?.message || error.message || 'Unknown error',
+      hasToken: !!(config.headers?.Authorization),
+    };
+    
+    console.error('🌐 [customInstance] Request Failed:', errorInfo);
+    
+    // Log full error response data if available
+    if (error.response) {
+      // For 400 errors, provide validation details
+      if (error.response.status === 400) {
+        console.warn('⚠️ [customInstance] Bad Request (400):', {
+          url: config.url,
+          validationErrors: errorData?.message || errorData?.error,
+          details: errorData,
+        });
+      }
+      
+      console.error('🌐 [customInstance] Server Response:', {
+        status: error.response.status,
+        data: error.response.data,
+      });
+    } else if (error.request) {
+      console.error('🌐 [customInstance] Request Error (No Response):', {
+        message: error.message,
+        code: error.code,
+        config: {
+          url: config.url,
+          method: config.method,
+        },
+      });
+    } else {
+      console.error('🌐 [customInstance] Error:', error.message);
+    }
+    
     throw error;
   });
 };
