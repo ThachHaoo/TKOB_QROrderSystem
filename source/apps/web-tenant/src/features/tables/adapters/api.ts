@@ -16,7 +16,7 @@ import {
   tableControllerFindOne,
   tableControllerUpdate,
   tableControllerDelete,
-  tableControllerUpdateStatus,
+  tableControllerUpdateStatus as apiUpdateTableStatus,
   tableControllerGetLocations,
   tableControllerRegenerateQr,
 } from '@/services/generated/tables/tables';
@@ -62,7 +62,22 @@ export class TablesApiAdapter implements ITablesAdapter {
     id: string,
     status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE'
   ): Promise<TableResponseDto> {
-    return tableControllerUpdateStatus(id, { status });
+    console.log('🌐 [API Adapter] updateTableStatus called with:', { id, status });
+    console.log('🌐 [API Adapter] Calling apiUpdateTableStatus with body:', { status });
+    try {
+      const result = await apiUpdateTableStatus(id, { status });
+      console.log('🌐 [API Adapter] updateTableStatus success:', result);
+      return result;
+    } catch (error: any) {
+      console.error('🌐 [API Adapter] updateTableStatus error:', {
+        id,
+        status,
+        errorStatus: error.response?.status,
+        errorData: error.response?.data,
+        errorMessage: error.message,
+      });
+      throw error;
+    }
   }
 
   async regenerateQR(id: string): Promise<{
