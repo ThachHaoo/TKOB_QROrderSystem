@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
+import { Card, Button, Input } from '@/shared/components/ui';
 import { ArrowLeft, Plus, GripVertical, Trash2 } from 'lucide-react';
 import { useAppRouter } from '@/shared/hooks/useAppRouter';
 import { useSearchParams } from 'next/navigation';

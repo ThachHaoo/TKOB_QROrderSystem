@@ -2,9 +2,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Card } from '@/shared/components/ui/Card';
-import { Input } from '@/shared/components/ui/Input';
-import { Button } from '@/shared/components/ui/Button';
+import { Card, Input, Button } from '@/shared/components/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@packages/ui';
 import { Upload, Clock, Globe, Bell, Shield, CreditCard, Copy } from 'lucide-react';
 
 type SettingsTab = 'profile' | 'hours' | 'payments' | 'notifications' | 'security';

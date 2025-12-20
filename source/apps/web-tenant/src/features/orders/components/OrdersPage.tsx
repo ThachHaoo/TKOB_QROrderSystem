@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
-import { Toast } from '@/shared/components/ui/Toast';
-import { Modal } from '@/shared/components/ui/Modal';
+import { Card, Badge, Toast, Modal } from '@/shared/components/ui';
+import { Alert, AlertDescription } from '@packages/ui';
 import { 
   Search, 
   X, 
@@ -220,6 +218,10 @@ export function OrdersPage() {
   // Toast
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  
+  // Alert for Cancel Order
+  const [showCancelAlert, setShowCancelAlert] = useState(false);
+  const [cancelAlertMessage, setCancelAlertMessage] = useState('');
 
   // Body scroll lock + ESC handler
   useEffect(() => {
@@ -360,6 +362,13 @@ export function OrdersPage() {
     closeConfirmModal();
     setToastMessage(`Order ${selectedOrder.orderNumber} cancelled`);
     setShowSuccessToast(true);
+    
+    // Show Alert notification
+    setCancelAlertMessage(`✓ Order ${selectedOrder.orderNumber} has been cancelled successfully!`);
+    setShowCancelAlert(true);
+    
+    // Auto-hide alert after 4 seconds
+    setTimeout(() => setShowCancelAlert(false), 4000);
   };
 
   // Open reject confirmation
@@ -916,6 +925,17 @@ export function OrdersPage() {
           type="success"
           onClose={() => setShowSuccessToast(false)}
         />
+      )}
+
+      {/* Cancel Order Alert */}
+      {showCancelAlert && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <Alert className="bg-green-50 border border-green-200">
+            <AlertDescription className="text-green-800">
+              {cancelAlertMessage}
+            </AlertDescription>
+          </Alert>
+        </div>
       )}
 
       {/* Confirm Modal */}

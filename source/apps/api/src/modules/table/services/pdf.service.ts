@@ -75,7 +75,7 @@ export class PdfService {
           height: qrSize,
         });
 
-        doc.moveDown(50); // Move past QR code
+        doc.moveDown(30); // Move past QR code
 
         // Instructions
         const instructionText = options.instructions || 'Scan to view menu and place order';

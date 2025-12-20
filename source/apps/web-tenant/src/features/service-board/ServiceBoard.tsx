@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card } from '@/shared/components/ui/Card';
+import { Card } from '@/shared/components/ui';
 import '../../styles/globals.css';
 
 export function ServiceBoard() {

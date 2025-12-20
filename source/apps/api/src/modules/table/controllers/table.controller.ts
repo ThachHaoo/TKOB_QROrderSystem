@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -26,6 +27,7 @@ import { TableService } from '../services/table.service';
 import { CreateTableDto } from '../dto/create-table.dto';
 import { UpdateTableDto } from '../dto/update-table.dto';
 import { TableResponseDto, RegenerateQrResponseDto, BulkRegenerateQrResponseDto } from '../dto/table-response.dto';
+import { TableListResponseDto } from '../dto/table-list-response.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { TenantOwnershipGuard } from 'src/modules/tenant/guards/tenant-ownership.guard';
@@ -60,7 +62,7 @@ export class TableController {
   @Roles(UserRole.OWNER, UserRole.STAFF, UserRole.KITCHEN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all tables with filters' })
-  @ApiResponse({ status: 200, type: [TableResponseDto] })
+  @ApiResponse({ status: 200, type: TableListResponseDto })
   @ApiQuery({ name: 'activeOnly', required: false, type: Boolean })
   @ApiQuery({ name: 'status', required: false, enum: TableStatus })
   @ApiQuery({ name: 'location', required: false, type: String })
@@ -73,15 +75,18 @@ export class TableController {
     @Query('location') location?: string,
     @Query('sortBy') sortBy?: 'tableNumber' | 'capacity' | 'createdAt',
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-  ): Promise<TableResponseDto[]> {
-    const tables = await this.service.findAll(user.tenantId, {
+  ): Promise<TableListResponseDto> {
+    const { tables, meta } = await this.service.findAll(user.tenantId, {
       activeOnly,
       status,
       location,
       sortBy,
       sortOrder,
     });
-    return tables.map((t) => this.transformToResponse(t));
+    return {
+      data: tables.map((t) => this.transformToResponse(t)),
+      meta,
+    };
   }
 
   @Get('locations')
@@ -104,7 +109,7 @@ export class TableController {
     return this.transformToResponse(table);
   }
 
-  @Patch(':id')
+  @Put(':id')
   @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update table' })
@@ -276,6 +281,7 @@ export class TableController {
       active: table.active,
       displayOrder: table.displayOrder,
       qrCodeUrl: table.qrToken ? `/api/v1/admin/tables/${table.id}/qr/download` : undefined,
+      qrToken: table.qrToken ?? undefined,
       qrGeneratedAt: table.qrTokenCreatedAt ?? undefined,
       createdAt: table.createdAt,
       updatedAt: table.updatedAt,

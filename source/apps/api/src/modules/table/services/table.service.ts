@@ -35,7 +35,7 @@ export class TableService {
         tenantId,
         tableNumber: dto.tableNumber,
         capacity: dto.capacity,
-        location: dto.location,
+        location: dto.location?.toLowerCase() || null, // Normalize location to lowercase
         description: dto.description,
         displayOrder: dto.displayOrder ?? 0,
         status: TableStatus.AVAILABLE,
@@ -62,6 +62,7 @@ export class TableService {
 
   /**
    * Find all tables by tenant with filters
+   * Returns filtered tables with metadata
    */
   async findAll(
     tenantId: string,
@@ -72,8 +73,12 @@ export class TableService {
       sortBy?: 'tableNumber' | 'capacity' | 'createdAt';
       sortOrder?: 'asc' | 'desc';
     },
-  ): Promise<Table[]> {
-    return this.repo.findByTenantId(tenantId, filters);
+  ): Promise<{ tables: Table[]; meta: { totalAll: number; totalFiltered: number } }> {
+    const { tables, totalAll, totalFiltered } = await this.repo.findByTenantId(tenantId, filters);
+    return {
+      tables,
+      meta: { totalAll, totalFiltered },
+    };
   }
 
   /**
@@ -98,7 +103,12 @@ export class TableService {
     }
 
     try {
-      return await this.repo.update(tableId, dto);
+      // Normalize location to lowercase if provided
+      const updateData = {
+        ...dto,
+        ...(dto.location && { location: dto.location.toLowerCase() }),
+      };
+      return await this.repo.update(tableId, updateData);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(`Table number "${dto.tableNumber}" already exists`);
@@ -214,7 +224,7 @@ export class TableService {
    * Get all QR codes as ZIP file
    */
   async getAllQrCodesZip(tenantId: string): Promise<Buffer> {
-    const tables = await this.repo.findByTenantId(tenantId, { activeOnly: true });
+    const { tables } = await this.repo.findByTenantId(tenantId, { activeOnly: true });
 
     if (tables.length === 0) {
       throw new BadRequestException('No active tables found');
@@ -248,7 +258,7 @@ export class TableService {
    * Get all QR codes as multi-page PDF
    */
   async getAllQrCodesPdf(tenantId: string): Promise<Buffer> {
-    const tables = await this.repo.findByTenantId(tenantId, { activeOnly: true });
+    const { tables } = await this.repo.findByTenantId(tenantId, { activeOnly: true });
 
     if (tables.length === 0) {
       throw new BadRequestException('No active tables found');

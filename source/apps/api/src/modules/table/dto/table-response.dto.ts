@@ -36,6 +36,12 @@ export class TableResponseDto {
   qrCodeUrl?: string;
 
   @ApiPropertyOptional({ 
+    example: 'eyJhbGc...signature',
+    description: 'QR token to generate QR code URL' 
+  })
+  qrToken?: string;
+
+  @ApiPropertyOptional({ 
     example: '2024-01-15T10:30:00.000Z',
     description: 'QR code generation timestamp' 
   })

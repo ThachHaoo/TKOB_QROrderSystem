@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card } from '@/shared/components/ui/Card';
-import { KPICard } from '@/shared/components/ui/KPICard';
-import { Badge } from '@/shared/components/ui/Badge';
+import { Card, KPICard, Badge } from '@/shared/components/ui';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@packages/ui';
 import { ShoppingBag, DollarSign, TrendingUp, Grid } from 'lucide-react';
 import {
   LineChart,

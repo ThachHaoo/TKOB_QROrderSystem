@@ -22,7 +22,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/app/*": ["./src/app/*"],
-      "@packages/ui": ["../../packages/ui/src"],
+      "@packages/ui": ["../../packages/ui"],
+      "@packages/ui/*": ["../../packages/ui/*"],
       "@packages/dto": ["../../packages/dto/src"],
       "@packages/config": ["../../packages/config/src"]
     }

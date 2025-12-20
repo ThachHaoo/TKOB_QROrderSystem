@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 import { Shield, CheckCircle } from 'lucide-react';
-import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
-import { Card } from '@/shared/components/ui/Card';
+import { Button, Input, Card } from '@/shared/components/ui';
 
 interface StaffInvitationSignupProps {
   onNavigate: (path: string) => void;

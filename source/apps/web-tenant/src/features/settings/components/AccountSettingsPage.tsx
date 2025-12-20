@@ -2,9 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Card } from '@/shared/components/ui/Card';
-import { Input } from '@/shared/components/ui/Input';
-import { Button } from '@/shared/components/ui/Button';
+import { Card, Input, Button } from '@/shared/components/ui';
 import { Eye, EyeOff, Shield, Upload, User as UserIcon, Smartphone, Lock } from 'lucide-react';
 
 const avatarPalette = [
