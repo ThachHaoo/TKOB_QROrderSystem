@@ -12,7 +12,7 @@ import { QrService } from './qr.service';
 import { PdfService } from './pdf.service';
 import { CreateTableDto } from '../dto/create-table.dto';
 import { UpdateTableDto } from '../dto/update-table.dto';
-import { RegenerateQrResponseDto } from '../dto/table-response.dto';
+import { RegenerateQrResponseDto, BulkRegenerateQrResponseDto } from '../dto/table-response.dto';
 import archiver from 'archiver';
 
 @Injectable()
@@ -314,5 +314,53 @@ export class TableService {
    */
   async getDistinctLocations(tenantId: string): Promise<string[]> {
     return this.repo.getDistinctLocations(tenantId);
+  }
+
+  /**
+   * Bulk regenerate QR codes for all active tables
+   */
+  async bulkRegenerateAllQr(tenantId: string): Promise<BulkRegenerateQrResponseDto> {
+    // Get all active tables
+    const tables = await this.repo.findByTenantId(tenantId, { activeOnly: true });
+
+    if (tables.length === 0) {
+      throw new BadRequestException('No active tables found');
+    }
+
+    const affectedTables: string[] = [];
+    let successCount = 0;
+    let failureCount = 0;
+
+    // Regenerate QR for each table
+    for (const table of tables) {
+      try {
+        // Invalidate old QR (mark as invalidated)
+        if (table.qrToken) {
+          await this.repo.invalidateQrToken(table.id);
+        }
+
+        // Generate new QR token
+        const { token, tokenHash } = this.qrService.generateToken(table.id, tenantId);
+
+        // Update table with new token
+        await this.repo.updateQrToken(table.id, token, tokenHash);
+
+        affectedTables.push(table.tableNumber);
+        successCount++;
+      } catch (error) {
+        this.logger.error(`Failed to regenerate QR for table ${table.tableNumber}:`, error);
+        failureCount++;
+      }
+    }
+
+    this.logger.log(`Bulk QR regeneration completed: ${successCount} success, ${failureCount} failed`);
+
+    return {
+      totalProcessed: tables.length,
+      successCount,
+      failureCount,
+      affectedTables,
+      regeneratedAt: new Date(),
+    };
   }
 }

@@ -26,7 +26,7 @@ import type { Response } from 'express';
 import { TableService } from '../services/table.service';
 import { CreateTableDto } from '../dto/create-table.dto';
 import { UpdateTableDto } from '../dto/update-table.dto';
-import { TableResponseDto, RegenerateQrResponseDto } from '../dto/table-response.dto';
+import { TableResponseDto, RegenerateQrResponseDto, BulkRegenerateQrResponseDto } from '../dto/table-response.dto';
 import { TableListResponseDto } from '../dto/table-list-response.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
@@ -169,6 +169,21 @@ export class TableController {
     @Param('id') id: string,
   ): Promise<RegenerateQrResponseDto> {
     return this.service.regenerateQr(id, user.tenantId);
+  }
+
+  @Post('qr/regenerate-all')
+  @Roles(UserRole.OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Bulk regenerate QR codes for all tables',
+    description: 'Regenerates QR codes for all active tables. Old QR codes will be invalidated. Requires OWNER role.' 
+  })
+  @ApiResponse({ status: 200, type: BulkRegenerateQrResponseDto })
+  @ApiResponse({ status: 400, description: 'No active tables found' })
+  async bulkRegenerateAllQr(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<BulkRegenerateQrResponseDto> {
+    return this.service.bulkRegenerateAllQr(user.tenantId);
   }
 
   @Get(':id/qr/download')
