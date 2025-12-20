@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card } from '@/shared/components/ui/Card';
+import { Card } from '@/shared/components/ui';
 import { getAllMenuItems } from '@/features/menu-management/state/menuStore';
 import { Search, ChevronRight } from 'lucide-react';
 

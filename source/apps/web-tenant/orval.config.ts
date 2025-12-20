@@ -4,19 +4,19 @@ import { defineConfig } from 'orval';
 export default defineConfig({
   tenantApi: {
     input: {
-      target: '../../docs/common/openapi.yaml',
+      target: './openapi-spec.json',
     },
     output: {
       mode: 'tags-split',
-      target: 'src/services/api',
-      schemas: 'src/services/api/models',
+      target: 'src/services/generated',
+      schemas: 'src/services/generated/models',
       client: 'react-query',
       prettier: true,
       mock: false,
       override: {
         mutator: {
           path: 'src/services/axios.ts',
-          name: 'api',
+          name: 'customInstance',
         },
         reactQuery: {
           version: 5,

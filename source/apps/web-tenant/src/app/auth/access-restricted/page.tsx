@@ -1,7 +1,6 @@
 'use client';
 
-import { Card } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui/Button';
+import { Card, Button } from '@/shared/components/ui';
 import { ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 

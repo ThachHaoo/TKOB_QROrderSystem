@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
-import { Toast } from '@/shared/components/ui/Toast';
+import { Card, Badge, Toast } from '@/shared/components/ui';
 import { 
   Bell,
   BellOff,

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
-import { Card } from '@/shared/components/ui/Card';
+import { Button, Input, Card } from '@/shared/components/ui';
 import { QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { ROUTES } from '@/lib/routes';

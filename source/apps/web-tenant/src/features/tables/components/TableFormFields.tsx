@@ -7,7 +7,7 @@ interface FormData {
   capacity: string;
   zone: string;
   tableNumber: string;
-  status: 'free' | 'occupied' | 'reserved' | 'inactive';
+  status: 'available' | 'occupied' | 'reserved' | 'inactive';
   description: string;
 }
 
@@ -15,24 +15,28 @@ interface TableFormFieldsProps {
   formData: FormData;
   setFormData: (data: FormData) => void;
   autoFocus?: boolean;
+  disableTableName?: boolean;
 }
 
-export function TableFormFields({ formData, setFormData, autoFocus = true }: TableFormFieldsProps) {
+export function TableFormFields({ formData, setFormData, autoFocus = true, disableTableName = false }: TableFormFieldsProps) {
   return (
     <>
       <div className="flex flex-col gap-2">
         <label className="text-gray-900" style={{ fontSize: '14px', fontWeight: 600 }}>
-          Table Name (optional)
+          Table Name (auto-generated from Table Number)
         </label>
         <input
           type="text"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="e.g., Table 13, VIP Table, Window Seat 1"
-          className="px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
+          disabled={true}
+          placeholder="Auto-generated from Table Number"
+          className="px-4 py-3 border border-gray-300 bg-gray-50 text-gray-500 placeholder-gray-400 cursor-not-allowed focus:outline-none transition-all"
           style={{ fontSize: '15px', borderRadius: '4px', height: '48px' }}
           autoFocus={autoFocus}
         />
+        <p className="text-gray-500" style={{ fontSize: '12px' }}>
+          This field is automatically set based on the Table Number you enter below.
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -48,6 +52,7 @@ export function TableFormFields({ formData, setFormData, autoFocus = true }: Tab
           max="100"
           className="px-4 py-3 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all"
           style={{ fontSize: '15px', borderRadius: '4px', height: '48px' }}
+          autoFocus={autoFocus && !disableTableName}
         />
       </div>
 
@@ -94,11 +99,11 @@ export function TableFormFields({ formData, setFormData, autoFocus = true }: Tab
         <div className="relative">
           <select
             value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'free' | 'occupied' | 'reserved' | 'inactive' })}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value as 'available' | 'occupied' | 'reserved' | 'inactive' })}
             className="w-full px-4 py-3 pr-10 border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20 transition-all appearance-none"
             style={{ fontSize: '15px', borderRadius: '4px', height: '48px' }}
           >
-            <option value="free">Free</option>
+            <option value="available">Available</option>
             <option value="occupied">Occupied</option>
             <option value="reserved">Reserved</option>
             <option value="inactive">Inactive</option>

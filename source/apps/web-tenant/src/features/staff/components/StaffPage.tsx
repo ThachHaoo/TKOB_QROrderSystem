@@ -14,8 +14,7 @@ import {
   Utensils,
   Info,
 } from 'lucide-react';
-import { Card } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
+import { Card, Badge } from '@/shared/components/ui';
 
 type StaffRole = 'admin' | 'kitchen' | 'waiter';
 type StaffStatus = 'active' | 'pending';

@@ -1,23 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
-import { Toast } from '@/shared/components/ui/Toast';
-import { Modal } from '@/shared/components/ui/Modal';
+import React, { useState, useMemo, useRef } from 'react';
+import './TablesPage.css';
+import { useReactToPrint } from 'react-to-print';
+import QRCode from 'react-qr-code';
+import { saveAs } from 'file-saver';
+import { Card, Badge, Toast, Modal } from '@/shared/components/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@packages/ui';
+import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@packages/ui';
 import { TableFormFields } from './TableFormFields';
 import { Plus, X, QrCode, Users, Download, Printer, Edit, RefreshCcw } from 'lucide-react';
+import {
+  useTablesList,
+  useTableById,
+  useCreateTable,
+  useUpdateTable,
+  useDeleteTable,
+  useUpdateTableStatus,
+  useRegenerateQR,
+} from '@/features/tables/hooks/useTables';
 
 interface Table {
   id: string;
   name: string;
   capacity: number;
-  status: 'free' | 'occupied' | 'reserved' | 'inactive';
+  status: 'available' | 'occupied' | 'reserved' | 'inactive';
   zone: 'indoor' | 'outdoor' | 'patio' | 'vip';
   tableNumber: number;
   createdAt: Date;
   description?: string;
   hasActiveOrders?: boolean;
+  qrToken?: string;
 }
 
 export function TablesPage() {
@@ -32,12 +45,162 @@ export function TablesPage() {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  const [pendingStatusChange, setPendingStatusChange] = useState<'free' | 'occupied' | 'reserved' | 'inactive' | null>(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState<'available' | 'occupied' | 'reserved' | 'inactive' | null>(null);
+  
+  // Loading states
+  const [isDownloadingQR, setIsDownloadingQR] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [isFetchingTableDetails, setIsFetchingTableDetails] = useState(false);
+  const [isPrintingQR, setIsPrintingQR] = useState(false);
+  const [isBulkRegenOpen, setIsBulkRegenOpen] = useState(false);
+  const [isBulkRegenLoading, setIsBulkRegenLoading] = useState(false);
+  
+  // QR Code printing ref
+  const qrPrintRef = useRef<HTMLDivElement>(null);
+  
+  // QR Code printing with error handling
+  const handlePrintQR = useReactToPrint({
+    contentRef: qrPrintRef,
+    documentTitle: `QR-Code-${selectedTable?.name || 'Table'}`,
+    onBeforePrint: () => {
+      // Validate that content exists before printing
+      if (!qrPrintRef.current) {
+        throw new Error('QR code content not found. Please try again.');
+      }
+      const svg = qrPrintRef.current.querySelector('svg');
+      if (!svg) {
+        throw new Error('QR code SVG not found. Please try again.');
+      }
+    },
+    onPrintError: (error: any) => {
+      console.error('Print error details:', error);
+      setToastMessage('Print failed: ' + (error?.message || 'Unknown error. Please try again.'));
+      setToastType('error');
+      setShowSuccessToast(true);
+    },
+    pageStyle: `
+      @page {
+        margin: 0;
+        size: A4;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    `,
+  });
+
+  // QR Code download as image (optimized for quality & size balance)
+  const handleDownloadQRImage = async () => {
+    if (!selectedTable || !qrPrintRef.current) return;
+    
+    try {
+      setIsDownloadingQR(true);
+      // Find SVG in the QR code ref
+      const svg = qrPrintRef.current.querySelector('svg');
+      if (!svg) throw new Error('QR code SVG not found');
+      
+      // Get actual SVG dimensions
+      const viewBox = svg.getAttribute('viewBox');
+      const [, , vbWidth, vbHeight] = viewBox?.split(' ').map(Number) || [0, 0, 256, 256];
+      
+      // 6x scale for high-quality 300x300 output (256 * 6 = 1536px internally, compressed to ~300px visible)
+      const scale = 6;
+      const canvas = document.createElement('canvas');
+      canvas.width = vbWidth * scale;
+      canvas.height = vbHeight * scale;
+      
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) throw new Error('Failed to get canvas context');
+      
+      // Set background to white
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Create image from SVG
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        
+        // Convert to PNG with optimal compression
+        // PNG uses lossless compression, so quality is preserved
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              console.log(`📦 QR Code Image: ${(blob.size / 1024).toFixed(1)}KB`);
+              saveAs(blob, `table-${selectedTable.tableNumber}.png`);
+            }
+            setIsDownloadingQR(false);
+          },
+          'image/png'
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        throw new Error('Failed to load SVG image');
+      };
+      img.src = url;
+    } catch (error) {
+      console.error('Failed to download QR code:', error);
+      setIsDownloadingQR(false);
+    }
+  };
+
+  // Print wrapper with state management
+  const handlePrintQRWrapper = async () => {
+    if (!selectedTable || !qrPrintRef.current) {
+      setToastMessage('QR code not loaded. Please try again.');
+      setToastType('error');
+      setShowSuccessToast(true);
+      return;
+    }
+
+    try {
+      setIsPrintingQR(true);
+      // Wait a moment to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Trigger the print
+      await handlePrintQR();
+      
+      setToastMessage('Print dialog opened');
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      console.error('Print failed:', error);
+      setToastMessage('Print failed: ' + (error?.message || 'Please try again'));
+      setToastType('error');
+      setShowSuccessToast(true);
+    } finally {
+      setIsPrintingQR(false);
+    }
+  };
   
   // Filter and sort state
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedZone, setSelectedZone] = useState('All Locations');
   const [sortOption, setSortOption] = useState('Sort by: Table Number (Ascending)');
+  
+  // Clear all filters handler
+  const clearFilters = () => {
+    setSelectedStatus('All');
+    setSelectedZone('All Locations');
+    // Filters will auto-refetch via React Query when state changes
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -45,41 +208,107 @@ export function TablesPage() {
     capacity: '',
     zone: 'indoor',
     tableNumber: '',
-    status: 'free' as 'free' | 'occupied' | 'reserved' | 'inactive',
+    status: 'available' as 'available' | 'occupied' | 'reserved' | 'inactive',
     description: '',
   });
 
-  // Mock data
-  const initialTables: Table[] = [
-    { id: '1', name: 'Table 1', capacity: 4, status: 'free', zone: 'indoor', tableNumber: 1, createdAt: new Date('2023-10-01') },
-    { id: '2', name: 'Table 2', capacity: 2, status: 'occupied', zone: 'indoor', tableNumber: 2, createdAt: new Date('2023-10-02') },
-    { id: '3', name: 'Table 3', capacity: 6, status: 'free', zone: 'outdoor', tableNumber: 3, createdAt: new Date('2023-10-03') },
-    { id: '4', name: 'Table 4', capacity: 4, status: 'reserved', zone: 'outdoor', tableNumber: 4, createdAt: new Date('2023-10-04') },
-    { id: '5', name: 'Table 5', capacity: 4, status: 'free', zone: 'patio', tableNumber: 5, createdAt: new Date('2023-10-05') },
-    { id: '6', name: 'Table 6', capacity: 2, status: 'occupied', zone: 'patio', tableNumber: 6, createdAt: new Date('2023-10-06') },
-    { id: '7', name: 'Table 7', capacity: 2, status: 'free', zone: 'indoor', tableNumber: 7, createdAt: new Date('2023-10-07') },
-    { id: '8', name: 'Table 8', capacity: 4, status: 'free', zone: 'indoor', tableNumber: 8, createdAt: new Date('2023-10-08') },
-    { id: '9', name: 'Table 9', capacity: 8, status: 'free', zone: 'vip', tableNumber: 9, createdAt: new Date('2023-10-09') },
-    { id: '10', name: 'Table 10', capacity: 6, status: 'free', zone: 'vip', tableNumber: 10, createdAt: new Date('2023-10-10') },
-    { id: '11', name: 'Table 11', capacity: 4, status: 'free', zone: 'outdoor', tableNumber: 11, createdAt: new Date('2023-10-11') },
-    { id: '12', name: 'Table 12', capacity: 2, status: 'reserved', zone: 'patio', tableNumber: 12, createdAt: new Date('2023-10-12') },
-    { id: '13', name: 'Table 13', capacity: 4, status: 'inactive', zone: 'indoor', tableNumber: 13, createdAt: new Date('2023-10-13'), hasActiveOrders: true, description: 'Under maintenance' },
-  ];
+  // React Query hooks - Backend-Driven filtering & sorting
+  const statusFilter = selectedStatus !== 'All' 
+    ? selectedStatus.toUpperCase().replace(' ', '_') as 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE'
+    : undefined;
+  
+  const locationFilter = selectedZone !== 'All Locations' ? selectedZone : undefined;
+  
+  // Map frontend sortOption to backend sortBy/sortOrder - memoized to avoid unnecessary re-renders
+  const sortParams = useMemo(() => {
+    switch (sortOption) {
+      case 'Sort by: Table Number (Ascending)':
+        return { sortBy: 'tableNumber' as const, sortOrder: 'asc' as const };
+      case 'Sort by: Capacity (Ascending)':
+        return { sortBy: 'capacity' as const, sortOrder: 'asc' as const };
+      case 'Sort by: Capacity (Descending)':
+        return { sortBy: 'capacity' as const, sortOrder: 'desc' as const };
+      case 'Sort by: Creation Date (Newest)':
+        return { sortBy: 'createdAt' as const, sortOrder: 'desc' as const };
+      default:
+        return { sortBy: 'tableNumber' as const, sortOrder: 'asc' as const };
+    }
+  }, [sortOption]);
+  
+  // Call API with all backend-driven filtering and sorting params
+  const { data: apiResponse, isLoading, error } = useTablesList({
+    status: statusFilter,
+    location: locationFilter,
+    sortBy: sortParams.sortBy,
+    sortOrder: sortParams.sortOrder,
+  });
+  
+  // Extract data and metadata from response
+  const tablesData = apiResponse?.data;
+  const meta = apiResponse?.meta || { totalAll: 0, totalFiltered: 0 };
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('📊 [TablesPage] Backend-Driven Query:', {
+      statusFilter,
+      locationFilter,
+      sortBy: sortParams.sortBy,
+      sortOrder: sortParams.sortOrder,
+      isLoading,
+      hasError: !!error,
+      receivedTablesCount: tablesData?.length || 0,
+      tableLocations: tablesData?.map(t => ({ id: t.id, location: t.location })) || [],
+      errorDetails: error,
+      tablesDataType: typeof tablesData,
+      tablesDataIsArray: Array.isArray(tablesData),
+      dataCount: tablesData?.length || 0,
+      meta,
+    });
+    if (error) {
+      console.error('❌ [TablesPage] API Error:', error);
+    }
+    if (tablesData) {
+      console.log('✅ [TablesPage] Backend returned filtered & sorted data:', tablesData);
+    }
+  }, [tablesData, isLoading, error, statusFilter, locationFilter, sortParams, meta]);
+  
+  const createTableMutation = useCreateTable();
+  const updateTableMutation = useUpdateTable();
+  const deleteTableMutation = useDeleteTable();
+  const updateStatusMutation = useUpdateTableStatus();
+  const regenerateQRMutation = useRegenerateQR();
 
-  const [tables, setTables] = useState<Table[]>(initialTables);
-
-  // Modal handlers
-  const handleOpenAddModal = () => {
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
-    setShowAddModal(true);
+  // Standardized error handler
+  const handleApiError = (error: any, defaultMessage: string) => {
+    const errorMessage = error?.response?.data?.error?.message || error?.message || defaultMessage;
+    console.error('❌ API Error:', error);
+    setToastMessage(errorMessage);
+    setToastType('error');
+    setShowSuccessToast(true);
   };
 
-  const handleCloseAddModal = () => {
-    setShowAddModal(false);
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
-  };
+  // Map API response to component's Table interface
+  // Backend returns already filtered & sorted data - no additional processing needed
+  const tables = useMemo(() => {
+    if (!tablesData) return [];
+    return tablesData.map(t => ({
+      id: t.id || 'unknown',
+      name: t.tableNumber || 'Unnamed',
+      capacity: t.capacity || 0,
+      status: (t.status === 'AVAILABLE' ? 'available' 
+        : t.status === 'OCCUPIED' ? 'occupied' 
+        : t.status === 'RESERVED' ? 'reserved' 
+        : 'inactive') as 'available' | 'occupied' | 'reserved' | 'inactive',
+      zone: ((t.location || 'indoor').toLowerCase()) as 'indoor' | 'outdoor' | 'patio' | 'vip',
+      tableNumber: parseInt((t.tableNumber || '0').replace(/\D/g, '')) || 0,
+      createdAt: t.createdAt ? new Date(t.createdAt) : new Date(),
+      description: t.description || '',
+      hasActiveOrders: t.status === 'OCCUPIED',
+      qrToken: t.qrToken, // Map qrToken from API response
+    }));
+  }, [tablesData]);
 
-  const handleAddTable = () => {
+  const handleAddTable = async () => {
     // Validate required fields
     if (!formData.tableNumber || !formData.capacity) {
       setToastMessage('Please fill in all required fields');
@@ -100,24 +329,32 @@ export function TablesPage() {
       return;
     }
 
-    const tableName = formData.name.trim() || `Table ${formData.tableNumber}`;
-
-    const newTable: Table = {
-      id: `new-${Date.now()}`,
-      name: tableName,
-      capacity: parseInt(formData.capacity),
-      status: formData.status,
-      zone: formData.zone as 'indoor' | 'outdoor' | 'patio' | 'vip',
-      tableNumber: parseInt(formData.tableNumber),
-      createdAt: new Date(),
-      description: formData.description.trim() || undefined,
-    };
-
-    setTables([...tables, newTable]);
-    setToastMessage(`Table "${tableName}" added successfully`);
-    setToastType('success');
-    setShowSuccessToast(true);
-    handleCloseAddModal();
+    // Use mutation to create table
+    try {
+      const payload = {
+        tableNumber: `Table ${formData.tableNumber}`,
+        capacity: parseInt(formData.capacity),
+        location: formData.zone.toLowerCase(), // Send lowercase - backend will normalize
+        description: formData.description,
+        displayOrder: parseInt(formData.tableNumber),
+      };
+      
+      console.log('🆕 Creating Table - Request:', payload);
+      
+      const result = await createTableMutation.mutateAsync(payload);
+      
+      console.log('✅ Table Created - Response:', result);
+      
+      setToastMessage('Table created successfully');
+      setToastType('success');
+      setShowSuccessToast(true);
+      handleCloseAddModal();
+    } catch (error: any) {
+      console.error('❌ Create Table Error:', error);
+      setToastMessage(error?.message || 'Failed to create table');
+      setToastType('error');
+      setShowSuccessToast(true);
+    }
   };
 
   const handleOpenQRModal = (table: Table) => {
@@ -130,27 +367,82 @@ export function TablesPage() {
     setSelectedTable(null);
   };
 
-  const handleOpenEditModal = () => {
-    if (selectedTable) {
+  const handleOpenAddModal = () => {
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'available', description: '' });
+    setShowAddModal(true);
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'available', description: '' });
+  };
+
+  const handleOpenEditModal = async () => {
+    if (!selectedTable) return;
+    
+    setIsFetchingTableDetails(true);
+    try {
+      console.log('🔍 [GET /tables/:id] Request:', { id: selectedTable.id });
+      
+      // Fetch fresh data from server
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tables/${selectedTable.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error(`Failed to fetch table: ${response.statusText}`);
+      
+      const result = await response.json();
+      const freshTable = result.data;
+      
+      console.log('✅ [GET /tables/:id] Response:', freshTable);
+      
+      // Map fresh data to component format
+      const mappedTable = {
+        id: freshTable.id,
+        name: freshTable.tableNumber,
+        capacity: freshTable.capacity,
+        status: (freshTable.status === 'AVAILABLE' ? 'available' 
+          : freshTable.status === 'OCCUPIED' ? 'occupied'
+          : freshTable.status === 'RESERVED' ? 'reserved'
+          : 'inactive') as 'available' | 'occupied' | 'reserved' | 'inactive',
+        zone: freshTable.location?.toLowerCase() || 'indoor',
+        tableNumber: parseInt(freshTable.tableNumber?.replace('Table ', '') || '0'),
+        description: freshTable.description || '',
+      };
+      
+      // Update selectedTable with fresh data
+      setSelectedTable(mappedTable);
+      
+      // Set form data
       setFormData({
-        name: selectedTable.name,
-        capacity: selectedTable.capacity.toString(),
-        zone: selectedTable.zone,
-        tableNumber: selectedTable.tableNumber.toString(),
-        status: selectedTable.status,
-        description: selectedTable.description || '',
+        name: mappedTable.name,
+        capacity: mappedTable.capacity.toString(),
+        zone: mappedTable.zone,
+        tableNumber: mappedTable.tableNumber.toString(),
+        status: mappedTable.status,
+        description: mappedTable.description || '',
       });
+      
       setShowEditModal(true);
       setShowQRModal(false);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to fetch table details');
+    } finally {
+      setIsFetchingTableDetails(false);
     }
   };
 
   const handleCloseEditModal = () => {
     setShowEditModal(false);
-    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'free', description: '' });
+    setFormData({ name: '', capacity: '', zone: 'indoor', tableNumber: '', status: 'available', description: '' });
   };
 
-  const handleEditTable = () => {
+  const handleEditTable = async () => {
     if (!selectedTable) return;
 
     // Validate required fields
@@ -192,39 +484,76 @@ export function TablesPage() {
       return;
     }
 
-    performTableUpdate();
+    await performTableUpdate();
   };
 
-  const performTableUpdate = () => {
+  const performTableUpdate = async () => {
     if (!selectedTable) return;
 
-    const updatedTables = tables.map(table => {
-      if (table.id === selectedTable.id) {
-        return {
-          ...table,
-          name: formData.name.trim() || `Table ${formData.tableNumber}`,
-          capacity: parseInt(formData.capacity),
-          zone: formData.zone as 'indoor' | 'outdoor' | 'patio' | 'vip',
-          tableNumber: parseInt(formData.tableNumber),
-          status: formData.status,
-          description: formData.description.trim() || undefined,
-        };
-      }
-      return table;
-    });
+    try {
+      // Map status to API format
+      const apiStatus = formData.status === 'available' ? 'AVAILABLE'
+        : formData.status === 'occupied' ? 'OCCUPIED'
+        : formData.status === 'reserved' ? 'RESERVED'
+        : 'INACTIVE';
 
-    setTables(updatedTables);
-    setToastMessage('Table updated successfully');
-    setToastType('success');
-    setShowSuccessToast(true);
-    handleCloseEditModal();
-    setSelectedTable(null);
+      const payload = {
+        id: selectedTable.id,
+        data: {
+          tableNumber: `Table ${formData.tableNumber}`,
+          capacity: parseInt(formData.capacity),
+          location: formData.zone.toLowerCase(), // Send lowercase - backend will normalize
+          description: formData.description.trim() || undefined,
+          displayOrder: parseInt(formData.tableNumber),
+          status: apiStatus,
+        },
+      };
+
+      console.log('📝 [PUT /tables/:id] Request:', payload);
+      const result = await updateTableMutation.mutateAsync(payload);
+      console.log('✅ [PUT /tables/:id] Response:', result);
+
+      setToastMessage('Table updated successfully');
+      setToastType('success');
+      setShowSuccessToast(true);
+      handleCloseEditModal();
+      setSelectedTable(null);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to update table');
+    }
   };
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = async () => {
+    if (!selectedTable || !pendingStatusChange) return;
+    
     setShowDeactivateConfirm(false);
+    const statusToSet = pendingStatusChange.toUpperCase() as 'INACTIVE' | 'AVAILABLE' | 'OCCUPIED' | 'RESERVED';
     setPendingStatusChange(null);
-    performTableUpdate();
+    
+    try {
+      console.log('🔄 [PATCH /tables/:id/status] Request:', { 
+        id: selectedTable.id, 
+        status: statusToSet 
+      });
+      
+      await updateStatusMutation.mutateAsync({
+        id: selectedTable.id,
+        status: statusToSet,
+      });
+      
+      console.log('✅ [PATCH /tables/:id/status] Success');
+      setToastMessage(`Table ${statusToSet === 'INACTIVE' ? 'deactivated' : 'reactivated'} successfully`);
+      setToastType('success');
+      setShowSuccessToast(true);
+      handleCloseEditModal();
+      setSelectedTable(null);
+    } catch (error: any) {
+      handleApiError(error, `Failed to ${statusToSet === 'INACTIVE' ? 'deactivate' : 'reactivate'} table`);
+      // Revert form status on error
+      if (selectedTable) {
+        setFormData({ ...formData, status: selectedTable.status });
+      }
+    }
   };
 
   const handleCancelStatusChange = () => {
@@ -235,48 +564,218 @@ export function TablesPage() {
     }
   };
 
-  const handleDownloadAll = () => {
-    setToastMessage(`Downloading ${tables.length} QR codes...`);
-    setToastType('success');
-    setShowSuccessToast(true);
-  };
-
-  const handleRegenerateQR = () => {
-    if (selectedTable) {
-      setToastMessage(`QR code regenerated for ${selectedTable.name}`);
+  const handleDownloadAll = async () => {
+    setIsDownloadingAll(true);
+    try {
+      console.log('📥 [GET /tables/qr/download-all] Request:', { count: tables.length });
+      
+      // Call API endpoint for ZIP download
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tables/qr/download-all`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all-qr-codes-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`✅ [GET /tables/qr/download-all] Downloaded ${tables.length} QR codes`);
+      
+      setToastMessage(`Downloaded ${tables.length} QR codes`);
       setToastType('success');
       setShowSuccessToast(true);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to download QR codes');
+    } finally {
+      setIsDownloadingAll(false);
     }
   };
 
-  const handleActivateTable = () => {
+  const handleRegenerateQR = async () => {
     if (!selectedTable) return;
-    const updatedTables = tables.map(table => {
-      if (table.id === selectedTable.id) {
-        return { ...table, status: 'free' as const };
-      }
-      return table;
-    });
-    setTables(updatedTables);
-    setSelectedTable({ ...selectedTable, status: 'free' });
-    setToastMessage(`${selectedTable.name} activated successfully`);
-    setToastType('success');
-    setShowSuccessToast(true);
+    
+    try {
+      console.log('🔄 [POST /tables/:id/qr/generate] Request:', { id: selectedTable.id });
+      const result = await regenerateQRMutation.mutateAsync(selectedTable.id);
+      console.log('✅ [POST /tables/:id/qr/generate] Response:', result);
+      
+      // Update qrToken from response to display new QR code
+      setSelectedTable(prev => prev ? {
+        ...prev,
+        qrToken: result.qrToken, // Update with new token
+      } : null);
+      console.log('✅ QR Token regenerated:', result.qrToken);
+      
+      setToastMessage(`QR code regenerated for ${selectedTable.name}`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to regenerate QR code');
+    }
   };
 
-  const handleDeactivateTable = () => {
-    if (!selectedTable) return;
-    const updatedTables = tables.map(table => {
-      if (table.id === selectedTable.id) {
-        return { ...table, status: 'inactive' as const };
+  const handleBulkRegenerateQR = async () => {
+    setIsBulkRegenLoading(true);
+    try {
+      console.log('🔄 [PATCH /api/v1/admin/tables/bulk/status] Request to regenerate all QR codes');
+      
+      // Get all table IDs
+      const tableIds = tables.map(t => t.id);
+      
+      const response = await fetch('/api/v1/admin/tables/bulk/status', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tableIds,
+          action: 'regenerate-qr',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw error;
       }
-      return table;
-    });
-    setTables(updatedTables);
+
+      const result = await response.json();
+      const updatedCount = result.updated || result.regenerated || 0;
+      console.log(`✅ [PATCH /api/v1/admin/tables/bulk/status] Regenerated ${updatedCount} QR codes`);
+      
+      setToastMessage(`Bulk QR regeneration completed for ${updatedCount} table(s)`);
+      setToastType('success');
+      setShowSuccessToast(true);
+      setIsBulkRegenOpen(false);
+      
+      // Refresh tables list to get updated QR tokens
+      await refetch();
+    } catch (error: any) {
+      console.error('❌ Bulk regenerate error:', error);
+      handleApiError(error, 'Failed to regenerate all QR codes');
+    } finally {
+      setIsBulkRegenLoading(false);
+    }
+  };
+
+  const handleActivateTable = async () => {
+    if (!selectedTable) return;
+    
+    // Optimistic update
+    const previousStatus = selectedTable.status;
+    setSelectedTable({ ...selectedTable, status: 'available' });
+    
+    try {
+      const payload = { id: selectedTable.id, status: 'AVAILABLE' as const };
+      console.log('🔄 [PATCH /tables/:id/status] Activate Request:', payload);
+      
+      const result = await updateStatusMutation.mutateAsync(payload);
+      console.log('✅ [PATCH /tables/:id/status] Activate Response:', result);
+      
+      setToastMessage(`${selectedTable.name} activated successfully`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      // Rollback optimistic update on error
+      setSelectedTable({ ...selectedTable, status: previousStatus });
+      handleApiError(error, 'Failed to activate table');
+    }
+  };
+
+  const handleDeactivateTable = async () => {
+    if (!selectedTable) return;
+
+    // Show confirmation dialog (allow deactivation for all statuses)
+    setPendingStatusChange('inactive');
+    setShowDeactivateConfirm(true);
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (!selectedTable) return;
+    
+    setShowDeactivateConfirm(false);
+    
+    // Optimistic update
+    const previousStatus = selectedTable.status;
     setSelectedTable({ ...selectedTable, status: 'inactive' });
-    setToastMessage(`${selectedTable.name} deactivated successfully`);
-    setToastType('success');
-    setShowSuccessToast(true);
+    
+    try {
+      const payload = { id: selectedTable.id, status: 'INACTIVE' as const };
+      console.log('🔄 [handleConfirmDeactivate] Full payload:', JSON.stringify(payload, null, 2));
+      console.log('🔄 [handleConfirmDeactivate] Payload id:', payload.id);
+      console.log('🔄 [handleConfirmDeactivate] Payload status:', payload.status);
+      console.log('🔄 [handleConfirmDeactivate] Selected table:', selectedTable);
+      
+      const result = await updateStatusMutation.mutateAsync(payload);
+      console.log('✅ [handleConfirmDeactivate] Success response:', result);
+      
+      setToastMessage(`${selectedTable.name} deactivated successfully`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      // Rollback optimistic update on error
+      console.error('❌ [handleConfirmDeactivate] Error caught:', error);
+      console.error('❌ [handleConfirmDeactivate] Error response:', error.response);
+      console.error('❌ [handleConfirmDeactivate] Error data:', error.response?.data);
+      console.error('❌ [handleConfirmDeactivate] Error status:', error.response?.status);
+      setSelectedTable({ ...selectedTable, status: previousStatus });
+      handleApiError(error, 'Failed to deactivate table');
+    }
+    
+    setPendingStatusChange(null);
+  };
+
+  const handleDownloadQR = async (format: 'png' | 'pdf') => {
+    if (!selectedTable) return;
+    
+    setIsDownloadingQR(true);
+    try {
+      console.log(`📥 [GET /tables/:id/qr/download] Request:`, { id: selectedTable.id, format });
+      
+      // Call API endpoint
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/admin/tables/${selectedTable.id}/qr/download?format=${format}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        }
+      );
+      
+      if (!response.ok) throw new Error(`Download failed: ${response.statusText}`);
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedTable.name}-QR.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`✅ [GET /tables/:id/qr/download] Downloaded: ${format}`);
+      
+      setToastMessage(`QR code downloaded as ${format.toUpperCase()}`);
+      setToastType('success');
+      setShowSuccessToast(true);
+    } catch (error: any) {
+      handleApiError(error, 'Failed to download QR code');
+    } finally {
+      setIsDownloadingQR(false);
+    }
   };
 
   const handleDownloadPNG = () => {
@@ -295,19 +794,11 @@ export function TablesPage() {
     }
   };
 
-  const handlePrintQR = () => {
-    if (selectedTable) {
-      setToastMessage(`Printing QR code for ${selectedTable.name}...`);
-      setToastType('success');
-      setShowSuccessToast(true);
-    }
-  };
-
   // Helper functions
   const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'free':
-        return { variant: 'success' as const, label: 'Free', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' };
+      case 'available':
+        return { variant: 'success' as const, label: 'Available', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' };
       case 'occupied':
         return { variant: 'warning' as const, label: 'Occupied', color: 'bg-amber-100 text-amber-700 border-amber-300' };
       case 'reserved':
@@ -334,39 +825,8 @@ export function TablesPage() {
     }
   };
 
-  const filterAndSortTables = (tables: Table[]) => {
-    let filteredTables = tables;
-
-    // Filter by status
-    if (selectedStatus !== 'All') {
-      filteredTables = filteredTables.filter(table => table.status === selectedStatus);
-    }
-
-    // Filter by zone
-    if (selectedZone !== 'All Locations') {
-      filteredTables = filteredTables.filter(table => table.zone === selectedZone);
-    }
-
-    // Sort by option
-    switch (sortOption) {
-      case 'Sort by: Table Number (Ascending)':
-        filteredTables = filteredTables.sort((a, b) => a.tableNumber - b.tableNumber);
-        break;
-      case 'Sort by: Capacity (Ascending)':
-        filteredTables = filteredTables.sort((a, b) => a.capacity - b.capacity);
-        break;
-      case 'Sort by: Capacity (Descending)':
-        filteredTables = filteredTables.sort((a, b) => b.capacity - a.capacity);
-        break;
-      case 'Sort by: Creation Date (Newest)':
-        filteredTables = filteredTables.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
-      default:
-        break;
-    }
-
-    return filteredTables;
-  };
+  // Backend-Driven: No need for client-side filtering/sorting
+  // Backend returns already filtered & sorted data based on params
 
   return (
     <>
@@ -383,24 +843,61 @@ export function TablesPage() {
             </div>
             <div className="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
               {tables.length > 0 && (
-                <button
-                  onClick={handleDownloadAll}
-                  className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-emerald-500 text-gray-700 hover:text-emerald-700 transition-all flex-1 md:flex-none"
-                  style={{ 
-                    fontSize: 'clamp(13px, 4vw, 15px)', 
-                    fontWeight: 600, 
-                    height: '48px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                  }}
-                >
-                  <Download className="w-4 sm:w-5 h-4 sm:h-5" />
-                  <span className="hidden sm:inline">Download All QR Codes</span>
-                  <span className="sm:hidden">Download</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => setIsBulkRegenOpen(true)}
+                    disabled={isBulkRegenLoading}
+                    className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-blue-500 text-gray-700 hover:text-blue-700 transition-all flex-1 md:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      fontSize: 'clamp(13px, 4vw, 15px)', 
+                      fontWeight: 600, 
+                      height: '48px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    {isBulkRegenLoading ? (
+                      <>
+                        <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5" />
+                        <span className="hidden sm:inline">Regenerate All QR Codes</span>
+                        <span className="sm:hidden">Regenerate</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDownloadAll}
+                    disabled={isDownloadingAll}
+                    className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 hover:border-emerald-500 text-gray-700 hover:text-emerald-700 transition-all flex-1 md:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      fontSize: 'clamp(13px, 4vw, 15px)', 
+                      fontWeight: 600, 
+                      height: '48px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    {isDownloadingAll ? (
+                      <>
+                        <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 sm:w-5 h-4 sm:h-5" />
+                        <span className="hidden sm:inline">Download All QR Codes</span>
+                        <span className="sm:hidden">Download</span>
+                      </>
+                    )}
+                  </button>
+                </>
               )}
               <button
                 onClick={handleOpenAddModal}
-                className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all flex-1 md:flex-none"
+                disabled={createTableMutation.isPending}
+                className="flex items-center justify-center md:justify-start gap-2 px-4 sm:px-5 py-3 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all flex-1 md:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
                   fontSize: 'clamp(13px, 4vw, 15px)', 
                   fontWeight: 600, 
@@ -408,8 +905,17 @@ export function TablesPage() {
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
-                Add Table
+                {createTableMutation.isPending ? (
+                  <>
+                    <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
+                    Add Table
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -421,9 +927,9 @@ export function TablesPage() {
               <p className="text-gray-900" style={{ fontSize: 'clamp(20px, 6vw, 28px)', fontWeight: 700 }}>{tables.length}</p>
             </Card>
             <Card className="p-4 sm:p-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              <p className="text-gray-500 mb-1" style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 500 }}>Free</p>
+              <p className="text-gray-500 mb-1" style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 500 }}>Available</p>
               <p className="text-emerald-600" style={{ fontSize: 'clamp(20px, 6vw, 28px)', fontWeight: 700 }}>
-                {tables.filter(t => t.status === 'free').length}
+                {tables.filter(t => t.status === 'available').length}
               </p>
             </Card>
             <Card className="p-4 sm:p-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -450,7 +956,7 @@ export function TablesPage() {
                 style={{ fontSize: 'clamp(13px, 4vw, 15px)', borderRadius: '4px', height: '48px' }}
               >
                 <option value="All">All Statuses</option>
-                <option value="free">Free</option>
+                <option value="available">Available</option>
                 <option value="occupied">Occupied</option>
                 <option value="reserved">Reserved</option>
                 <option value="inactive">Inactive</option>
@@ -488,7 +994,40 @@ export function TablesPage() {
           </div>
 
           {/* Tables Grid */}
-          {filterAndSortTables(tables).length === 0 ? (
+          {isLoading ? (
+            <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-md flex items-center justify-center mb-4 animate-pulse">
+                  <QrCode className="w-8 sm:w-10 h-8 sm:h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-600" style={{ fontSize: 'clamp(13px, 4vw, 15px)' }}>
+                  Loading tables...
+                </p>
+              </div>
+            </Card>
+          ) : error ? (
+            <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-red-100 rounded-md flex items-center justify-center mb-4">
+                  <X className="w-8 sm:w-10 h-8 sm:h-10 text-red-400" />
+                </div>
+                <h4 className="text-gray-900 mb-2" style={{ fontSize: 'clamp(16px, 5vw, 18px)', fontWeight: 600 }}>
+                  Failed to load tables
+                </h4>
+                <p className="text-gray-600 mb-6" style={{ fontSize: 'clamp(13px, 4vw, 15px)' }}>
+                  {error?.message || 'An error occurred while loading tables'}
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                  style={{ fontSize: 'clamp(13px, 4vw, 15px)', fontWeight: 600, borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                >
+                  <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
+                  Retry
+                </button>
+              </div>
+            </Card>
+          ) : meta.totalAll === 0 ? (
             <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <div className="flex flex-col items-center justify-center">
                 <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gray-100 rounded-md flex items-center justify-center mb-4">
@@ -502,17 +1041,51 @@ export function TablesPage() {
                 </p>
                 <button
                   onClick={handleOpenAddModal}
-                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                  disabled={createTableMutation.isPending}
+                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ fontSize: 'clamp(13px, 4vw, 15px)', fontWeight: 600, borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                 >
-                  <Plus className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
-                  Add Table
+                  {createTableMutation.isPending ? (
+                    <>
+                      <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
+                      Add Table
+                    </>
+                  )}
                 </button>
+              </div>
+            </Card>
+          ) : meta.totalFiltered === 0 ? (
+            <Card className="p-8 sm:p-12 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-amber-100 rounded-md flex items-center justify-center mb-4">
+                  <QrCode className="w-8 sm:w-10 h-8 sm:h-10 text-amber-500" />
+                </div>
+                <h4 className="text-gray-900 mb-2" style={{ fontSize: 'clamp(16px, 5vw, 18px)', fontWeight: 600 }}>
+                  No tables match your filters
+                </h4>
+                <p className="text-gray-600 mb-6" style={{ fontSize: 'clamp(13px, 4vw, 15px)' }}>
+                  Try changing or clearing filters to see your tables.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={clearFilters}
+                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                    style={{ fontSize: 'clamp(13px, 4vw, 15px)', fontWeight: 600, borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                  >
+                    <RefreshCcw className="w-4 sm:w-5 h-4 sm:h-5 inline-block mr-2" />
+                    Clear filters
+                  </button>
+                </div>
               </div>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {filterAndSortTables(tables).map((table) => {
+              {tables.map((table) => {
                 const statusConfig = getStatusConfig(table.status);
                 
                 return (
@@ -589,14 +1162,21 @@ export function TablesPage() {
                   handleDeactivateTable();
                 }
               }}
-              className={`flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 border text-gray-700 transition-colors whitespace-nowrap ${
+              disabled={updateStatusMutation.isPending}
+              className={`flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 border text-gray-700 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
                 selectedTable.status === 'inactive'
                   ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-700 hover:text-emerald-800'
                   : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700 hover:text-amber-800'
               }`}
               style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
             >
-              {selectedTable.status === 'inactive' ? (
+              {updateStatusMutation.isPending ? (
+                <>
+                  <RefreshCcw className="w-4 h-4 shrink-0 animate-spin" />
+                  <span className="hidden md:inline">Processing...</span>
+                  <span className="md:hidden">...</span>
+                </>
+              ) : selectedTable.status === 'inactive' ? (
                 <>
                   <span className="hidden md:inline">Activate</span>
                   <span className="md:hidden">Activate</span>
@@ -625,13 +1205,13 @@ export function TablesPage() {
                 e.stopPropagation();
                 handleRegenerateQR();
               }}
-              disabled={selectedTable.status === 'inactive'}
+              disabled={selectedTable.status === 'inactive' || regenerateQRMutation.isPending}
               className="flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white whitespace-nowrap"
               style={{ fontSize: 'clamp(12px, 3vw, 14px)', fontWeight: 600, borderRadius: '4px' }}
             >
-              <RefreshCcw className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">Regenerate QR</span>
-              <span className="md:hidden">Regen</span>
+              <RefreshCcw className={`w-4 h-4 shrink-0 ${regenerateQRMutation.isPending ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">{regenerateQRMutation.isPending ? 'Regenerating...' : 'Regenerate QR'}</span>
+              <span className="md:hidden">{regenerateQRMutation.isPending ? 'Regen...' : 'Regen'}</span>
             </button>
             <button
               onClick={handleCloseQRModal}
@@ -666,23 +1246,24 @@ export function TablesPage() {
           {/* QR Code Preview */}
           <div className="flex flex-col items-center gap-4">
             <div 
-              className={`w-64 h-64 bg-white border-4 rounded-lg flex items-center justify-center relative ${
+              className={`w-72 h-72 bg-white border-4 rounded-lg flex items-center justify-center relative ${
                 selectedTable.status === 'inactive' ? 'border-gray-300 opacity-60' : 'border-gray-200'
               }`}
               style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
             >
-              {/* QR Code Placeholder */}
-              <div className="w-56 h-56 rounded-lg p-4" style={{ background: 'linear-gradient(to right bottom, #111827, #1f2937, #111827)' }}>
-                <div className="w-full h-full bg-white rounded grid grid-cols-8 grid-rows-8 gap-0.5 p-2">
-                  {Array.from({ length: 64 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`${
-                        Math.random() > 0.5 ? 'bg-gray-900' : 'bg-white'
-                      } rounded-sm`}
-                    />
-                  ))}
-                </div>
+              {/* Real QR Code Component */}
+              <div 
+                ref={qrPrintRef}
+                data-qr-print
+                className="flex items-center justify-center p-4 bg-white rounded"
+              >
+                <QRCode 
+                  value={selectedTable.qrToken ? `http://localhost:3000/menu?token=${selectedTable.qrToken}` : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/qr/${selectedTable.id}`}
+                  size={256}
+                  level="H"
+                  bgColor="#FFFFFF"
+                  fgColor="#000000"
+                />
               </div>
               
               {/* Inactive Overlay */}
@@ -751,34 +1332,50 @@ export function TablesPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleDownloadPNG}
-              disabled={selectedTable.status === 'inactive'}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
-              style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-            >
-              <Download className="w-5 h-5" />
-              Download PNG
-            </button>
-            <button
-              onClick={handleDownloadPDF}
-              disabled={selectedTable.status === 'inactive'}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
-              style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-            >
-              <Download className="w-5 h-5" />
-              Download PDF
-            </button>
-            <button
-              onClick={handlePrintQR}
-              disabled={selectedTable.status === 'inactive'}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 text-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-              style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px' }}
-            >
-              <Printer className="w-5 h-5" />
-              Print
-            </button>
+          <div className="flex flex-col gap-3">
+            {/* Backend Download Options */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDownloadQR('png')}
+                disabled={selectedTable.status === 'inactive' || isDownloadingQR}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+              >
+                <Download className="w-5 h-5" />
+                {isDownloadingQR ? 'Downloading...' : 'Download PNG'}
+              </button>
+              <button
+                onClick={() => handleDownloadQR('pdf')}
+                disabled={selectedTable.status === 'inactive' || isDownloadingQR}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+              >
+                <Download className="w-5 h-5" />
+                {isDownloadingQR ? 'Downloading...' : 'Download PDF'}
+              </button>
+            </div>
+            
+            {/* Local QR Code Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleDownloadQRImage}
+                disabled={selectedTable.status === 'inactive' || isDownloadingQR}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+              >
+                <Download className="w-5 h-5" />
+                {isDownloadingQR ? 'Downloading...' : 'Save Image'}
+              </button>
+              <button
+                onClick={handlePrintQRWrapper}
+                disabled={selectedTable.status === 'inactive' || isPrintingQR}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border-2 border-gray-300 text-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px' }}
+              >
+                <Printer className="w-5 h-5" />
+                {isPrintingQR ? 'Loading...' : 'Print'}
+              </button>
+            </div>
           </div>
 
           {/* Info Text */}
@@ -808,18 +1405,26 @@ export function TablesPage() {
           <>
             <button
               onClick={handleCloseAddModal}
-              className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              disabled={createTableMutation.isPending}
+              className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
             >
               Cancel
             </button>
             <button
               onClick={handleAddTable}
-              disabled={!formData.capacity || !formData.tableNumber}
-              className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              disabled={!formData.capacity || !formData.tableNumber || createTableMutation.isPending}
+              className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
             >
-              Add Table
+              {createTableMutation.isPending ? (
+                <>
+                  <RefreshCcw className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Add Table'
+              )}
             </button>
           </>
         }
@@ -838,18 +1443,26 @@ export function TablesPage() {
             <>
               <button
                 onClick={handleCloseEditModal}
-                className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                disabled={updateTableMutation.isPending}
+                className="flex-1 px-4 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleEditTable}
-                disabled={!formData.capacity || !formData.tableNumber}
-                className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                disabled={!formData.capacity || !formData.tableNumber || updateTableMutation.isPending}
+                className="flex-1 px-4 bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
               >
-                Save Changes
+                {updateTableMutation.isPending ? (
+                  <>
+                    <RefreshCcw className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </button>
             </>
           }
@@ -906,19 +1519,77 @@ export function TablesPage() {
                 <li>Preserve all order history</li>
               </ul>
               
-              {selectedTable.hasActiveOrders && (
+              {selectedTable.status === 'occupied' || selectedTable.status === 'reserved' ? (
+                <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl">
+                  <p className="text-red-900" style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: 600 }}>
+                    <strong>⚠️ Critical Warning:</strong> This table currently has active orders ({selectedTable.status === 'occupied' ? 'Occupied' : 'Reserved'}). 
+                  </p>
+                  <p className="text-red-800 mt-2" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                    Deactivating will prevent new orders but <strong>will not cancel existing orders</strong>. Customers may continue to receive orders on this table.
+                  </p>
+                </div>
+              ) : (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <p className="text-amber-900" style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: 500 }}>
-                    <strong>Warning:</strong> This table currently has active orders. Deactivating it will prevent new orders but will not affect existing ones.
+                    <strong>Note:</strong> This table is available and has no active orders.
                   </p>
                 </div>
               )}
             </>
           ) : (
             <p className="text-gray-700" style={{ fontSize: '15px', lineHeight: '1.6' }}>
-              This will restore the table to <strong>Free</strong> status and allow customers to place new orders.
+              This will restore the table to <strong>Available</strong> status and allow customers to place new orders.
             </p>
           )}
+        </Modal>
+      )}
+
+      {isBulkRegenOpen && (
+        <Modal
+          isOpen={isBulkRegenOpen}
+          title="Regenerate all QR codes?"
+          onClose={() => setIsBulkRegenOpen(false)}
+          size="md"
+          footer={
+            <>
+              <button
+                onClick={() => setIsBulkRegenOpen(false)}
+                className="flex-1 px-4 text-gray-700 transition-colors border border-gray-300 hover:bg-gray-50"
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkRegenerateQR}
+                disabled={isBulkRegenLoading}
+                className={`flex-1 px-4 text-white transition-colors flex items-center justify-center gap-2 ${
+                  isBulkRegenLoading ? 'bg-red-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
+                }`}
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '4px', height: '48px' }}
+              >
+                {isBulkRegenLoading && <RefreshCcw className="w-4 h-4 animate-spin" />}
+                <span>{isBulkRegenLoading ? 'Regenerating...' : 'Regenerate'}</span>
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-gray-900" style={{ fontSize: '15px', fontWeight: 500, lineHeight: '1.5' }}>
+              This will regenerate QR codes for all <strong>{tables.length} tables</strong>.
+            </p>
+
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-red-900" style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: 500 }}>
+                <strong>⚠️ Warning:</strong> All existing QR codes will stop working immediately. Customers using old QR codes will not be able to access the menu.
+              </p>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-amber-900" style={{ fontSize: '14px', lineHeight: '1.6', fontWeight: 500 }}>
+                <strong>Note:</strong> This action cannot be undone. Make sure all staff are notified before proceeding.
+              </p>
+            </div>
+          </div>
         </Modal>
       )}
 
