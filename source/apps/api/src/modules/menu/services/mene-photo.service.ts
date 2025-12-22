@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
 import { MenuItemPhotoResponseDto } from '../dto/menu-photo.dto';
+import { log } from 'console';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -169,6 +170,75 @@ export class MenuPhotoService {
       throw new BadRequestException(
         `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`,
       );
+    }
+  }
+
+  async getPhotos(menuItemId: string): Promise<MenuItemPhotoResponseDto[]> {
+    const photos = await this.prisma.menuItemPhoto.findMany({
+      where: { menuItemId: menuItemId },
+      orderBy: [
+        {
+          isPrimary: 'desc',
+        },
+        {
+          displayOrder: 'asc',
+        },
+      ],
+    });
+
+    return photos.map((photo) => this.toResponseDto(photo));
+  }
+
+  async updatePhotoOrder(menuItemId: string, photoId: string, displayOrder: number): Promise<void> {
+    await this.prisma.menuItemPhoto.update({
+      where: {
+        menuItemId,
+        id: photoId,
+      },
+      data: { displayOrder },
+    });
+  }
+
+  async deletePhoto(menuItemId: string, photoId: string): Promise<void> {
+    const photo = await this.prisma.menuItemPhoto.findFirst({
+      where: { id: photoId, menuItemId },
+    });
+
+    if (!photo) {
+      throw new NotFoundException('Photo Not Found');
+    }
+
+    try {
+      const filePath = path.join(process.cwd(), photo.url);
+      await fs.unlink(filePath);
+    } catch (error) {
+      this.logger.error(`Failed to delete file: ${error}`);
+    }
+
+    // Delete from database
+    await this.prisma.menuItemPhoto.delete({
+      where: { id: photoId },
+    });
+
+    // If this was primary, set another photo as primary
+    if (photo.isPrimary) {
+      const nextPhoto = await this.prisma.menuItemPhoto.findFirst({
+        where: { menuItemId },
+        orderBy: { displayOrder: 'asc' },
+      });
+
+      if (nextPhoto) {
+        await this.setPrimaryPhoto(menuItemId, nextPhoto.id);
+        await this.prisma.menuItem.update({
+          where: { id: menuItemId },
+          data: { imageUrl: nextPhoto.url },
+        });
+      } else {
+        await this.prisma.menuItem.update({
+          where: { id: menuItemId },
+          data: { imageUrl: null },
+        });
+      }
     }
   }
 }

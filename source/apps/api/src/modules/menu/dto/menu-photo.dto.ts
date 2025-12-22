@@ -7,11 +7,21 @@ import {
   IsBoolean,
   IsDate,
   IsOptional,
+  IsInt,
+  Min,
 } from 'class-validator';
 
 export class UploadPhotoDto {
   @ApiProperty({ type: 'string', format: 'binary' })
   file: any;
+}
+
+export class UpdatePhotoDto {
+  @ApiPropertyOptional()
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  displayOrder?: number;
 }
 
 export class MenuItemPhotoResponseDto {
