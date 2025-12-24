@@ -816,14 +816,25 @@ export function MenuManagementPage() {
         className="flex flex-col bg-gray-50 h-full overflow-hidden"
       >
         {/* Page Header */}
-        <div className="shrink-0 px-6 pt-3 pb-2 border-b border-gray-200 bg-white">
+        <div className="px-6 pt-3 pb-2 border-b border-gray-200 bg-white">
           <div className="flex items-start justify-between">
             <div className="flex flex-col gap-1">
-              <h2 className="text-3xl font-bold text-gray-900">Menu Management</h2>
-              <p className="text-sm text-gray-600">Manage your menu items, categories, and pricing</p>
+              <h2 className="text-gray-900" style={{ fontSize: '26px', fontWeight: 700, lineHeight: '1.2', letterSpacing: '-0.02em' }}>
+                Menu Management
+              </h2>
+              <p className="text-gray-600" style={{ fontSize: '14px' }}>
+                Manage your menu items, categories, and pricing
+              </p>
             </div>
             
-            <MenuTabs />
+            <MenuTabs 
+              activeTab="menu-items"
+              onTabChange={(tab) => {
+                if (tab === 'modifier-groups') {
+                  // Navigate to modifier groups page
+                }
+              }}
+            />
           </div>
         </div>
 
@@ -832,7 +843,7 @@ export function MenuManagementPage() {
           {/* LEFT PANEL - Categories - Full Height */}
           <div className="w-44 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
             <div className="p-3 border-b border-gray-200">
-              <h3 className="text-base font-bold text-gray-900 mb-3">Categories</h3>
+              <h3 className="text-gray-900 mb-3" style={{ fontSize: '24px', fontWeight: 700 }}>Categories</h3>
               <button
                 onClick={() => setIsAddCategoryModalOpen(true)}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 text-gray-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all rounded-xl text-sm font-semibold"
