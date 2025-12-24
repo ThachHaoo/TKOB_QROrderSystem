@@ -1,15 +1,26 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, Badge, Toast } from '@/shared/components/ui';
 import { MenuTabs } from '@/features/menu-management/components/MenuTabs';
 import { Search, Plus, Edit, Trash2, Filter, XCircle, X, AlertTriangle } from 'lucide-react';
+
+// Import generated API hooks
+import {
+  useModifierGroupControllerFindAll,
+  useModifierGroupControllerCreate,
+  useModifierGroupControllerUpdate,
+  useModifierGroupControllerDelete,
+  getModifierGroupControllerFindAllQueryKey,
+} from '@/services/generated/menu-modifiers/menu-modifiers';
+
 
 interface ModifierGroup {
   id: string;
   name: string;
   description?: string;
-  options: { id: string; name: string; price: number }[];
+  options: { id: string; name: string; priceDelta: number }[];  // priceDelta not price
   linkedItems: number;
   type: 'single' | 'multiple';
   required: boolean;
@@ -17,8 +28,17 @@ interface ModifierGroup {
 }
 
 export function MenuModifiersPage() {
-  // Filter state
+  // React Query
+  const queryClient = useQueryClient();
+
+  // Filter state - Applied filters (used for actual filtering)
   const [selectedType, setSelectedType] = useState<'all' | 'single' | 'multiple'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'archived'>('all');
+  
+  // Temporary filter state (used in dropdown before Apply)
+  const [tempSelectedType, setTempSelectedType] = useState<'all' | 'single' | 'multiple'>('all');
+  const [tempSelectedStatus, setTempSelectedStatus] = useState<'all' | 'archived'>('all');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   
@@ -33,76 +53,84 @@ export function MenuModifiersPage() {
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formType, setFormType] = useState<'single' | 'multiple'>('single');
-  const [formActive, setFormActive] = useState(true);
+  const [formRequired, setFormRequired] = useState(false);
+  const [formMinChoices, setFormMinChoices] = useState(1);
+  const [formMaxChoices, setFormMaxChoices] = useState(1);
+  
+  // Options management
+  const [formOptions, setFormOptions] = useState<{ name: string; priceDelta: number; displayOrder: number }[]>([]);
+  const [optionName, setOptionName] = useState('');
+  const [optionPrice, setOptionPrice] = useState('0');
   
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Mock data
-  const [groups, setGroups] = useState<ModifierGroup[]>([
-    {
-      id: '1',
-      name: 'Size Options',
-      description: 'Choose your preferred size',
-      options: [
-        { id: 'o1', name: 'Small', price: 0 },
-        { id: 'o2', name: 'Medium', price: 2 },
-        { id: 'o3', name: 'Large', price: 4 },
-      ],
-      linkedItems: 8,
-      type: 'single',
-      required: true,
-      active: true,
-    },
-    {
-      id: '2',
-      name: 'Pizza Toppings',
-      description: 'Select additional toppings',
-      options: [
-        { id: 'o4', name: 'Pepperoni', price: 1.5 },
-        { id: 'o5', name: 'Mushrooms', price: 1 },
-        { id: 'o6', name: 'Olives', price: 1 },
-        { id: 'o7', name: 'Extra Cheese', price: 2 },
-      ],
-      linkedItems: 3,
-      type: 'multiple',
-      required: false,
-      active: true,
-    },
-    {
-      id: '3',
-      name: 'Sauce Choice',
-      description: 'Pick your sauce',
-      options: [
-        { id: 'o8', name: 'Tomato', price: 0 },
-        { id: 'o9', name: 'BBQ', price: 0.5 },
-        { id: 'o10', name: 'Ranch', price: 0.5 },
-      ],
-      linkedItems: 12,
-      type: 'single',
-      required: true,
-      active: true,
-    },
-    {
-      id: '4',
-      name: 'Protein Options',
-      description: 'Add protein to your meal',
-      options: [
-        { id: 'o11', name: 'Chicken', price: 3 },
-        { id: 'o12', name: 'Beef', price: 3.5 },
-        { id: 'o13', name: 'Tofu', price: 2.5 },
-      ],
-      linkedItems: 5,
-      type: 'multiple',
-      required: false,
-      active: true,
-    },
-  ]);
+  // Fetch Modifier Groups from API
+  const { data: groupsResponse, isLoading: groupsLoading } = useModifierGroupControllerFindAll({ activeOnly: false });
+  // axios.ts already unwraps {success, data} → groupsResponse is the array directly
+  const groups = groupsResponse || [];
 
-  // Filter logic
+  // Modifier Group Mutations
+  const createGroupMutation = useModifierGroupControllerCreate({
+    mutation: {
+      onSuccess: async () => {
+        // Force immediate refetch to show changes instantly
+        await queryClient.refetchQueries({ queryKey: getModifierGroupControllerFindAllQueryKey({ activeOnly: false }) });
+        setShowCreateModal(false);
+        setToast({ message: 'Modifier group created successfully', type: 'success' });
+        resetForm();
+      },
+      onError: () => {
+        setToast({ message: 'Failed to create modifier group', type: 'error' });
+      },
+    },
+  });
+
+  const updateGroupMutation = useModifierGroupControllerUpdate({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.refetchQueries({ queryKey: getModifierGroupControllerFindAllQueryKey({ activeOnly: false }) });
+        setShowEditModal(false);
+        setEditingGroup(null);
+        setToast({ message: 'Modifier group updated successfully', type: 'success' });
+        resetForm();
+      },
+      onError: () => {
+        setToast({ message: 'Failed to update modifier group', type: 'error' });
+      },
+    },
+  });
+
+  const deleteGroupMutation = useModifierGroupControllerDelete({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.refetchQueries({ queryKey: getModifierGroupControllerFindAllQueryKey({ activeOnly: false }) });
+        setShowDeleteDialog(false);
+        setDeletingGroup(null);
+        setToast({ message: 'Modifier group archived successfully', type: 'success' });
+      },
+      onError: (error: any) => {
+        const message = error.response?.data?.message || 'Failed to archive modifier group';
+        setToast({ message, type: 'error' });
+      },
+    },
+  });
+
+  // Filter logic - Both type AND status filters
   const visibleGroups = groups.filter((group) => {
+    // Status filter: active vs archived
+    if (selectedStatus === 'archived') {
+      if (group.active) return false; // Hide active when viewing archived
+    } else { // 'all' - show only active
+      if (!group.active) return false; // Hide archived when viewing active
+    }
+    
+    // Type filter: single vs multiple
     const matchesType = selectedType === 'all' || group.type === selectedType;
+    
+    // Search filter
     const matchesSearch = group.name.toLowerCase().includes(searchQuery.toLowerCase());
+    
     return matchesType && matchesSearch;
   });
 
@@ -111,7 +139,35 @@ export function MenuModifiersPage() {
     setFormName('');
     setFormDescription('');
     setFormType('single');
-    setFormActive(true);
+    setFormRequired(false);
+    setFormMinChoices(1);
+    setFormMaxChoices(1);
+    setFormOptions([]);
+    setOptionName('');
+    setOptionPrice('0');
+  };
+
+  // Add option
+  const handleAddOption = () => {
+    if (!optionName.trim()) {
+      setToast({ message: 'Option name is required', type: 'error' });
+      return;
+    }
+    
+    const newOption = {
+      name: optionName,
+      priceDelta: parseFloat(optionPrice) || 0,
+      displayOrder: formOptions.length + 1,
+    };
+    
+    setFormOptions([...formOptions, newOption]);
+    setOptionName('');
+    setOptionPrice('0');
+  };
+
+  // Remove option
+  const handleRemoveOption = (index: number) => {
+    setFormOptions(formOptions.filter((_, i) => i !== index));
   };
 
   // New group
@@ -127,21 +183,47 @@ export function MenuModifiersPage() {
       return;
     }
 
-    const newGroup: ModifierGroup = {
-      id: `${groups.length + 1}`,
-      name: formName,
-      description: formDescription,
-      options: [],
-      linkedItems: 0,
-      type: formType,
-      required: false,
-      active: formActive,
-    };
+    if (formOptions.length === 0) {
+      setToast({ message: 'At least one option is required', type: 'error' });
+      return;
+    }
 
-    setGroups([...groups, newGroup]);
-    setShowCreateModal(false);
-    setToast({ message: 'Modifier group created successfully', type: 'success' });
-    resetForm();
+    // Validate min/max choices for multi-choice
+    if (formType === 'multiple') {
+      if (formMinChoices > formOptions.length) {
+        setToast({ 
+          message: `Minimum choices (${formMinChoices}) cannot exceed number of options (${formOptions.length})`, 
+          type: 'error' 
+        });
+        return;
+      }
+      if (formMaxChoices > formOptions.length) {
+        setToast({ 
+          message: `Maximum choices (${formMaxChoices}) cannot exceed number of options (${formOptions.length})`, 
+          type: 'error' 
+        });
+        return;
+      }
+      if (formMinChoices > formMaxChoices) {
+        setToast({ 
+          message: 'Minimum choices cannot be greater than maximum choices', 
+          type: 'error' 
+        });
+        return;
+      }
+    }
+
+    createGroupMutation.mutate({
+      data: {
+        name: formName,
+        description: formDescription || undefined,
+        type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
+        required: formRequired,
+        minChoices: formMinChoices,
+        maxChoices: formMaxChoices,
+        options: formOptions,
+      },
+    });
   };
 
   // Edit group
@@ -150,7 +232,22 @@ export function MenuModifiersPage() {
     setFormName(group.name);
     setFormDescription(group.description || '');
     setFormType(group.type);
-    setFormActive(group.active);
+    setFormRequired(group.required);
+    setFormOptions(group.options.map((opt, idx) => ({
+      name: opt.name,
+      priceDelta: opt.priceDelta,  // Use priceDelta not price
+      displayOrder: idx + 1,
+    })));
+    
+    // Set min/max based on type
+    if (group.type === 'single') {
+      setFormMinChoices(1);
+      setFormMaxChoices(1);
+    } else {
+      setFormMinChoices(0);
+      setFormMaxChoices(group.options.length);
+    }
+    
     setShowEditModal(true);
   };
 
@@ -161,16 +258,48 @@ export function MenuModifiersPage() {
       return;
     }
 
-    setGroups(groups.map(g =>
-      g.id === editingGroup.id
-        ? { ...g, name: formName, description: formDescription, type: formType, active: formActive }
-        : g
-    ));
+    if (formOptions.length === 0) {
+      setToast({ message: 'At least one option is required', type: 'error' });
+      return;
+    }
 
-    setShowEditModal(false);
-    setEditingGroup(null);
-    setToast({ message: 'Modifier group updated successfully', type: 'success' });
-    resetForm();
+    // Validate min/max choices for multi-choice
+    if (formType === 'multiple') {
+      if (formMinChoices > formOptions.length) {
+        setToast({ 
+          message: `Minimum choices (${formMinChoices}) cannot exceed number of options (${formOptions.length})`, 
+          type: 'error' 
+        });
+        return;
+      }
+      if (formMaxChoices > formOptions.length) {
+        setToast({ 
+          message: `Maximum choices (${formMaxChoices}) cannot exceed number of options (${formOptions.length})`, 
+          type: 'error' 
+        });
+        return;
+      }
+      if (formMinChoices > formMaxChoices) {
+        setToast({ 
+          message: 'Minimum choices cannot be greater than maximum choices', 
+          type: 'error' 
+        });
+        return;
+      }
+    }
+
+    updateGroupMutation.mutate({
+      id: editingGroup.id,
+      data: {
+        name: formName,
+        description: formDescription || undefined,
+        type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
+        required: formRequired,
+        minChoices: formMinChoices,
+        maxChoices: formMaxChoices,
+        options: formOptions,
+      },
+    });
   };
 
   // Delete group
@@ -183,15 +312,38 @@ export function MenuModifiersPage() {
   const confirmDeleteGroup = () => {
     if (!deletingGroup) return;
 
-    setGroups(groups.filter(g => g.id !== deletingGroup.id));
-    setShowDeleteDialog(false);
-    setDeletingGroup(null);
-    setToast({ message: 'Modifier group deleted successfully', type: 'success' });
+    deleteGroupMutation.mutate({
+      id: deletingGroup.id,
+    });
   };
 
   // Filter counts
   const getSingleCount = () => groups.filter(g => g.type === 'single').length;
   const getMultiCount = () => groups.filter(g => g.type === 'multiple').length;
+
+  // Apply filters
+  const handleApplyFilters = () => {
+    setSelectedType(tempSelectedType);
+    setSelectedStatus(tempSelectedStatus);
+    setShowFilterDropdown(false);
+  };
+
+  // Reset filters
+  const handleResetFilters = () => {
+    setTempSelectedType('all');
+    setTempSelectedStatus('all');
+    setSelectedType('all');
+    setSelectedStatus('all');
+    setShowFilterDropdown(false);
+  };
+
+  // useEffect to sync temp states when dropdown opens
+  React.useEffect(() => {
+    if (showFilterDropdown) {
+      setTempSelectedType(selectedType);
+      setTempSelectedStatus(selectedStatus);
+    }
+  }, [showFilterDropdown, selectedType, selectedStatus]);
 
   return (
     <>
@@ -268,62 +420,93 @@ export function MenuModifiersPage() {
                         </button>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="type-filter"
-                              checked={selectedType === 'all'}
-                              onChange={() => setSelectedType('all')}
-                              className="w-4 h-4 text-emerald-600"
-                            />
-                            <span className="text-sm text-gray-700">All Types</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{groups.length}</span>
-                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="type-filter"
+                                checked={tempSelectedType === 'all'}
+                                onChange={() => setTempSelectedType('all')}
+                                className="w-4 h-4 text-emerald-600"
+                              />
+                              <span className="text-sm text-gray-700">All Types</span>
+                            </div>
+                            <span className="text-xs text-gray-500">{groups.length}</span>
+                          </label>
 
-                        <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="type-filter"
-                              checked={selectedType === 'single'}
-                              onChange={() => setSelectedType('single')}
-                              className="w-4 h-4 text-emerald-600"
-                            />
-                            <span className="text-sm text-gray-700">Single Choice</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{getSingleCount()}</span>
-                        </label>
+                          <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="type-filter"
+                                checked={tempSelectedType === 'single'}
+                                onChange={() => setTempSelectedType('single')}
+                                className="w-4 h-4 text-emerald-600"
+                              />
+                              <span className="text-sm text-gray-700">Single Choice</span>
+                            </div>
+                            <span className="text-xs text-gray-500">{getSingleCount()}</span>
+                          </label>
 
-                        <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="type-filter"
-                              checked={selectedType === 'multiple'}
-                              onChange={() => setSelectedType('multiple')}
-                              className="w-4 h-4 text-emerald-600"
-                            />
-                            <span className="text-sm text-gray-700">Multiple Choice</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{getMultiCount()}</span>
-                        </label>
+                          <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="type-filter"
+                                checked={tempSelectedType === 'multiple'}
+                                onChange={() => setTempSelectedType('multiple')}
+                                className="w-4 h-4 text-emerald-600"
+                              />
+                              <span className="text-sm text-gray-700">Multiple Choice</span>
+                            </div>
+                            <span className="text-xs text-gray-500">{getMultiCount()}</span>
+                          </label>
+                        </div>
+
+                      {/* Status Filter Section */}
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Filter by Status</h4>
+                        <div className="space-y-2">
+                          <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="status-filter"
+                                checked={tempSelectedStatus === 'all'}
+                                onChange={() => setTempSelectedStatus('all')}
+                                className="w-4 h-4 text-emerald-600"
+                              />
+                              <span className="text-sm text-gray-700">Active Groups</span>
+                            </div>
+                            <span className="text-xs text-gray-500">{groups.filter(g => g.active).length}</span>
+                          </label>
+
+                          <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="status-filter"
+                                checked={tempSelectedStatus === 'archived'}
+                                onChange={() => setTempSelectedStatus('archived')}
+                                className="w-4 h-4 text-emerald-600"
+                              />
+                              <span className="text-sm text-gray-700">Archived Groups</span>
+                            </div>
+                            <span className="text-xs text-gray-500">{groups.filter(g => !g.active).length}</span>
+                          </label>
+                        </div>
                       </div>
 
                       <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
                         <button
-                          onClick={() => {
-                            setSelectedType('all');
-                            setShowFilterDropdown(false);
-                          }}
+                          onClick={handleResetFilters}
                           className="flex-1 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                          Cancel
+                          Reset
                         </button>
                         <button
-                          onClick={() => setShowFilterDropdown(false)}
+                          onClick={handleApplyFilters}
                           className="flex-1 px-3 py-2 text-sm text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
                         >
                           Apply
@@ -402,7 +585,9 @@ export function MenuModifiersPage() {
                       {group.options.slice(0, 3).map((option) => (
                         <div key={option.id} className="flex items-center justify-between text-gray-600" style={{ fontSize: '12px' }}>
                           <span>{option.name}</span>
-                          <span className="text-emerald-600" style={{ fontWeight: 600 }}>+${option.price.toFixed(2)}</span>
+                          <span className="text-emerald-600" style={{ fontWeight: 600 }}>
+                            {option.priceDelta >= 0 ? '+' : ''}{option.priceDelta.toLocaleString()} VND
+                          </span>
                         </div>
                       ))}
                       {group.options.length > 3 && (
@@ -539,19 +724,123 @@ export function MenuModifiersPage() {
                 </div>
               </div>
 
-              <div>
+              {/* Required & Min/Max Choices */}
+              <div className="space-y-4">
                 <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formActive}
-                    onChange={(e) => setFormActive(e.target.checked)}
+                    checked={formRequired}
+                    onChange={(e) => setFormRequired(e.target.checked)}
                     className="w-4 h-4 text-emerald-600 rounded"
                   />
                   <div>
-                    <div className="text-sm font-medium text-gray-900">Active</div>
-                    <div className="text-xs text-gray-500">This group is available for use</div>
+                    <div className="text-sm font-medium text-gray-900">Required</div>
+                    <div className="text-xs text-gray-500">Customer must select from this group</div>
                   </div>
                 </label>
+
+                {formType === 'multiple' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Min Choices
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formMinChoices}
+                        onChange={(e) => setFormMinChoices(parseInt(e.target.value) || 0)}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Max Choices
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formMaxChoices}
+                        onChange={(e) => setFormMaxChoices(parseInt(e.target.value) || 1)}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Options Management */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Options <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    (e.g., Small, Medium, Large)
+                  </span>
+                </label>
+
+                {/* Add Option Form */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={optionName}
+                    onChange={(e) => setOptionName(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddOption();
+                      }
+                    }}
+                    placeholder="Option name"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <input
+                    type="number"
+                    value={optionPrice}
+                    onChange={(e) => setOptionPrice(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddOption();
+                      }
+                    }}
+                    placeholder="Price (VND)"
+                    className="w-32 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddOption}
+                    className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {/* Options List */}
+                {formOptions.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    {formOptions.map((option, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">{option.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.priceDelta >= 0 ? '+' : ''}{option.priceDelta.toLocaleString()} VND
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOption(idx)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-gray-200 border-dashed rounded-lg">
+                    <p className="text-sm text-gray-500">No options added yet</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -657,20 +946,123 @@ export function MenuModifiersPage() {
                   </label>
                 </div>
               </div>
-
-              <div>
+              {/* Required & Min/Max Choices */}
+              <div className="space-y-4">
                 <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formActive}
-                    onChange={(e) => setFormActive(e.target.checked)}
+                    checked={formRequired}
+                    onChange={(e) => setFormRequired(e.target.checked)}
                     className="w-4 h-4 text-emerald-600 rounded"
                   />
                   <div>
-                    <div className="text-sm font-medium text-gray-900">Active</div>
-                    <div className="text-xs text-gray-500">This group is available for use</div>
+                    <div className="text-sm font-medium text-gray-900">Required</div>
+                    <div className="text-xs text-gray-500">Customer must select from this group</div>
                   </div>
                 </label>
+
+                {formType === 'multiple' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Min Choices
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formMinChoices}
+                        onChange={(e) => setFormMinChoices(parseInt(e.target.value) || 0)}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Max Choices
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formMaxChoices}
+                        onChange={(e) => setFormMaxChoices(parseInt(e.target.value) || 1)}
+                        className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Options Management */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Options <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 font-normal ml-2">
+                    (e.g., Small, Medium, Large)
+                  </span>
+                </label>
+
+                {/* Add Option Form */}
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={optionName}
+                    onChange={(e) => setOptionName(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddOption();
+                      }
+                    }}
+                    placeholder="Option name"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <input
+                    type="number"
+                    value={optionPrice}
+                    onChange={(e) => setOptionPrice(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddOption();
+                      }
+                    }}
+                    placeholder="Price (VND)"
+                    className="w-32 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddOption}
+                    className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {/* Options List */}
+                {formOptions.length > 0 ? (
+                  <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    {formOptions.map((option, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">{option.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {option.priceDelta >= 0 ? '+' : ''}{option.priceDelta.toLocaleString()} VND
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveOption(idx)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-gray-200 border-dashed rounded-lg">
+                    <p className="text-sm text-gray-500">No options added yet</p>
+                  </div>
+                )}
               </div>
             </div>
 
