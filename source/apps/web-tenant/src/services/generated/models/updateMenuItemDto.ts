@@ -10,11 +10,13 @@ export interface UpdateMenuItemDto {
   allergens?: string[];
   available?: boolean;
   categoryId?: string;
+  chefRecommended?: boolean;
   description?: string;
   displayOrder?: number;
   imageUrl?: string;
   modifierGroupIds?: string[];
   name?: string;
+  preparationTime?: number;
   price?: number;
   tags?: string[];
 }

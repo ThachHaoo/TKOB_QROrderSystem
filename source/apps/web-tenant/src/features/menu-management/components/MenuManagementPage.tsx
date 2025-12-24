@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card, Badge, Toast } from '@/shared/components/ui';
-import { MenuTabs } from './MenuTabs';
+ import { MenuTabs } from './MenuTabs';
 import { 
   Plus, 
   Edit, 
@@ -18,21 +18,155 @@ import {
   Star
 } from 'lucide-react';
 
+// React Query
+import { useQueryClient } from '@tanstack/react-query';
+
+// API Hooks - Categories
+import {
+  useMenuCategoryControllerFindAll,
+  useMenuCategoryControllerCreate,
+  useMenuCategoryControllerDelete,
+} from '@/services/generated/menu-categories/menu-categories';
+
+// API Hooks - Menu Items
+import {
+  useMenuItemsControllerFindAll,
+  useMenuItemsControllerCreate,
+  useMenuItemsControllerUpdate,
+  useMenuItemsControllerDelete,
+} from '@/services/generated/menu-items/menu-items';
+
+// API Hooks - Modifier Groups
+import {
+  useModifierGroupControllerFindAll,
+} from '@/services/generated/menu-modifiers/menu-modifiers';
+
+// API Hooks - Photos
+import {
+  useMenuPhotoControllerUploadPhoto,
+} from '@/services/generated/menu-photos/menu-photos';
+
 // Full featured Menu Management matching Admin-screens-v3 design
 export function MenuManagementPage() {
+  // React Query
+  const queryClient = useQueryClient();
+
+  // UI State
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [sortOption, setSortOption] = useState('Sort by: Newest');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
-  const [newCategories, setNewCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
-  const [deletedItemIds, setDeletedItemIds] = useState<string[]>([]);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  
+  // Archive filter state - Applied filters
+  const [selectedArchiveStatus, setSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
+  // Temporary archive filter (used in dropdown before Apply)
+  const [tempSelectedArchiveStatus, setTempSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
+
+  // Fetch Categories from API
+  const { data: categoriesResponse, isLoading: _categoriesLoading } = useMenuCategoryControllerFindAll();
+  // axios.ts already unwraps {success, data} → categoriesResponse is the array directly
+  const categories = categoriesResponse || [];
+
+  // Fetch Menu Items from API
+  const { data: itemsResponse, isLoading: _itemsLoading } = useMenuItemsControllerFindAll();
+  // Backend returns paginated response: { data: MenuItemResponseDto[], meta: {...} }
+  // Axios unwraps outer { success, data } → menuItemsResponse = { data: [], meta: {} }
+  const menuItems = Array.isArray(itemsResponse) 
+    ? itemsResponse 
+    : (itemsResponse as any)?.data || [];
+
+  // Fetch Modifier Groups for selection
+  const { data: modifierGroupsResponse } = useModifierGroupControllerFindAll({ activeOnly: false });
+  const modifierGroups = modifierGroupsResponse || [];
+
+  // Category Mutations
+  const createCategoryMutation = useMenuCategoryControllerCreate({
+    mutation: {
+      onSuccess: (response) => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/categories'] });
+        setNewCategoryName('');
+        setNewCategoryDescription('');
+        setIsAddCategoryModalOpen(false);
+        // response is already the category object, no need for .data
+        setToastMessage(`Category "${response.name}" created successfully`);
+        setShowSuccessToast(true);
+      },
+    }
+  });
+
+  const _deleteCategoryMutation = useMenuCategoryControllerDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/categories'] });
+      },
+      onError: (error) => {
+        console.error('Error deleting category:', error);
+        setToastMessage('Có lỗi khi xóa danh mục');
+        setShowSuccessToast(true);
+      }
+    }
+  });
+
+  // Menu Item Mutations
+  const createItemMutation = useMenuItemsControllerCreate({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/item'] });
+        setToastMessage('Menu item created successfully');
+        setShowSuccessToast(true);
+      },
+      onError: (error) => {
+        console.error('Error creating item:', error);
+        setToastMessage('Failed to create menu item');
+        setShowSuccessToast(true);
+      }
+    }
+  });
+
+  const updateItemMutation = useMenuItemsControllerUpdate({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/item'] });
+      },
+      onError: (error) => {
+        console.error('Error updating item:', error);
+        setToastMessage('Có lỗi khi cập nhật món ăn');
+        setShowSuccessToast(true);
+      }
+    }
+  });
+
+  const deleteItemMutation = useMenuItemsControllerDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/item'] });
+      },
+      onError: (error) => {
+        console.error('Error deleting item:', error);
+        setToastMessage('Có lỗi khi xóa món ăn');
+        setShowSuccessToast(true);
+      }
+    }
+  });
+
+  // Photo Upload Mutation
+  const uploadPhotoMutation = useMenuPhotoControllerUploadPhoto({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/item'] });
+      },
+      onError: (error) => {
+        console.error('Error uploading photo:', error);
+      }
+    }
+  });
   
   // Add/Edit Item Modal State
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -40,106 +174,103 @@ export function MenuManagementPage() {
   const [currentEditItemId, setCurrentEditItemId] = useState<string | null>(null);
   const [itemFormData, setItemFormData] = useState({
     name: '',
-    category: 'starters',
+    category: selectedCategory,
     description: '',
     price: '',
     status: 'available' as 'available' | 'unavailable' | 'sold_out',
     image: null as File | null,
     dietary: [] as string[],
     chefRecommended: false,
+    modifierGroupIds: [] as string[], // Add modifier groups selection
   });
 
-  const baseCategories = [
-    { id: 'starters', name: 'Starters' },
-    { id: 'mains', name: 'Main Courses' },
-    { id: 'desserts', name: 'Desserts' },
-    { id: 'drinks', name: 'Drinks' },
-  ];
-
-  const categories = [...baseCategories, ...newCategories];
-
-  const initialMenuItems = [
-    { id: '1', name: 'Caesar Salad', price: '$12.50', status: 'available', description: 'Fresh romaine with parmesan', category: 'starters', dietary: ['vegetarian'], chefRecommended: true },
-    { id: '2', name: 'Bruschetta', price: '$9.00', status: 'available', description: 'Toasted bread with tomatoes', category: 'starters', dietary: ['vegan'], chefRecommended: false },
-    { id: '3', name: 'Spring Rolls', price: '$8.50', status: 'unavailable', description: 'Crispy vegetable rolls', category: 'starters', dietary: ['vegan'], chefRecommended: false },
-    { id: '4', name: 'Garlic Bread', price: '$6.00', status: 'available', description: 'Toasted with garlic butter', category: 'starters', dietary: ['vegetarian'], chefRecommended: false },
-    { id: '5', name: 'Buffalo Wings', price: '$11.50', status: 'sold_out', description: 'Spicy chicken wings', category: 'starters', dietary: ['spicy'], chefRecommended: false },
-    { id: '6', name: 'Grilled Chicken', price: '$24.00', status: 'available', description: 'Herb-marinated chicken breast', category: 'mains', dietary: [], chefRecommended: false },
-    { id: '7', name: 'Spaghetti Carbonara', price: '$18.50', status: 'available', description: 'Classic Italian pasta', category: 'mains', dietary: [], chefRecommended: true },
-    { id: '8', name: 'Steak & Fries', price: '$32.00', status: 'available', description: 'Premium ribeye', category: 'mains', dietary: [], chefRecommended: false },
-    { id: '9', name: 'Salmon Fillet', price: '$28.00', status: 'unavailable', description: 'Pan-seared salmon', category: 'mains', dietary: [], chefRecommended: false },
-    { id: '10', name: 'Vegetarian Curry', price: '$16.50', status: 'available', description: 'Creamy coconut curry', category: 'mains', dietary: ['vegetarian', 'spicy'], chefRecommended: false },
-    { id: '11', name: 'Chocolate Cake', price: '$8.50', status: 'available', description: 'Rich chocolate layer cake', category: 'desserts', dietary: ['vegetarian'], chefRecommended: false },
-    { id: '12', name: 'Tiramisu', price: '$9.50', status: 'available', description: 'Classic Italian dessert', category: 'desserts', dietary: ['vegetarian'], chefRecommended: true },
-    { id: '13', name: 'Cheesecake', price: '$8.00', status: 'sold_out', description: 'New York style', category: 'desserts', dietary: ['vegetarian'], chefRecommended: false },
-    { id: '14', name: 'Ice Cream', price: '$6.00', status: 'available', description: 'Vanilla, chocolate, or strawberry', category: 'desserts', dietary: ['vegetarian'], chefRecommended: false },
-    { id: '15', name: 'Coca-Cola', price: '$3.50', status: 'available', description: 'Chilled Coca-Cola', category: 'drinks', dietary: ['vegan'], chefRecommended: false },
-    { id: '16', name: 'Orange Juice', price: '$4.50', status: 'available', description: 'Freshly squeezed', category: 'drinks', dietary: ['vegan'], chefRecommended: false },
-    { id: '17', name: 'Lemonade', price: '$3.50', status: 'available', description: 'Homemade lemonade', category: 'drinks', dietary: ['vegan'], chefRecommended: false },
-  ];
-
-  const [menuItems, setMenuItems] = useState(initialMenuItems);
+  // Mock data đã được thay thế bằng API calls ở trên
 
   const getCategoryItemCount = (categoryId: string) => {
     return menuItems.filter(
-      (item) => item.category === categoryId && !deletedItemIds.includes(item.id)
+      (item: any) => item.categoryId === categoryId
     ).length;
   };
 
   const visibleMenuItems = menuItems
-    .filter((item) => !deletedItemIds.includes(item.id))
-    .filter((item) => {
+    .filter((item: any) => {
       if (selectedCategory === 'all') return true;
-      return item.category === selectedCategory;
+      return item.categoryId === selectedCategory;
     })
-    .filter((item) => {
+    .filter((item: any) => {
+      // Archive status filter
+      if (selectedArchiveStatus === 'archived') {
+        return item.status === 'ARCHIVED';
+      } else { // 'all' - show only active (non-archived)
+        return item.status !== 'ARCHIVED';
+      }
+    })
+    .filter((item: any) => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       return (
         item.name.toLowerCase().includes(query) ||
-        item.description.toLowerCase().includes(query)
+        (item.description || '').toLowerCase().includes(query)
       );
     })
-    .filter((item) => {
+    .filter((item: any) => {
       if (selectedStatus === 'All Status') return true;
-      if (selectedStatus === 'Available') return item.status === 'available';
-      if (selectedStatus === 'Unavailable') return item.status === 'unavailable';
-      if (selectedStatus === 'Sold Out') return item.status === 'sold_out';
+      // Map backend status to frontend
+      if (selectedStatus === 'Available') return item.isAvailable && item.status !== 'SOLD_OUT';
+      if (selectedStatus === 'Unavailable') return !item.isAvailable;
+      if (selectedStatus === 'Sold Out') return item.status === 'SOLD_OUT';
       return true;
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
+      if (sortOption === 'Sort by: Popularity') {
+        return (b.popularity || 0) - (a.popularity || 0); // Higher popularity first
+      }
       if (sortOption === 'Sort by: Price (Low)') {
-        return parseFloat(a.price.replace('$', '')) - parseFloat(b.price.replace('$', ''));
+        return (a.price || 0) - (b.price || 0);
       }
       if (sortOption === 'Sort by: Price (High)') {
-        return parseFloat(b.price.replace('$', '')) - parseFloat(a.price.replace('$', ''));
+        return (b.price || 0) - (a.price || 0);
       }
-      // Default: Newest (reverse ID order)
-      return b.id.localeCompare(a.id);
+      // Default: Newest (by createdAt)
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
 
-  const handleAddCategory = () => {
-    if (newCategoryName.trim()) {
-      const newCategory = {
-        id: newCategoryName.toLowerCase().replace(/\s+/g, '-'),
-        name: newCategoryName,
-      };
-      setNewCategories([...newCategories, newCategory]);
-      setSelectedCategory(newCategory.id);
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return;
+
+    try {
+      const result = await createCategoryMutation.mutateAsync({
+        data: {
+          name: newCategoryName,
+          description: newCategoryDescription || undefined,
+        }
+      });
+
+      // result is the category object directly
+      if (result?.id) {
+        setSelectedCategory(result.id);
+      }
+      
       setIsAddCategoryModalOpen(false);
       setNewCategoryName('');
       setNewCategoryDescription('');
-      
-      setToastMessage(`Category "${newCategoryName}" created successfully`);
+      setToastMessage(`Danh mục "${newCategoryName}" đã được tạo`);
       setShowSuccessToast(true);
+    } catch (error) {
+      console.error('Error adding category:', error);
     }
   };
 
   const handleOpenAddItemModal = () => {
     setItemModalMode('add');
+    // Use first available category from API, not hardcoded 'starters'
+    const defaultCategory = selectedCategory === 'all' 
+      ? (categories[0]?.id || '') 
+      : selectedCategory;
+    
     setItemFormData({
       name: '',
-      category: selectedCategory === 'all' ? 'starters' : selectedCategory,
+      category: defaultCategory,
       description: '',
       price: '',
       status: 'available',
@@ -150,19 +281,37 @@ export function MenuManagementPage() {
     setIsItemModalOpen(true);
   };
 
-  const handleOpenEditItemModal = (e: React.MouseEvent, item: { id: string; name: string; category: string; description: string; price: string; status: string; dietary?: string[]; chefRecommended?: boolean }) => {
+  const handleOpenEditItemModal = (e: React.MouseEvent, item: any) => {
     e.stopPropagation();
     setItemModalMode('edit');
     setCurrentEditItemId(item.id);
     setItemFormData({
       name: item.name,
-      category: item.category || selectedCategory,
-      description: item.description,
-      price: item.price.replace('$', ''),
-      status: item.status as 'available' | 'unavailable' | 'sold_out',
+      category: item.categoryId || selectedCategory,
+      description: item.description || '',
+      price: String(item.price || ''),
+      status: item.status === 'SOLD_OUT' ? 'sold_out' : (!item.isAvailable ? 'unavailable' : 'available'),
       image: null,
       dietary: item.dietary || [],
       chefRecommended: item.chefRecommended || false,
+      modifierGroupIds: item.modifierGroups?.map((mg: any) => mg.id) || [], // Load existing modifiers
+    });
+    setIsItemModalOpen(true);
+  };
+
+  const handleOpenNewItemModal = () => {
+    setItemModalMode('add');
+    setCurrentEditItemId(null);
+    setItemFormData({
+      name: '',
+      category: selectedCategory,
+      description: '',
+      price: '',
+      status: 'available',
+      image: null,
+      dietary: [],
+      chefRecommended: false,
+      modifierGroupIds: [], // Add modifierGroupIds
     });
     setIsItemModalOpen(true);
   };
@@ -172,53 +321,72 @@ export function MenuManagementPage() {
     setCurrentEditItemId(null);
     setItemFormData({
       name: '',
-      category: 'starters',
+      category: selectedCategory,
       description: '',
       price: '',
       status: 'available',
       image: null,
       dietary: [],
       chefRecommended: false,
+      modifierGroupIds: [], // Reset modifiers
     });
   };
 
-  const handleSaveItem = () => {
-    if (itemFormData.name.trim() && itemFormData.price.trim()) {
+  const handleSaveItem = async () => {
+    if (!itemFormData.name.trim() || !itemFormData.price.trim()) return;
+
+    try {
       if (itemModalMode === 'add') {
-        const newItem = {
-          id: `new-${Date.now()}`,
-          name: itemFormData.name,
-          price: `$${parseFloat(itemFormData.price).toFixed(2)}`,
-          status: itemFormData.status,
-          description: itemFormData.description || 'No description',
-          category: itemFormData.category,
-          dietary: itemFormData.dietary,
-          chefRecommended: itemFormData.chefRecommended,
-        };
-        setMenuItems([...menuItems, newItem]);
-        setToastMessage(`Item "${itemFormData.name}" created successfully`);
-      } else {
-        const updatedItems = menuItems.map(item => {
-          if (item.id === currentEditItemId) {
-            return {
-              ...item,
-              name: itemFormData.name,
-              price: `$${parseFloat(itemFormData.price).toFixed(2)}`,
-              status: itemFormData.status,
-              description: itemFormData.description || item.description,
-              category: itemFormData.category,
-              dietary: itemFormData.dietary,
-              chefRecommended: itemFormData.chefRecommended,
-            };
+        const result = await createItemMutation.mutateAsync({
+          data: {
+            name: itemFormData.name,
+            categoryId: itemFormData.category,
+            description: itemFormData.description || undefined,
+            price: parseFloat(itemFormData.price),
+            modifierGroupIds: itemFormData.modifierGroupIds, // Include modifier groups
+            // Note: CreateMenuItemDto không có available field
+            // Backend sẽ tự set available = true và status = DRAFT by default
           }
-          return item;
         });
-        setMenuItems(updatedItems);
-        setToastMessage(`Item "${itemFormData.name}" updated successfully`);
+
+        // Upload photo nếu có
+        if (itemFormData.image && result?.id) {
+          await uploadPhotoMutation.mutateAsync({
+            itemId: result.id,
+            data: { file: itemFormData.image }
+          });
+        }
+
+        setToastMessage(`Món "${itemFormData.name}" đã được tạo`);
+      } else if (currentEditItemId) {
+        await updateItemMutation.mutateAsync({
+          id: currentEditItemId,
+          data: {
+            name: itemFormData.name,
+            categoryId: itemFormData.category,
+            description: itemFormData.description || undefined,
+            price: parseFloat(itemFormData.price),
+            available: itemFormData.status === 'available',  // 'available' not 'isAvailable'
+            modifierGroupIds: itemFormData.modifierGroupIds, // Include modifier groups
+          }
+        });
+
+        // Upload photo nếu có
+        if (itemFormData.image) {
+          await uploadPhotoMutation.mutateAsync({
+            itemId: currentEditItemId,
+            data: { file: itemFormData.image }
+          });
+        }
+
+        setToastMessage(`Món "${itemFormData.name}" đã được cập nhật`);
       }
-      
+
       setShowSuccessToast(true);
       handleCloseItemModal();
+    } catch (error) {
+      // Error đã được xử lý trong mutation
+      console.error('Error in handleSaveItem:', error);
     }
   };
 
@@ -234,13 +402,19 @@ export function MenuManagementPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (itemToDelete) {
-      setDeletedItemIds([...deletedItemIds, itemToDelete.id]);
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      await deleteItemMutation.mutateAsync({ id: itemToDelete.id });
+
+      setToastMessage(`Món "${itemToDelete.name}" đã được xóa`);
+      setShowSuccessToast(true);
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
-      setToastMessage(`Item "${itemToDelete.name}" deleted successfully`);
-      setShowSuccessToast(true);
+    } catch (error) {
+      // Error đã được xử lý trong mutation
+      console.error('Error in handleConfirmDelete:', error);
     }
   };
 
@@ -509,6 +683,56 @@ export function MenuManagementPage() {
                     </div>
                   </label>
                 </div>
+
+                {/* Modifier Groups Selection */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-3">
+                    Modifier Groups (Optional)
+                  </label>
+                  <div className="border border-gray-300 rounded-xl p-3 max-h-48 overflow-y-auto bg-gray-50">
+                    {modifierGroups.filter((g: any) => g.active).length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-4">No active modifier groups</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {modifierGroups.filter((g: any) => g.active).map((group: any) => (
+                          <label
+                            key={group.id}
+                            className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={(itemFormData.modifierGroupIds || []).includes(group.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setItemFormData({
+                                    ...itemFormData,
+                                    modifierGroupIds: [...(itemFormData.modifierGroupIds || []), group.id]
+                                  });
+                                } else {
+                                  setItemFormData({
+                                    ...itemFormData,
+                                    modifierGroupIds: (itemFormData.modifierGroupIds || []).filter(id => id !== group.id)
+                                  });
+                                }
+                              }}
+                              className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-900">{group.name}</span>
+                              <span className="ml-2 text-xs text-gray-500">
+                                ({group.type === 'single' ? 'Single' : 'Multiple'})
+                              </span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Select modifier groups for this item (e.g., Size, Toppings, Extras)
+                  </p>
+                </div>
+
               </div>
 
               <div className="flex gap-3 p-6 border-t border-gray-200">
@@ -637,7 +861,7 @@ export function MenuManagementPage() {
                             : 'bg-gray-200 text-gray-700'
                         }`}
                       >
-                        {menuItems.filter(item => !deletedItemIds.includes(item.id)).length}
+                        {menuItems.length}
                       </span>
                     </button>
 
@@ -705,6 +929,27 @@ export function MenuManagementPage() {
                     <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
 
+                  {/* Archive Status */}
+                  <div className="relative">
+                    <select
+                      value={tempSelectedArchiveStatus}
+                      onChange={(e) => setTempSelectedArchiveStatus(e.target.value as 'all' | 'archived')}
+                      className="appearance-none pl-3 pr-8 py-2 border border-gray-300 bg-white text-gray-700 cursor-pointer rounded-xl text-sm font-medium min-w-32 h-10"
+                    >
+                      <option value="all">Active Items</option>
+                      <option value="archived">Archived Items</option>
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+
+                  {/* Apply Filter Button */}
+                  <button
+                    onClick={() => setSelectedArchiveStatus(tempSelectedArchiveStatus)}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors h-10"
+                  >
+                    Apply
+                  </button>
+
                   {/* Sort */}
                   <div className="relative">
                     <select
@@ -713,6 +958,7 @@ export function MenuManagementPage() {
                       className="appearance-none pl-3 pr-8 py-2 border border-gray-300 bg-white text-gray-700 cursor-pointer rounded-xl text-sm font-medium min-w-40 h-10"
                     >
                       <option>Sort by: Newest</option>
+                      <option>Sort by: Popularity</option>
                       <option>Sort by: Price (Low)</option>
                       <option>Sort by: Price (High)</option>
                     </select>
@@ -757,7 +1003,7 @@ export function MenuManagementPage() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {visibleMenuItems.map((item) => (
+                      {visibleMenuItems.map((item: any) => (
                         <Card key={item.id} className="p-0 overflow-hidden hover:shadow-lg transition-all">
                           {/* Image */}
                           <div className="w-full aspect-video bg-linear-to-br from-gray-100 to-gray-200 flex items-center justify-center">

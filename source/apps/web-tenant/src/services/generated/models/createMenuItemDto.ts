@@ -9,11 +9,17 @@
 export interface CreateMenuItemDto {
   allergens?: string[];
   categoryId: string;
+  chefRecommended?: boolean;
   description?: string;
   displayOrder?: number;
   imageUrl?: string;
   modifierGroupIds?: string[];
   name: string;
+  /**
+   * @minimum 0
+   * @maximum 240
+   */
+  preparationTime?: number;
   price: number;
   tags?: string[];
 }
