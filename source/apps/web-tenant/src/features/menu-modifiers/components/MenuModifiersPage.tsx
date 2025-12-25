@@ -410,8 +410,10 @@ export function MenuModifiersPage() {
               <div className="relative">
                 <button
                   onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-emerald-400 transition-all"
+                  style={{ fontSize: '15px', fontWeight: 600, borderRadius: '12px', height: '48px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                 >
+                  <Filter className="w-4 h-4" />
                   Filter
                 </button>
 
@@ -529,9 +531,10 @@ export function MenuModifiersPage() {
               {/* New Group button */}
               <button
                 onClick={handleNewGroup}
-                className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-emerald-500 rounded-xl hover:bg-emerald-600 transition-colors"
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white transition-all"
+                style={{ fontSize: '15px', fontWeight: 600, borderRadius: '12px', height: '48px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5" />
                 New Group
               </button>
             </div>
