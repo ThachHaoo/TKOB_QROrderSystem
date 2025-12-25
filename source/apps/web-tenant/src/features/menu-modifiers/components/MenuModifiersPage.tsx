@@ -23,11 +23,12 @@ interface ModifierGroup {
   id: string;
   name: string;
   description?: string;
-  options: { id: string; name: string; priceDelta: number }[];  // priceDelta not price
-  linkedItems: number;
+  displayOrder?: number;  // Will be added in backend update
+  options: { id?: string; name: string; priceDelta: number; displayOrder?: number; active?: boolean }[];  // priceDelta not price
+  linkedItems?: number;
   type: 'single' | 'multiple';
   required: boolean;
-  active: boolean;
+  active?: boolean;  // Will be added in backend update
 }
 
 export function MenuModifiersPage() {
@@ -58,13 +59,15 @@ export function MenuModifiersPage() {
   const [deletingGroup, setDeletingGroup] = useState<ModifierGroup | null>(null);
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  // const [formDisplayOrder, setFormDisplayOrder] = useState<string>('');
+  // const [formStatus, setFormStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [formType, setFormType] = useState<'single' | 'multiple'>('single');
   const [formRequired, setFormRequired] = useState(false);
   const [formMinChoices, setFormMinChoices] = useState(1);
   const [formMaxChoices, setFormMaxChoices] = useState(1);
   
   // Options management
-  const [formOptions, setFormOptions] = useState<{ name: string; priceDelta: number; displayOrder: number }[]>([]);
+  const [formOptions, setFormOptions] = useState<{ name: string; priceDelta: number; displayOrder: number; active: boolean }[]>([]);
   const [optionName, setOptionName] = useState('');
   const [optionPrice, setOptionPrice] = useState('0');
   
@@ -72,9 +75,10 @@ export function MenuModifiersPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Fetch Modifier Groups from API
-  const { data: groupsResponse, isLoading: groupsLoading } = useModifierGroupControllerFindAll({ activeOnly: false });
+  const { data: groupsResponse } = useModifierGroupControllerFindAll({ activeOnly: false });
   // axios.ts already unwraps {success, data} → groupsResponse is the array directly
-  const groups = groupsResponse || [];
+  // Cast API response to our extended ModifierGroup interface for displayOrder and active support
+  const groups = (groupsResponse || []) as ModifierGroup[];
 
   // Modifier Group Mutations
   const createGroupMutation = useModifierGroupControllerCreate({
@@ -115,7 +119,7 @@ export function MenuModifiersPage() {
         setDeletingGroup(null);
         setToast({ message: 'Modifier group archived successfully', type: 'success' });
       },
-      onError: (error: any) => {
+      onError: (error: { response?: { data?: { message?: string } } }) => {
         const message = error.response?.data?.message || 'Failed to archive modifier group';
         setToast({ message, type: 'error' });
       },
@@ -123,7 +127,7 @@ export function MenuModifiersPage() {
   });
 
   // Helper function to normalize type format (convert API format to form format)
-  const normalizeType = (type: any): 'single' | 'multiple' => {
+  const normalizeType = (type: string): 'single' | 'multiple' => {
     return type === 'SINGLE_CHOICE' || type === 'single' ? 'single' : 'multiple';
   };
 
@@ -131,9 +135,9 @@ export function MenuModifiersPage() {
   const visibleGroups = groups.filter((group) => {
     // Status filter: active vs archived
     if (selectedStatus === 'archived') {
-      if (group.active) return false; // Hide active when viewing archived
+      if (group.active !== false) return false; // Hide active when viewing archived
     } else { // 'all' - show only active
-      if (!group.active) return false; // Hide archived when viewing active
+      if (group.active === false) return false; // Hide archived when viewing active
     }
     
     // Type filter: single vs multiple (normalize both sides for comparison)
@@ -150,6 +154,8 @@ export function MenuModifiersPage() {
   const resetForm = () => {
     setFormName('');
     setFormDescription('');
+    // setFormDisplayOrder('');
+    // setFormStatus('ACTIVE');
     setFormType('single');
     setFormRequired(false);
     setFormMinChoices(1);
@@ -170,6 +176,7 @@ export function MenuModifiersPage() {
       name: optionName,
       priceDelta: parseFloat(optionPrice) || 0,
       displayOrder: formOptions.length + 1,
+      active: true,
     };
     
     setFormOptions([...formOptions, newOption]);
@@ -177,9 +184,12 @@ export function MenuModifiersPage() {
     setOptionPrice('0');
   };
 
-  // Remove option
-  const handleRemoveOption = (index: number) => {
-    setFormOptions(formOptions.filter((_, i) => i !== index));
+  // Toggle option active status
+  const toggleOptionActive = (index: number) => {
+    const updatedOptions = formOptions.map((option, i) =>
+      i === index ? { ...option, active: !option.active } : option
+    );
+    setFormOptions(updatedOptions);
   };
 
   // New group
@@ -229,11 +239,28 @@ export function MenuModifiersPage() {
       data: {
         name: formName,
         description: formDescription || undefined,
+        // displayOrder: formDisplayOrder ? parseInt(formDisplayOrder, 10) : undefined,
         type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
         required: formRequired,
         minChoices: formMinChoices,
         maxChoices: formMaxChoices,
-        options: formOptions,
+        // active: formStatus === 'ACTIVE',
+        options: formOptions.map(opt => ({
+          name: opt.name,
+          priceDelta: opt.priceDelta,
+          displayOrder: opt.displayOrder,
+          // active: opt.active,  // TODO: Uncomment when backend supports active field in options
+        })),
+      } as unknown as {
+        name: string;
+        description?: string;
+        type: 'SINGLE_CHOICE' | 'MULTI_CHOICE';
+        required: boolean;
+        minChoices: number;
+        maxChoices: number;
+        options: Array<{ name: string; priceDelta: number; displayOrder: number }>;  // TODO: Add active when backend ready
+        displayOrder?: number;
+        active?: boolean;
       },
     });
   };
@@ -243,18 +270,23 @@ export function MenuModifiersPage() {
     setEditingGroup(group);
     setFormName(group.name);
     setFormDescription(group.description || '');
-    // Convert API type format to form format
-    const formattedType = group.type === 'SINGLE_CHOICE' || group.type === 'single' ? 'single' : 'multiple';
-    setFormType(formattedType);
+    // // Load displayOrder from group if available
+    // setFormDisplayOrder(group.displayOrder ? String(group.displayOrder) : '');
+    // // Load status from group (default to ACTIVE if not set)
+    // setFormStatus((group.active ?? true) ? 'ACTIVE' : 'INACTIVE');
+    // Convert API type format to form format (normalize both SINGLE_CHOICE and single)
+    const normalizedType = normalizeType(group.type);
+    setFormType(normalizedType);
     setFormRequired(group.required);
     setFormOptions(group.options.map((opt, idx) => ({
       name: opt.name,
       priceDelta: opt.priceDelta,  // Use priceDelta not price
       displayOrder: idx + 1,
+      active: opt.active !== false,  // Default to true if not specified
     })));
     
     // Set min/max based on type
-    if (formattedType === 'single') {
+    if (normalizedType === 'single') {
       setFormMinChoices(1);
       setFormMaxChoices(1);
     } else {
@@ -307,11 +339,28 @@ export function MenuModifiersPage() {
       data: {
         name: formName,
         description: formDescription || undefined,
+        // displayOrder: formDisplayOrder ? parseInt(formDisplayOrder, 10) : undefined,
         type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
         required: formRequired,
         minChoices: formMinChoices,
         maxChoices: formMaxChoices,
-        options: formOptions,
+        // active: formStatus === 'ACTIVE',
+        options: formOptions.map(opt => ({
+          name: opt.name,
+          priceDelta: opt.priceDelta,
+          displayOrder: opt.displayOrder,
+          // active: opt.active,  // TODO: Uncomment when backend supports active field in options
+        })),
+      } as unknown as {
+        name: string;
+        description?: string;
+        type: 'SINGLE_CHOICE' | 'MULTI_CHOICE';
+        required: boolean;
+        minChoices: number;
+        maxChoices: number;
+        options: Array<{ name: string; priceDelta: number; displayOrder: number }>;  // TODO: Add active when backend ready
+        displayOrder?: number;
+        active?: boolean;
       },
     });
   };
@@ -499,7 +548,7 @@ export function MenuModifiersPage() {
                               />
                               <span className="text-sm text-gray-700">Active Groups</span>
                             </div>
-                            <span className="text-xs text-gray-500">{groups.filter(g => g.active).length}</span>
+                            <span className="text-xs text-gray-500">{groups.filter(g => g.active !== false).length}</span>
                           </label>
 
                           <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -513,7 +562,7 @@ export function MenuModifiersPage() {
                               />
                               <span className="text-sm text-gray-700">Archived Groups</span>
                             </div>
-                            <span className="text-xs text-gray-500">{groups.filter(g => !g.active).length}</span>
+                            <span className="text-xs text-gray-500">{groups.filter(g => g.active === false).length}</span>
                           </label>
                         </div>
                       </div>
@@ -564,7 +613,7 @@ export function MenuModifiersPage() {
                           <Badge variant={normalizeType(group.type) === 'single' ? 'success' : 'neutral'}>
                             {normalizeType(group.type) === 'single' ? 'Choose 1' : 'Multi-select'}
                           </Badge>
-                          {!group.active && (
+                          {group.active === false && (
                             <Badge variant="neutral">Inactive</Badge>
                           )}
                         </div>
@@ -592,7 +641,7 @@ export function MenuModifiersPage() {
                         Items:
                       </span>
                       <span className="px-2 py-1 bg-gray-100 border border-gray-200 text-gray-700 rounded-full" style={{ fontSize: '11px', fontWeight: 700 }}>
-                        {group.linkedItems}
+                        {group.linkedItems ?? 0}
                       </span>
                     </div>
                   </div>
@@ -622,7 +671,7 @@ export function MenuModifiersPage() {
                   {/* Actions */}
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleEditGroup(group)}
+                      onClick={() => handleEditGroup(group as ModifierGroup)}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition-all border border-emerald-200 hover:border-emerald-300"
                       style={{ fontSize: '13px', fontWeight: 600 }}
                     >
@@ -630,7 +679,7 @@ export function MenuModifiersPage() {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDeleteGroup(group)}
+                      onClick={() => handleDeleteGroup(group as ModifierGroup)}
                       className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-red-50 rounded-xl transition-all border border-gray-200 hover:border-red-300"
                     >
                       <Trash2 className="w-4 h-4 text-gray-600 hover:text-red-600" />
@@ -667,8 +716,8 @@ export function MenuModifiersPage() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scaleIn">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] animate-scaleIn flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">Create Modifier Group</h3>
               <button
                 onClick={() => {
@@ -681,7 +730,7 @@ export function MenuModifiersPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Group Name <span className="text-red-500">*</span>
@@ -707,6 +756,22 @@ export function MenuModifiersPage() {
                   className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Display Order - Commented out until backend is ready */}
+              {/* <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Order (optional)
+                </label>
+                <input
+                  type="number"
+                  value={formDisplayOrder}
+                  onChange={(e) => setFormDisplayOrder(e.target.value)}
+                  placeholder="e.g., 1"
+                  min={0}
+                  step={1}
+                  className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div> */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -790,6 +855,43 @@ export function MenuModifiersPage() {
                 )}
               </div>
 
+              {/* Status - Commented out until backend is ready */}
+              {/* <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Status
+                </label>
+                <div className="space-y-2">
+                  {['ACTIVE', 'INACTIVE'].map((value) => {
+                    const isSelected = formStatus === value;
+                    return (
+                      <label
+                        key={value}
+                        className={`flex items-center gap-3 px-4 py-3 border-2 rounded-lg cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-emerald-500 bg-white shadow-sm'
+                            : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          value={value}
+                          checked={isSelected}
+                          onChange={() => setFormStatus(value as 'ACTIVE' | 'INACTIVE')}
+                          className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span
+                          className={`text-sm font-medium transition-colors ${
+                            isSelected ? 'text-emerald-700' : 'text-gray-600'
+                          }`}
+                        >
+                          {value === 'ACTIVE' ? 'Active' : 'Inactive'}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div> */}
+
               {/* Options Management */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -840,19 +942,39 @@ export function MenuModifiersPage() {
                 {formOptions.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
                     {formOptions.map((option, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${
+                          option.active
+                            ? 'bg-gray-50 border border-gray-200'
+                            : 'bg-gray-100 border border-gray-200 opacity-60'
+                        }`}
+                      >
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">{option.name}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className={`text-sm font-medium transition-colors ${
+                            option.active ? 'text-gray-900' : 'text-gray-500'
+                          }`}>
+                            {option.name}
+                            {!option.active && (
+                              <span className="ml-2 text-xs font-semibold text-gray-500 uppercase">Inactive</span>
+                            )}
+                          </div>
+                          <div className={`text-xs transition-colors ${
+                            option.active ? 'text-gray-500' : 'text-gray-400'
+                          }`}>
                             {option.priceDelta >= 0 ? '+' : ''}{CURRENCY_CONFIG.format(option.priceDelta)}
                           </div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleRemoveOption(idx)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          onClick={() => toggleOptionActive(idx)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded transition-all whitespace-nowrap ${
+                            option.active
+                              ? 'text-gray-700 bg-gray-200 hover:bg-gray-300'
+                              : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                          }`}
                         >
-                          <X className="w-4 h-4" />
+                          {option.active ? 'Disable' : 'Enable'}
                         </button>
                       </div>
                     ))}
@@ -865,7 +987,7 @@ export function MenuModifiersPage() {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200">
+            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200 rounded-b-2xl flex-shrink-0">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
@@ -889,8 +1011,8 @@ export function MenuModifiersPage() {
       {/* Edit Modal */}
       {showEditModal && editingGroup && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scaleIn">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] shadow-2xl animate-scaleIn flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-xl flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">Edit Modifier Group</h3>
               <button
                 onClick={() => {
@@ -904,7 +1026,7 @@ export function MenuModifiersPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Group Name <span className="text-red-500">*</span>
@@ -930,6 +1052,22 @@ export function MenuModifiersPage() {
                   className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
                 />
               </div>
+
+              {/* Display Order - Commented out until backend is ready */}
+              {/* <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Order (optional)
+                </label>
+                <input
+                  type="number"
+                  value={formDisplayOrder}
+                  onChange={(e) => setFormDisplayOrder(e.target.value)}
+                  placeholder="e.g., 1"
+                  min={0}
+                  step={1}
+                  className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div> */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -1012,6 +1150,43 @@ export function MenuModifiersPage() {
                 )}
               </div>
 
+              {/* Status - Commented out until backend is ready */}
+              {/* <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Status
+                </label>
+                <div className="space-y-2">
+                  {['ACTIVE', 'INACTIVE'].map((value) => {
+                    const isSelected = formStatus === value;
+                    return (
+                      <label
+                        key={value}
+                        className={`flex items-center gap-3 px-4 py-3 border-2 rounded-lg cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-emerald-500 bg-white shadow-sm'
+                            : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          value={value}
+                          checked={isSelected}
+                          onChange={() => setFormStatus(value as 'ACTIVE' | 'INACTIVE')}
+                          className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span
+                          className={`text-sm font-medium transition-colors ${
+                            isSelected ? 'text-emerald-700' : 'text-gray-600'
+                          }`}
+                        >
+                          {value === 'ACTIVE' ? 'Active' : 'Inactive'}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div> */}
+
               {/* Options Management */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -1062,19 +1237,39 @@ export function MenuModifiersPage() {
                 {formOptions.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
                     {formOptions.map((option, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${
+                          option.active
+                            ? 'bg-gray-50 border border-gray-200'
+                            : 'bg-gray-100 border border-gray-200 opacity-60'
+                        }`}
+                      >
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">{option.name}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className={`text-sm font-medium transition-colors ${
+                            option.active ? 'text-gray-900' : 'text-gray-500'
+                          }`}>
+                            {option.name}
+                            {!option.active && (
+                              <span className="ml-2 text-xs font-semibold text-gray-500 uppercase">Inactive</span>
+                            )}
+                          </div>
+                          <div className={`text-xs transition-colors ${
+                            option.active ? 'text-gray-500' : 'text-gray-400'
+                          }`}>
                             {option.priceDelta >= 0 ? '+' : ''}{CURRENCY_CONFIG.format(option.priceDelta)}
                           </div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleRemoveOption(idx)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          onClick={() => toggleOptionActive(idx)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded transition-all whitespace-nowrap ${
+                            option.active
+                              ? 'text-gray-700 bg-gray-200 hover:bg-gray-300'
+                              : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                          }`}
                         >
-                          <X className="w-4 h-4" />
+                          {option.active ? 'Disable' : 'Enable'}
                         </button>
                       </div>
                     ))}
@@ -1087,7 +1282,7 @@ export function MenuModifiersPage() {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200">
+            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200 rounded-b-xl flex-shrink-0">
               <button
                 onClick={() => {
                   setShowEditModal(false);

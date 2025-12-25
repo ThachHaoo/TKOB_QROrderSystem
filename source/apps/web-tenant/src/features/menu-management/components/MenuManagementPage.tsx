@@ -54,6 +54,7 @@ import {
 import {
   useMenuPhotoControllerUploadPhoto,
 } from '@/services/generated/menu-photos/menu-photos';
+import { CURRENCY_CONFIG } from '@/config/currency';
 
 // Zod schema for category validation
 const categorySchema = z.object({
@@ -497,10 +498,10 @@ export function MenuManagementPage() {
       description: item.description || '',
       price: String(item.price || ''),
       prepTimeMinutes: item.preparationTime || null,
-      status: item.status === 'SOLD_OUT' ? 'sold_out' : (!item.isAvailable ? 'unavailable' : 'available'),
+      status: item.status === 'SOLD_OUT' ? 'sold_out' : (!item.available ? 'unavailable' : 'available'),
       menuItemPhotos: [],
-      dietary: item.dietary || [],
-      chefRecommended: item.chefRecommended || false,
+      dietary: item.tags || [], // Map tags from API to dietary
+      chefRecommended: item.chefRecommended || false, // Load chef recommendation
       modifierGroupIds: item.modifierGroups?.map((mg: any) => mg.id) || [], // Load existing modifiers
     });
     setIsItemModalOpen(true);
@@ -554,7 +555,9 @@ export function MenuManagementPage() {
             description: itemFormData.description || undefined,
             price: parseFloat(itemFormData.price),
             preparationTime: itemFormData.prepTimeMinutes ?? undefined,
-            modifierGroupIds: itemFormData.modifierGroupIds, // Include modifier groups
+            chefRecommended: itemFormData.chefRecommended, // Include chef recommendation
+            tags: itemFormData.dietary.length > 0 ? itemFormData.dietary : undefined, // Map dietary to tags
+            modifierGroupIds: itemFormData.modifierGroupIds.length > 0 ? itemFormData.modifierGroupIds : undefined, // Include modifier groups
             // Note: CreateMenuItemDto không có available field
             // Backend sẽ tự set available = true và status = DRAFT by default
           }
@@ -583,7 +586,9 @@ export function MenuManagementPage() {
             price: parseFloat(itemFormData.price),
             preparationTime: itemFormData.prepTimeMinutes ?? undefined,
             available: itemFormData.status === 'available',  // 'available' not 'isAvailable'
-            modifierGroupIds: itemFormData.modifierGroupIds, // Include modifier groups
+            chefRecommended: itemFormData.chefRecommended, // Include chef recommendation
+            tags: itemFormData.dietary.length > 0 ? itemFormData.dietary : undefined, // Map dietary to tags
+            modifierGroupIds: itemFormData.modifierGroupIds.length > 0 ? itemFormData.modifierGroupIds : undefined, // Include modifier groups
           }
         });
 
@@ -852,14 +857,7 @@ export function MenuManagementPage() {
     <>
       {/* Modals */}
       {isAddCategoryModalOpen && (
-          <div 
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.4)',
-              backdropFilter: 'blur(16px)',
-            }}
-            onClick={handleCloseCategoryModal}
-          >
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm">
             <div 
               className="bg-white w-full max-w-md mx-4 rounded-3xl shadow-2xl"
               onClick={(e) => e.stopPropagation()}
@@ -997,15 +995,9 @@ export function MenuManagementPage() {
         {/* Add/Edit Item Modal */}
         {isItemModalOpen && (
           <div 
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.4)',
-              backdropFilter: 'blur(16px)',
-            }}
-            onClick={handleCloseItemModal}
-          >
+            className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm">
             <div 
-              className="bg-white w-full mx-4 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+              className="bg-white w-full mx-4 rounded-xl overflow-hidden flex flex-col"
               style={{ maxWidth: '560px', maxHeight: 'calc(100vh - 80px)' }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -1267,7 +1259,7 @@ export function MenuManagementPage() {
                             <div className="flex-1">
                               <span className="text-sm font-medium text-gray-900">{group.name}</span>
                               <span className="ml-2 text-xs text-gray-500">
-                                ({group.type === 'single' ? 'Single' : 'Multiple'})
+                                ({group.type === 'SINGLE_CHOICE' ? 'Single Choice' : 'Multiple'})
                               </span>
                             </div>
                           </label>
@@ -1767,7 +1759,7 @@ export function MenuManagementPage() {
                             )}
 
                             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                              <span className="text-xl font-bold text-emerald-600">{item.price}</span>
+                              <span className="text-xl font-bold text-emerald-600">{CURRENCY_CONFIG.format(item.price)}</span>
                               <div className="flex gap-2">
                                 <button 
                                   className="w-9 h-9 bg-gray-100 hover:bg-emerald-50 rounded-lg flex items-center justify-center"
