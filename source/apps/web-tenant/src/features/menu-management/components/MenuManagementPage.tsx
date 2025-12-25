@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Card, Badge, Toast } from '@/shared/components/ui';
- import { MenuTabs } from './MenuTabs';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { MenuTabs } from './MenuTabs';
 import { 
   Plus, 
   Edit, 
@@ -15,7 +18,10 @@ import {
   Flame,
   Milk,
   ChevronDown,
-  Star
+  Star,
+  MoreVertical,
+  Edit2,
+  Eye
 } from 'lucide-react';
 
 // React Query
@@ -26,6 +32,7 @@ import {
   useMenuCategoryControllerFindAll,
   useMenuCategoryControllerCreate,
   useMenuCategoryControllerDelete,
+  useMenuCategoryControllerUpdate,
 } from '@/services/generated/menu-categories/menu-categories';
 
 // API Hooks - Menu Items
@@ -46,6 +53,26 @@ import {
   useMenuPhotoControllerUploadPhoto,
 } from '@/services/generated/menu-photos/menu-photos';
 
+// Zod schema for category validation
+const categorySchema = z.object({
+  name: z.string()
+    .min(2, 'Category name must be at least 2 characters')
+    .max(50, 'Category name must not exceed 50 characters'),
+  description: z.string().optional().nullable().default(null),
+  displayOrder: z.union([
+    z.coerce.number().int('Display order must be a whole number').nonnegative('Display order must be 0 or higher'),
+    z.literal('')
+  ]).optional().nullable().transform((val) => val === '' ? null : val).default(null),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
+}) as any;
+
+type CategoryFormData = {
+  name: string;
+  description?: string | null;
+  displayOrder?: number | string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+};
+
 // Full featured Menu Management matching Admin-screens-v3 design
 export function MenuManagementPage() {
   // React Query
@@ -56,18 +83,42 @@ export function MenuManagementPage() {
   const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [sortOption, setSortOption] = useState('Sort by: Newest');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categorySortBy, setCategorySortBy] = useState<'displayOrder' | 'name' | 'createdAt'>('displayOrder');
+  const [_selectedArchiveStatus, setSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
+  const [tempSelectedArchiveStatus, setTempSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ categoryId: string; anchor: 'cursor' | 'button'; x: number; y: number } | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<{ left: number; top: number } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{ open: boolean; categoryId: string | null; activeItemCount: number }>({
+    open: false,
+    categoryId: null,
+    activeItemCount: 0,
+  });
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  
-  // Archive filter state - Applied filters
-  const [selectedArchiveStatus, setSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
-  // Temporary archive filter (used in dropdown before Apply)
-  const [tempSelectedArchiveStatus, setTempSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
+
+
+  // React Hook Form for category
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting, isValid },
+    reset,
+    watch,
+  } = useForm<CategoryFormData>({
+    resolver: zodResolver(categorySchema),
+    mode: 'onChange',
+    defaultValues: {
+      name: '',
+      description: '',
+      displayOrder: null,
+      status: 'ACTIVE',
+    },
+  });
 
   // Fetch Categories from API
   const { data: categoriesResponse, isLoading: _categoriesLoading } = useMenuCategoryControllerFindAll();
@@ -89,22 +140,27 @@ export function MenuManagementPage() {
   // Category Mutations
   const createCategoryMutation = useMenuCategoryControllerCreate({
     mutation: {
-      onSuccess: (response) => {
+      onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/categories'] });
-        setNewCategoryName('');
-        setNewCategoryDescription('');
-        setIsAddCategoryModalOpen(false);
-        // response is already the category object, no need for .data
-        setToastMessage(`Category "${response.name}" created successfully`);
-        setShowSuccessToast(true);
       },
     }
   });
 
-  const _deleteCategoryMutation = useMenuCategoryControllerDelete({
+  const updateCategoryMutation = useMenuCategoryControllerUpdate({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/categories'] });
+      },
+    }
+  });
+
+  const deleteCategoryMutation = useMenuCategoryControllerDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/v1/menu/categories'] });
+        setDeleteConfirmDialog({ open: false, categoryId: null, activeItemCount: 0 });
+        setToastMessage('Danh mục đã xóa thành công');
+        setShowSuccessToast(true);
       },
       onError: (error) => {
         console.error('Error deleting category:', error);
@@ -192,18 +248,46 @@ export function MenuManagementPage() {
     ).length;
   };
 
+  const getCategoryActiveItemCount = (categoryId: string) => {
+    return menuItems.filter(
+      (item: any) => item.categoryId === categoryId && item.status === 'available'
+    ).length;
+  };
+
+  const getCategoryById = (categoryId: string) => {
+    return categories?.find((cat: any) => cat.id === categoryId) || null;
+  };
+
+  // Sort categories based on selected sort option
+  const sortedCategories = [...categories].sort((a: any, b: any) => {
+    switch (categorySortBy) {
+      case 'displayOrder': {
+        // Ascending, nulls last; tie-breaker by name
+        const aOrder = a.displayOrder ?? Infinity;
+        const bOrder = b.displayOrder ?? Infinity;
+        if (aOrder === bOrder) {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        return (aOrder as number) - (bOrder as number);
+      }
+      case 'name':
+        // A→Z
+        return (a.name || '').localeCompare(b.name || '');
+      case 'createdAt': {
+        // Newest first
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bDate - aDate;
+      }
+      default:
+        return 0;
+    }
+  });
+
   const visibleMenuItems = menuItems
     .filter((item: any) => {
       if (selectedCategory === 'all') return true;
       return item.categoryId === selectedCategory;
-    })
-    .filter((item: any) => {
-      // Archive status filter
-      if (selectedArchiveStatus === 'archived') {
-        return item.status === 'ARCHIVED';
-      } else { // 'all' - show only active (non-archived)
-        return item.status !== 'ARCHIVED';
-      }
     })
     .filter((item: any) => {
       if (!searchQuery) return true;
@@ -235,32 +319,132 @@ export function MenuManagementPage() {
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
 
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
-
+  // Handle category form submission (both create and update)
+  const onCategorySubmit = async (data: CategoryFormData) => {
     try {
-      const result = await createCategoryMutation.mutateAsync({
+      const payload = {
         data: {
-          name: newCategoryName,
-          description: newCategoryDescription || undefined,
+          name: data.name,
+          description: data.description || undefined,
+          displayOrder: data.displayOrder !== null && data.displayOrder !== '' ? Number(data.displayOrder) : undefined,
+          active: data.status === 'ACTIVE',
         }
-      });
+      };
 
-      // result is the category object directly
-      if (result?.id) {
-        setSelectedCategory(result.id);
+      let result;
+      if (editingCategoryId) {
+        // Update mode
+        await updateCategoryMutation.mutateAsync({
+          id: editingCategoryId,
+          ...payload
+        });
+        setToastMessage(`Category "${data.name}" updated successfully`);
+      } else {
+        // Create mode
+        result = await createCategoryMutation.mutateAsync(payload);
+        setToastMessage(`Category "${data.name}" created successfully`);
+        if (result?.id) {
+          setSelectedCategory(result.id);
+        }
       }
       
       setIsAddCategoryModalOpen(false);
-      setNewCategoryName('');
-      setNewCategoryDescription('');
-      setToastMessage(`Danh mục "${newCategoryName}" đã được tạo`);
+      setEditingCategoryId(null);
+      reset();
       setShowSuccessToast(true);
     } catch (error) {
-      console.error('Error adding category:', error);
+      console.error('Error in category submit:', error);
     }
   };
 
+  const handleOpenAddCategoryModal = () => {
+    setEditingCategoryId(null);
+    reset({
+      name: '',
+      description: '',
+      displayOrder: null,
+      status: 'ACTIVE',
+    });
+    setIsAddCategoryModalOpen(true);
+  };
+
+  const handleCloseCategoryModal = () => {
+    setIsAddCategoryModalOpen(false);
+    setEditingCategoryId(null);
+    reset();
+  };
+
+  // Category action handlers
+  const handleEditCategory = (category: any) => {
+    setEditingCategoryId(category.id);
+    reset({
+      name: category.name,
+      description: category.description || '',
+      displayOrder: category.displayOrder || null,
+      status: category.active ? 'ACTIVE' : 'INACTIVE',
+    });
+    setIsAddCategoryModalOpen(true);
+    setContextMenu(null);
+    setContextMenuPos(null);
+  };
+
+  const handleToggleCategoryStatus = async (categoryId: string) => {
+    try {
+      const category = getCategoryById(categoryId);
+      if (!category) return;
+
+      const newActive = !category.active;
+      const payload = {
+        data: {
+          name: category.name,
+          description: category.description,
+          displayOrder: category.displayOrder,
+          active: newActive,
+        }
+      };
+
+      await updateCategoryMutation.mutateAsync({
+        id: categoryId,
+        ...payload
+      });
+
+      setToastMessage(`Category status changed to ${newActive ? 'Active' : 'Inactive'}`);
+      setShowSuccessToast(true);
+      setContextMenu(null);
+      setContextMenuPos(null);
+    } catch (error) {
+      console.error('Error toggling category status:', error);
+      setToastMessage('Có lỗi khi cập nhật trạng thái danh mục');
+      setShowSuccessToast(true);
+    }
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    const activeCount = getCategoryActiveItemCount(categoryId);
+    setDeleteConfirmDialog({
+      open: true,
+      categoryId,
+      activeItemCount: activeCount,
+    });
+    setContextMenu(null);
+    setContextMenuPos(null);
+  };
+
+  const confirmDeleteCategory = async () => {
+    const { categoryId } = deleteConfirmDialog;
+    if (!categoryId) return;
+
+    try {
+      await deleteCategoryMutation.mutateAsync({ id: categoryId });
+      
+      // Clear selection if deleted category is selected
+      if (selectedCategory === categoryId) {
+        setSelectedCategory('all');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    }
+  };
   const handleOpenAddItemModal = () => {
     setItemModalMode('add');
     // Use first available category from API, not hardcoded 'starters'
@@ -277,6 +461,7 @@ export function MenuManagementPage() {
       image: null,
       dietary: [],
       chefRecommended: false,
+      modifierGroupIds: [],
     });
     setIsItemModalOpen(true);
   };
@@ -445,6 +630,78 @@ export function MenuManagementPage() {
     }
   };
 
+  // Compute viewport-clamped menu position
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return;
+
+    const menuEl = contextMenuRef.current;
+    const rect = menuEl.getBoundingClientRect();
+    const menuWidth = rect.width || 200;
+    const menuHeight = rect.height || 100;
+    const padding = 8;
+
+    let left = contextMenu.x;
+    let top = contextMenu.y;
+
+    // Clamp to viewport
+    if (left + menuWidth > window.innerWidth) {
+      left = window.innerWidth - menuWidth - padding;
+    }
+    if (left < padding) {
+      left = padding;
+    }
+
+    if (top + menuHeight > window.innerHeight) {
+      top = window.innerHeight - menuHeight - padding;
+    }
+    if (top < padding) {
+      top = padding;
+    }
+
+    setContextMenuPos({ left, top });
+  }, [contextMenu]);
+
+  // Close context menu on click outside, Escape, scroll, or resize
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+        setContextMenuPos(null);
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+        setContextMenuPos(null);
+      }
+    };
+
+    const handleScroll = () => {
+      setContextMenu(null);
+      setContextMenuPos(null);
+    };
+
+    const handleResize = () => {
+      setContextMenu(null);
+      setContextMenuPos(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('scroll', handleScroll, true); // capture phase for all scrolls
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [contextMenu]);
+
   return (
     <>
       {/* Modals */}
@@ -455,73 +712,133 @@ export function MenuManagementPage() {
               backgroundColor: 'rgba(255, 255, 255, 0.4)',
               backdropFilter: 'blur(16px)',
             }}
-            onClick={() => {
-              setIsAddCategoryModalOpen(false);
-              setNewCategoryName('');
-              setNewCategoryDescription('');
-            }}
+            onClick={handleCloseCategoryModal}
           >
             <div 
               className="bg-white w-full max-w-md mx-4 rounded-3xl shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Add Category</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {editingCategoryId ? 'Edit Category' : 'Add Category'}
+                </h3>
                 <button
-                  onClick={() => {
-                    setIsAddCategoryModalOpen(false);
-                    setNewCategoryName('');
-                    setNewCategoryDescription('');
-                  }}
+                  onClick={handleCloseCategoryModal}
                   className="p-2 hover:bg-gray-100 rounded-lg"
                 >
                   <X className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
 
-              <div className="p-6 flex flex-col gap-5">
+              <form onSubmit={handleSubmit(onCategorySubmit)} className="p-6 flex flex-col gap-5">
+                {/* Category name field */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-gray-900">Category name *</label>
+                  <label className="text-sm font-semibold text-gray-900">
+                    Category name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
                     placeholder="e.g., Specials"
-                    className="px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
+                    {...register('name')}
+                    className={`px-4 py-3 border rounded-xl text-sm focus:outline-none transition-colors ${
+                      errors.name
+                        ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:ring-opacity-20'
+                        : 'border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20'
+                    }`}
                   />
+                  {errors.name && (
+                    <p className="text-xs text-red-600">{errors.name.message}</p>
+                  )}
                 </div>
 
+                {/* Description field */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-semibold text-gray-900">Description (optional)</label>
                   <textarea
-                    value={newCategoryDescription}
-                    onChange={(e) => setNewCategoryDescription(e.target.value)}
                     placeholder="Add a brief description..."
-                    className="px-4 py-3 border border-gray-300 rounded-xl text-sm resize-none focus:outline-none focus:border-emerald-500"
                     rows={3}
+                    {...register('description')}
+                    className={`px-4 py-3 border rounded-xl text-sm resize-none focus:outline-none transition-colors ${
+                      errors.description
+                        ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:ring-opacity-20'
+                        : 'border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20'
+                    }`}
                   />
+                  {errors.description && (
+                    <p className="text-xs text-red-600">{errors.description.message}</p>
+                  )}
                 </div>
-              </div>
 
-              <div className="flex gap-3 p-6 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    setIsAddCategoryModalOpen(false);
-                    setNewCategoryName('');
-                    setNewCategoryDescription('');
-                  }}
-                  className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddCategory}
-                  disabled={!newCategoryName.trim()}
-                  className="flex-1 px-4 py-3 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 disabled:bg-gray-300"
-                >
-                  Create Category
-                </button>
-              </div>
+                {/* Display Order field */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-gray-900">Display Order (optional)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="e.g., 1"
+                    {...register('displayOrder')}
+                    className={`px-4 py-3 border rounded-xl text-sm focus:outline-none transition-colors ${
+                      errors.displayOrder
+                        ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:ring-opacity-20'
+                        : 'border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-20'
+                    }`}
+                  />
+                  {errors.displayOrder && (
+                    <p className="text-xs text-red-600">{errors.displayOrder.message}</p>
+                  )}
+                </div>
+
+                {/* Status field */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-gray-900">Status</label>
+                  <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                    {['ACTIVE', 'INACTIVE'].map((value) => (
+                      <label
+                        key={value}
+                        className="flex-1 flex items-center justify-center px-3 py-2 cursor-pointer rounded-lg transition-all"
+                      >
+                        <input
+                          type="radio"
+                          value={value}
+                          {...register('status')}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`text-sm font-medium transition-colors ${
+                            watch('status') === value
+                              ? 'text-emerald-600 bg-white rounded-lg px-3 py-2 shadow-sm'
+                              : 'text-gray-600'
+                          }`}
+                        >
+                          {value === 'ACTIVE' ? 'Active' : 'Inactive'}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {errors.status && (
+                    <p className="text-xs text-red-600">{errors.status.message}</p>
+                  )}
+                </div>
+
+                {/* Form buttons */}
+                <div className="flex gap-3 pt-4 border-t border-gray-200 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseCategoryModal}
+                    className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!isValid || isSubmitting}
+                    className="flex-1 px-4 py-3 bg-emerald-500 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? 'Saving...' : editingCategoryId ? 'Save Changes' : 'Create Category'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -811,6 +1128,67 @@ export function MenuManagementPage() {
           </div>
         )}
 
+        {/* Category Delete Confirmation Dialog */}
+        {deleteConfirmDialog.open && deleteConfirmDialog.categoryId && (
+          <div 
+            className="fixed inset-0 flex items-center justify-center z-50"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.4)',
+              backdropFilter: 'blur(16px)',
+            }}
+            onClick={() => setDeleteConfirmDialog({ open: false, categoryId: null, activeItemCount: 0 })}
+          >
+            <div 
+              className="bg-white w-full max-w-md mx-4 rounded-3xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">Delete Category?</h3>
+                <button
+                  onClick={() => setDeleteConfirmDialog({ open: false, categoryId: null, activeItemCount: 0 })}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {deleteConfirmDialog.activeItemCount > 0 ? (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      This category has <span className="font-semibold text-red-600">{deleteConfirmDialog.activeItemCount} active item{deleteConfirmDialog.activeItemCount !== 1 ? 's' : ''}</span> that will be moved to uncategorized or hidden.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      This is a soft delete and cannot be undone. Items will be removed from guest menus.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    This category will be removed and this action cannot be undone.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3 p-6 border-t border-gray-200">
+                <button
+                  onClick={() => setDeleteConfirmDialog({ open: false, categoryId: null, activeItemCount: 0 })}
+                  className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteCategory}
+                  disabled={deleteCategoryMutation.isPending}
+                  className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
       {/* Main Layout */}
       <div 
         className="flex flex-col bg-gray-50 h-full overflow-hidden"
@@ -841,70 +1219,178 @@ export function MenuManagementPage() {
         {/* Main Content - Split Layout */}
         <div className="flex-1 flex overflow-hidden">
           {/* LEFT PANEL - Categories - Full Height */}
-          <div className="w-44 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
+          <div className="w-52 bg-white border-r border-gray-200 flex flex-col overflow-y-auto relative">
             <div className="p-3 border-b border-gray-200">
-              <h3 className="text-gray-900 mb-3" style={{ fontSize: '24px', fontWeight: 700 }}>Categories</h3>
+              <h3 className="text-gray-900 mb-3" style={{ fontSize: '16px', fontWeight: 700 }}>Categories</h3>
               <button
-                onClick={() => setIsAddCategoryModalOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 text-gray-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all rounded-xl text-sm font-semibold"
+                onClick={handleOpenAddCategoryModal}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 text-gray-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
+                style={{ fontSize: '14px', fontWeight: 600, borderRadius: '12px' }}
               >
                 <Plus className="w-4 h-4" />
                 Add Category
               </button>
             </div>
 
-        <div className="flex-1 p-2">
+            {/* Sort Control */}
+            <div className="p-3 border-b border-gray-200">
+              <label className="text-xs font-semibold text-gray-600 block mb-2">Sort by:</label>
+              <select
+                value={categorySortBy}
+                onChange={(e) => setCategorySortBy(e.target.value as 'displayOrder' | 'name' | 'createdAt')}
+                className="w-full text-xs border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="displayOrder">Display Order</option>
+                <option value="name">Name</option>
+                <option value="createdAt">Creation Date</option>
+              </select>
+            </div>
+
+            <div className="flex-1 p-1" onClick={() => { setContextMenu(null); setContextMenuPos(null); }}>
               <div className="flex flex-col gap-1">
                 {/* All Items */}
                 <button
                   onClick={() => setSelectedCategory('all')}
-                  className={`flex items-center justify-between px-3 py-2.5 transition-all rounded-xl text-sm font-medium ${
+                  className={`flex items-center justify-between pl-3 pr-7 py-2.5 transition-all ${
                     selectedCategory === 'all'
-                      ? 'bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500'
-                      : 'text-gray-700 hover:bg-gray-50 border-l-4 border-transparent'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-700 hover:bg-gray-50'
                   }`}
+                  style={{ 
+                    fontSize: '14px', 
+                    fontWeight: selectedCategory === 'all' ? 700 : 500,
+                    borderRadius: '12px',
+                    borderLeft: selectedCategory === 'all' ? '3px solid #10B981' : '3px solid transparent'
+                  }}
                 >
-                      <span className={selectedCategory === 'all' ? 'font-bold' : ''}>All Items</span>
-                      <span 
-                        className={`px-1.5 py-0.5 rounded-full text-xs font-bold min-w-6 text-center ${
-                          selectedCategory === 'all'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-gray-200 text-gray-700'
-                        }`}
-                      >
-                        {menuItems.length}
-                      </span>
-                    </button>
+                  <span className="truncate">All Items</span>
+                  <span 
+                    className={`px-1.5 py-0.5 rounded-full shrink-0 ${
+                      selectedCategory === 'all'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                    style={{ fontSize: '11px', fontWeight: 700, minWidth: '24px', textAlign: 'center' }}
+                  >
+                    {menuItems.length}
+                  </span>
+                </button>
 
                 {/* Category List */}
-                {categories.map((category) => {
+                {sortedCategories.map((category: any) => {
                   const count = getCategoryItemCount(category.id);
+                  const _activeCount = getCategoryActiveItemCount(category.id);
+                  const displayOrder = category.displayOrder ?? null;
+                  const isActive = category.active !== false;
+                  const isContextMenuOpen = contextMenu?.categoryId === category.id;
+
                   return (
-                    <button
+                    <div
                       key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={`flex items-center justify-between px-3 py-2.5 transition-all rounded-xl text-sm font-medium ${
+                      className={`relative flex flex-col gap-1 px-1 py-2 transition-all group ${
                         selectedCategory === category.id
-                          ? 'bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500'
-                          : 'text-gray-700 hover:bg-gray-50 border-l-4 border-transparent'
-                      }`}
+                          ? 'bg-emerald-50'
+                          : 'hover:bg-gray-50'
+                      } ${!isActive ? 'opacity-60' : ''}`}
+                      style={{ 
+                        fontSize: '13px',
+                        borderRadius: '12px',
+                        borderLeft: selectedCategory === category.id ? '3px solid #10B981' : '3px solid transparent'
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        const newMenu = { categoryId: category.id, anchor: 'cursor' as const, x: e.clientX, y: e.clientY };
+                        setContextMenu(newMenu);
+                        setContextMenuPos({ left: e.clientX, top: e.clientY });
+                      }}
                     >
-                          <span className={selectedCategory === category.id ? 'font-bold' : ''}>{category.name}</span>
+                      {/* Row 1: Category name and count + More button (no nesting) */}
+                      <div className="flex items-center justify-between gap-1 min-w-0">
+                        {/* Category selection area - interactive div instead of button */}
+                        <div
+                          onClick={() => setSelectedCategory(category.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedCategory(category.id);
+                            }
+                          }}
+                          className={`flex items-center gap-1.5 min-w-0 flex-1 text-left px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                            selectedCategory === category.id
+                              ? 'text-emerald-700 bg-emerald-100'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                          title={category.name}
+                        >
+                          <span className="text-gray-400 shrink-0" style={{ fontSize: '11px', fontWeight: 500 }}>
+                            {displayOrder !== null ? `#${displayOrder}` : '—'}
+                          </span>
+                          <span className="truncate font-medium">{category.name}</span>
                           <span 
-                            className={`px-1.5 py-0.5 rounded-full text-xs font-bold min-w-6 text-center ${
+                            className={`px-1.5 py-0.5 rounded-full shrink-0 ${
                               selectedCategory === category.id
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-gray-200 text-gray-700'
                             }`}
+                            style={{ fontSize: '11px', fontWeight: 700, minWidth: '22px', textAlign: 'center' }}
                           >
                             {count}
                           </span>
+                        </div>
+
+                        {/* More actions button - separate sibling */}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const button = e.currentTarget;
+                            const rect = button.getBoundingClientRect();
+                            if (isContextMenuOpen) {
+                              setContextMenu(null);
+                              setContextMenuPos(null);
+                            } else {
+                              const newMenu = {
+                                categoryId: category.id,
+                                anchor: 'button' as const,
+                                x: rect.left,
+                                y: rect.bottom + 8
+                              };
+                              setContextMenu(newMenu);
+                              setContextMenuPos({ left: rect.left, top: rect.bottom + 8 });
+                            }
+                          }}
+                          className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-gray-200 rounded shrink-0 ${
+                            selectedCategory === category.id ? 'opacity-100 bg-emerald-100 hover:bg-emerald-200' : ''
+                          }`}
+                          title="More actions"
+                        >
+                          <MoreVertical size={16} className="text-gray-600" />
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
+
+                      {/* Row 2: Status Badge */}
+                      <div className="flex items-center gap-1 px-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                            isActive
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        {!isActive && (
+                          <span className="text-xs text-gray-500 ml-1">May be hidden</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          </div>
 
           {/* RIGHT PANEL - Items Grid */}
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -1096,6 +1582,54 @@ export function MenuManagementPage() {
           type="success"
           onClose={() => setShowSuccessToast(false)}
         />
+      )}
+
+      {/* Floating Context Menu with viewport-clamped positioning */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl"
+          style={{
+            left: `${contextMenuPos?.left ?? contextMenu.x}px`,
+            top: `${contextMenuPos?.top ?? contextMenu.y}px`,
+            minWidth: '200px',
+            maxWidth: '240px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {sortedCategories
+            .filter((cat: any) => cat.id === contextMenu.categoryId)
+            .map((category: any) => {
+              const isActive = category.active !== false;
+
+              return (
+                <div key={category.id}>
+                  <button
+                    onClick={() => handleEditCategory(category)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 text-sm font-medium flex items-center gap-2.5 border-b border-gray-100 transition-colors"
+                  >
+                    <Edit2 size={15} />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleToggleCategoryStatus(category.id)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 text-sm font-medium flex items-center gap-2.5 border-b border-gray-100 transition-colors"
+                  >
+                    <Eye size={15} />
+                    {isActive ? 'Set Inactive' : 'Set Active'}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(category.id)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-2.5 transition-colors"
+                    title="Soft delete - items will be hidden from menu"
+                  >
+                    <Trash2 size={15} />
+                    Delete
+                  </button>
+                </div>
+              );
+            })}
+        </div>
       )}
 
       <style jsx>{`
