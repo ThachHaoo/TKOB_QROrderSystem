@@ -790,31 +790,36 @@ export function MenuManagementPage() {
                 </div>
 
                 {/* Status field */}
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   <label className="text-sm font-semibold text-gray-900">Status</label>
-                  <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
-                    {['ACTIVE', 'INACTIVE'].map((value) => (
-                      <label
-                        key={value}
-                        className="flex-1 flex items-center justify-center px-3 py-2 cursor-pointer rounded-lg transition-all"
-                      >
-                        <input
-                          type="radio"
-                          value={value}
-                          {...register('status')}
-                          className="sr-only"
-                        />
-                        <span
-                          className={`text-sm font-medium transition-colors ${
-                            watch('status') === value
-                              ? 'text-emerald-600 bg-white rounded-lg px-3 py-2 shadow-sm'
-                              : 'text-gray-600'
+                  <div className="space-y-2">
+                    {['ACTIVE', 'INACTIVE'].map((value) => {
+                      const isSelected = watch('status') === value;
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-center gap-3 px-4 py-3 border-2 rounded-lg cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-emerald-500 bg-white shadow-sm'
+                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                           }`}
                         >
-                          {value === 'ACTIVE' ? 'Active' : 'Inactive'}
-                        </span>
-                      </label>
-                    ))}
+                          <input
+                            type="radio"
+                            value={value}
+                            {...register('status')}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500 cursor-pointer"
+                          />
+                          <span
+                            className={`text-sm font-medium transition-colors ${
+                              isSelected ? 'text-emerald-700' : 'text-gray-600'
+                            }`}
+                          >
+                            {value === 'ACTIVE' ? 'Active' : 'Inactive'}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                   {errors.status && (
                     <p className="text-xs text-red-600">{errors.status.message}</p>
@@ -1128,7 +1133,7 @@ export function MenuManagementPage() {
           </div>
         )}
 
-        {/* Category Delete Confirmation Dialog */}
+        {/* Category Archive Confirmation Dialog */}
         {deleteConfirmDialog.open && deleteConfirmDialog.categoryId && (
           <div 
             className="fixed inset-0 flex items-center justify-center z-50"
@@ -1143,7 +1148,7 @@ export function MenuManagementPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Delete Category?</h3>
+                <h3 className="text-xl font-bold text-gray-900">Archive category?</h3>
                 <button
                   onClick={() => setDeleteConfirmDialog({ open: false, categoryId: null, activeItemCount: 0 })}
                   className="p-2 hover:bg-gray-100 rounded-lg"
@@ -1153,20 +1158,12 @@ export function MenuManagementPage() {
               </div>
 
               <div className="p-6 space-y-4">
-                {deleteConfirmDialog.activeItemCount > 0 ? (
-                  <>
-                    <p className="text-sm text-gray-600">
-                      This category has <span className="font-semibold text-red-600">{deleteConfirmDialog.activeItemCount} active item{deleteConfirmDialog.activeItemCount !== 1 ? 's' : ''}</span> that will be moved to uncategorized or hidden.
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      This is a soft delete and cannot be undone. Items will be removed from guest menus.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-600">
-                    This category will be removed and this action cannot be undone.
-                  </p>
-                )}
+                <p className="text-sm text-gray-600">
+                  This category will be archived and hidden from the menu.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Items under this category will remain in the database.
+                </p>
               </div>
 
               <div className="flex gap-3 p-6 border-t border-gray-200">
@@ -1181,7 +1178,7 @@ export function MenuManagementPage() {
                   disabled={deleteCategoryMutation.isPending}
                   className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete Category'}
+                  {deleteCategoryMutation.isPending ? 'Archiving...' : 'Archive category'}
                 </button>
               </div>
             </div>
@@ -1287,10 +1284,19 @@ export function MenuManagementPage() {
                   return (
                     <div
                       key={category.id}
-                      className={`relative flex flex-col gap-1 px-1 py-2 transition-all group ${
+                      onClick={() => setSelectedCategory(category.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedCategory(category.id);
+                        }
+                      }}
+                      className={`relative flex flex-col gap-1 px-1 py-2 transition-all group cursor-pointer ${
                         selectedCategory === category.id
-                          ? 'bg-emerald-50'
-                          : 'hover:bg-gray-50'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'text-gray-700 hover:bg-gray-50'
                       } ${!isActive ? 'opacity-60' : ''}`}
                       style={{ 
                         fontSize: '13px',
@@ -1303,33 +1309,20 @@ export function MenuManagementPage() {
                         setContextMenu(newMenu);
                         setContextMenuPos({ left: e.clientX, top: e.clientY });
                       }}
+                      title={category.name}
                     >
                       {/* Row 1: Category name and count + More button (no nesting) */}
                       <div className="flex items-center justify-between gap-1 min-w-0">
-                        {/* Category selection area - interactive div instead of button */}
-                        <div
-                          onClick={() => setSelectedCategory(category.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setSelectedCategory(category.id);
-                            }
-                          }}
-                          className={`flex items-center gap-1.5 min-w-0 flex-1 text-left px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                            selectedCategory === category.id
-                              ? 'text-emerald-700 bg-emerald-100'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                          title={category.name}
-                        >
-                          <span className="text-gray-400 shrink-0" style={{ fontSize: '11px', fontWeight: 500 }}>
-                            {displayOrder !== null ? `#${displayOrder}` : '—'}
-                          </span>
-                          <span className="truncate font-medium">{category.name}</span>
+                        {/* Category info - non-interactive, inherits text color from parent */}
+                        <div className="flex items-center w-full min-w-0 gap-2 text-left px-2 py-1.5 rounded-lg">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-gray-400 shrink-0" style={{ fontSize: '11px', fontWeight: 500 }}>
+                              {displayOrder !== null ? `#${displayOrder}` : '—'}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium">{category.name}</span>
+                          </div>
                           <span 
-                            className={`px-1.5 py-0.5 rounded-full shrink-0 ${
+                            className={`px-1.5 py-0.5 rounded-full shrink-0 ml-auto ${
                               selectedCategory === category.id
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-gray-200 text-gray-700'
@@ -1340,7 +1333,7 @@ export function MenuManagementPage() {
                           </span>
                         </div>
 
-                        {/* More actions button - separate sibling */}
+                        {/* More actions button - separate sibling, prevents selection on click */}
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -1370,7 +1363,7 @@ export function MenuManagementPage() {
                         </button>
                       </div>
 
-                      {/* Row 2: Status Badge */}
+                      {/* Row 2: Status Badge - now inside clickable container */}
                       <div className="flex items-center gap-1 px-2">
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
@@ -1618,14 +1611,16 @@ export function MenuManagementPage() {
                     <Eye size={15} />
                     {isActive ? 'Set Inactive' : 'Set Active'}
                   </button>
-                  <button
-                    onClick={() => handleDeleteCategory(category.id)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-2.5 transition-colors"
-                    title="Soft delete - items will be hidden from menu"
-                  >
-                    <Trash2 size={15} />
-                    Delete
-                  </button>
+                  {isActive && (
+                    <button
+                      onClick={() => handleDeleteCategory(category.id)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 hover:text-red-700 text-sm font-medium flex items-center gap-2.5 transition-colors"
+                      title="Archive this category"
+                    >
+                      <Trash2 size={15} />
+                      Archive
+                    </button>
+                  )}
                 </div>
               );
             })}
