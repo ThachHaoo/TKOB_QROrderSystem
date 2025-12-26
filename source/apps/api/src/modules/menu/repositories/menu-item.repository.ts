@@ -21,14 +21,7 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
     return this.prisma.x.menuItem.findUnique({
       where: { id: itemId },
       include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            displayOrder: true,
-            active: true,
-          },
-        },
+        category: true,
         photos: {
           orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
         },
@@ -100,7 +93,7 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
         ...(filters.categoryId && { categoryId: filters.categoryId }),
         ...(filters.status && { status: filters.status }),
         ...(filters.available !== undefined && { available: filters.available }),
-        ...(filters.chefRecommended !== undefined && { chefRecommended: filters.chefRecommended }), // NEW
+        ...(filters.chefRecommended !== undefined && { chefRecommended: filters.chefRecommended }),
         ...(filters.search && {
           OR: [
             { name: { contains: filters.search, mode: 'insensitive' } },
