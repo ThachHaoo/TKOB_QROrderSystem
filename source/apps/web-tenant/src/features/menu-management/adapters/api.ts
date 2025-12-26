@@ -17,6 +17,7 @@ import {
   menuItemsControllerCreate,
   menuItemsControllerUpdate,
   menuItemsControllerDelete,
+  menuItemsControllerTogglePublish,
 } from '@/services/generated/menu-items/menu-items';
 import {
   modifierGroupControllerFindAll,
@@ -125,6 +126,11 @@ export class MenuApiAdapter implements IMenuAdapter {
 
   async deleteMenuItem(id: string) {
     await menuItemsControllerDelete(id);
+  }
+
+  async publishMenuItem(id: string, status: 'DRAFT' | 'PUBLISHED') {
+    const publish = status === 'PUBLISHED';
+    return menuItemsControllerTogglePublish(id, { publish });
   }
 
   // Modifier Groups

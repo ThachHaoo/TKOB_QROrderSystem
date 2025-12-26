@@ -16,6 +16,7 @@ import {
   useCreateMenuItem,
   useUpdateMenuItem,
   useDeleteMenuItem,
+  usePublishMenuItem,
 } from '@/features/menu-management/hooks/useMenu';
 
 // API Hooks
@@ -43,9 +44,12 @@ export type ItemFormData = {
   description: string;
   price: string;
   prepTimeMinutes: number | null;
-  status: 'available' | 'unavailable' | 'sold_out';
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  available: boolean;
+  displayOrder: number;
   menuItemPhotos: PhotoItem[];
   dietary: string[];
+  allergens: string[];
   chefRecommended: boolean;
   modifierGroupIds: string[];
 };
@@ -84,9 +88,12 @@ export function useMenuManagementPage() {
     description: '',
     price: '',
     prepTimeMinutes: null,
-    status: 'available',
+    status: 'DRAFT',
+    available: true,
+    displayOrder: 0,
     menuItemPhotos: [],
     dietary: [],
+    allergens: [],
     chefRecommended: false,
     modifierGroupIds: [],
   });
@@ -130,6 +137,7 @@ export function useMenuManagementPage() {
   const createItemMutation = useCreateMenuItem();
   const updateItemMutation = useUpdateMenuItem();
   const deleteItemMutation = useDeleteMenuItem();
+  const publishItemMutation = usePublishMenuItem();
   const uploadPhotoMutation = useMenuPhotoControllerUploadPhoto();
 
   // ============ DERIVED COMPUTATIONS ============
@@ -359,9 +367,12 @@ export function useMenuManagementPage() {
       description: '',
       price: '',
       prepTimeMinutes: null,
-      status: 'available',
+      status: 'DRAFT',
+      available: true,
+      displayOrder: 0,
       menuItemPhotos: [],
       dietary: [],
+      allergens: [],
       chefRecommended: false,
       modifierGroupIds: [],
     });
@@ -378,9 +389,12 @@ export function useMenuManagementPage() {
       description: item.description || '',
       price: String(item.price || ''),
       prepTimeMinutes: item.preparationTime || null,
-      status: item.status === 'SOLD_OUT' ? 'sold_out' : (!item.available ? 'unavailable' : 'available'),
+      status: item.status || 'DRAFT',
+      available: item.available ?? true,
+      displayOrder: item.displayOrder ?? 0,
       menuItemPhotos: [],
       dietary: item.tags || [],
+      allergens: item.allergens || [],
       chefRecommended: item.chefRecommended || false,
       modifierGroupIds: item.modifierGroupIds || item.modifierGroups?.map((mg: any) => mg.id) || [],
     });
@@ -397,9 +411,12 @@ export function useMenuManagementPage() {
       description: '',
       price: '',
       prepTimeMinutes: null,
-      status: 'available',
+      status: 'DRAFT',
+      available: true,
+      displayOrder: 0,
       menuItemPhotos: [],
       dietary: [],
+      allergens: [],
       chefRecommended: false,
       modifierGroupIds: [],
     });
@@ -419,6 +436,7 @@ export function useMenuManagementPage() {
             preparationTime: itemFormData.prepTimeMinutes ?? undefined,
             chefRecommended: itemFormData.chefRecommended,
             tags: itemFormData.dietary.length > 0 ? itemFormData.dietary : undefined,
+            allergens: itemFormData.allergens.length > 0 ? itemFormData.allergens : undefined,
             modifierGroupIds: itemFormData.modifierGroupIds.length > 0 ? itemFormData.modifierGroupIds : undefined,
           }
         });
@@ -436,6 +454,7 @@ export function useMenuManagementPage() {
 
         setToastMessage(`Món "${itemFormData.name}" đã được tạo`);
       } else if (currentEditItemId) {
+        // Update basic item data (without status)
         await updateItemMutation.mutateAsync({
           id: currentEditItemId,
           data: {
@@ -444,12 +463,25 @@ export function useMenuManagementPage() {
             description: itemFormData.description || undefined,
             price: parseFloat(itemFormData.price),
             preparationTime: itemFormData.prepTimeMinutes ?? undefined,
-            available: itemFormData.status === 'available',
+            available: itemFormData.available,
+            displayOrder: itemFormData.displayOrder,
             chefRecommended: itemFormData.chefRecommended,
             tags: itemFormData.dietary.length > 0 ? itemFormData.dietary : undefined,
+            allergens: itemFormData.allergens.length > 0 ? itemFormData.allergens : undefined,
             modifierGroupIds: itemFormData.modifierGroupIds.length > 0 ? itemFormData.modifierGroupIds : undefined,
           }
         });
+
+        // Handle status changes separately (only DRAFT and PUBLISHED, ARCHIVED uses delete)
+        if (itemFormData.status === 'DRAFT' || itemFormData.status === 'PUBLISHED') {
+          await publishItemMutation.mutateAsync({
+            id: currentEditItemId,
+            status: itemFormData.status,
+          });
+        } else if (itemFormData.status === 'ARCHIVED') {
+          // Delete (soft delete) to archive
+          await deleteItemMutation.mutateAsync(currentEditItemId);
+        }
 
         if (itemFormData.menuItemPhotos.length > 0) {
           for (const photo of itemFormData.menuItemPhotos) {

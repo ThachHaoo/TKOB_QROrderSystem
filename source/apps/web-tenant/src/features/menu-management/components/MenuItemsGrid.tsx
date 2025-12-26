@@ -114,6 +114,19 @@ export function MenuItemsGrid({
                     </div>
                   )}
 
+                  {item.allergens && item.allergens.length > 0 && (
+                    <div className="flex gap-2 mb-4">
+                      {item.allergens.map((allergen: string) => (
+                        <div
+                          key={allergen}
+                          className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200"
+                        >
+                          <span className="capitalize">{allergen}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                     <span className="text-xl font-bold text-emerald-600">{CURRENCY_CONFIG.format(item.price)}</span>
                     <div className="flex gap-2">

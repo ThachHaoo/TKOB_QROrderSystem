@@ -211,16 +211,56 @@ export function MenuItemModal({
           </div>
 
           <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-gray-900">Display Order <span className="text-gray-500 font-normal">(optional)</span></label>
+            <input
+              type="number"
+              value={formData.displayOrder ?? 0}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!isNaN(value)) {
+                  onFormDataChange({ displayOrder: value });
+                }
+              }}
+              placeholder="e.g., 1"
+              min="0"
+              step="1"
+              className="px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-gray-900">Status *</label>
             <select
               value={formData.status}
-              onChange={(e) => onFormDataChange({ status: e.target.value as 'available' | 'unavailable' | 'sold_out' })}
+              onChange={(e) => onFormDataChange({ status: e.target.value as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' })}
               className="px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
             >
-              <option value="available">Available</option>
-              <option value="unavailable">Unavailable</option>
-              <option value="sold_out">Sold Out</option>
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="ARCHIVED">Archived</option>
             </select>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-900">Available</span>
+              <span className="text-xs text-gray-500">Make this item available for order</span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.available}
+                onChange={(e) => onFormDataChange({ available: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className={`w-11 h-6 rounded-full relative transition-colors ${
+                formData.available ? 'bg-emerald-500' : 'bg-gray-200'
+              }`}>
+                <div className={`absolute top-0.5 left-0.5 bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform ${
+                  formData.available ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </div>
+            </label>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -238,6 +278,31 @@ export function MenuItemModal({
                   }`}
                 >
                   {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-gray-900">Allergens</label>
+            <div className="flex flex-wrap gap-2">
+              {['dairy', 'gluten', 'eggs', 'fish', 'shellfish', 'peanuts', 'tree nuts', 'soy', 'sesame'].map((allergen) => (
+                <button
+                  key={allergen}
+                  type="button"
+                  onClick={() => {
+                    const updated = formData.allergens.includes(allergen)
+                      ? formData.allergens.filter(a => a !== allergen)
+                      : [...formData.allergens, allergen];
+                    onFormDataChange({ allergens: updated });
+                  }}
+                  className={`px-3 py-2 rounded-lg border text-sm font-medium capitalize ${
+                    formData.allergens.includes(allergen)
+                      ? 'bg-red-50 border-red-500 text-red-700'
+                      : 'bg-white border-gray-300 text-gray-700'
+                  }`}
+                >
+                  {allergen}
                 </button>
               ))}
             </div>

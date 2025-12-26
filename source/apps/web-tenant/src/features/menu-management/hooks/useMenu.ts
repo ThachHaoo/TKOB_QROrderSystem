@@ -190,6 +190,22 @@ export const useDeleteMenuItem = () => {
 };
 
 /**
+ * Publish menu item mutation
+ */
+export const usePublishMenuItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'DRAFT' | 'PUBLISHED' }) =>
+      menuService.publishMenuItem(id, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      queryClient.invalidateQueries({ queryKey: ['menu', 'item', variables.id] });
+    },
+  });
+};
+
+/**
  * Create modifier group mutation
  */
 export const useCreateModifierGroup = () => {

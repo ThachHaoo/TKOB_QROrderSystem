@@ -57,6 +57,10 @@ class MenuService {
     return menuAdapter.deleteMenuItem(id);
   }
 
+  async publishMenuItem(id: string, status: 'DRAFT' | 'PUBLISHED') {
+    return menuAdapter.publishMenuItem(id, status);
+  }
+
   // Modifier Groups
   async listModifierGroups(params?: { activeOnly?: boolean }) {
     return menuAdapter.listModifierGroups(params);

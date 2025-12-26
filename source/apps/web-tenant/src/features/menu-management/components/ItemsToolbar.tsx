@@ -53,9 +53,9 @@ export function ItemsToolbar({
               className="appearance-none pl-3 pr-8 py-2 border border-gray-300 bg-white text-gray-700 cursor-pointer rounded-xl text-sm font-medium min-w-32 h-10"
             >
               <option>All Status</option>
-              <option>Available</option>
-              <option>Unavailable</option>
-              <option>Sold Out</option>
+              <option>Draft</option>
+              <option>Published</option>
+              <option>Archived</option>
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
