@@ -89,10 +89,10 @@ export class MenuItemResponseDto {
   categoryId: string;
 
   @ApiProperty()
-  categoryName: string;
-
-  @ApiProperty()
   price: number;
+
+  @ApiProperty({ example: 15, minimum: 0, maximum: 240 })
+  preparationTime: number;
 
   @ApiPropertyOptional()
   imageUrl?: string;
