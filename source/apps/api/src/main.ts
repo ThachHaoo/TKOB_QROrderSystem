@@ -83,7 +83,7 @@ async function bootstrap() {
   );
 
   // ==================== SWAGGER (Development only) ====================
-  if (nodeEnv === 'development') {
+  if (nodeEnv === 'development' || nodeEnv === 'production') {
     const config = new DocumentBuilder()
       .setTitle('QR Ordering API')
       .setDescription('API Documentation for QR Ordering Platform')
