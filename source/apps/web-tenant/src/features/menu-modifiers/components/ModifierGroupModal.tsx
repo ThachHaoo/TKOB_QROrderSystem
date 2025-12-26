@@ -12,6 +12,8 @@ type ModifierGroupModalProps = {
   onNameChange: (name: string) => void;
   formDescription: string;
   onDescriptionChange: (description: string) => void;
+  formDisplayOrder: number;
+  onDisplayOrderChange: (order: number) => void;
   formType: 'single' | 'multiple';
   onTypeChange: (type: 'single' | 'multiple') => void;
   formRequired: boolean;
@@ -38,6 +40,8 @@ export function ModifierGroupModal({
   onNameChange,
   formDescription,
   onDescriptionChange,
+  formDisplayOrder,
+  onDisplayOrderChange,
   formType,
   onTypeChange,
   formRequired,
@@ -106,6 +110,22 @@ export function ModifierGroupModal({
               placeholder="Brief description of this modifier group"
               rows={3}
               className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+            />
+          </div>
+
+          {/* Display Order */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Display Order (optional)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={formDisplayOrder}
+              onChange={(e) => onDisplayOrderChange(parseInt(e.target.value) || 0)}
+              placeholder="e.g., 0"
+              className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
 

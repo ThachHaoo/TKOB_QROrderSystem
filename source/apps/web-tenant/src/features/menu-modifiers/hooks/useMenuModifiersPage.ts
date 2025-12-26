@@ -32,6 +32,7 @@ export function useMenuModifiersPage() {
   const [deletingGroup, setDeletingGroup] = useState<ModifierGroup | null>(null);
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formDisplayOrder, setFormDisplayOrder] = useState(0);
   const [formType, setFormType] = useState<'single' | 'multiple'>('single');
   const [formRequired, setFormRequired] = useState(false);
   const [formMinChoices, setFormMinChoices] = useState(1);
@@ -78,6 +79,7 @@ export function useMenuModifiersPage() {
   const resetForm = () => {
     setFormName('');
     setFormDescription('');
+    setFormDisplayOrder(0);
     setFormType('single');
     setFormRequired(false);
     setFormMinChoices(1);
@@ -90,6 +92,62 @@ export function useMenuModifiersPage() {
   const handleNewGroup = () => {
     resetForm();
     setShowCreateModal(true);
+  };
+
+  // Handler: Required checkbox change
+  // If Required: minChoices >= 1
+  // If Not Required: minChoices >= 0
+  // For SingleChoice:
+  //   - Required: minChoices=1, maxChoices=1
+  //   - Not Required: minChoices=0, maxChoices=1
+  const handleRequiredChange = (required: boolean) => {
+    setFormRequired(required);
+    
+    if (formType === 'single') {
+      if (required) {
+        setFormMinChoices(1);
+        setFormMaxChoices(1);
+      } else {
+        setFormMinChoices(0);
+        setFormMaxChoices(1);
+      }
+    } else {
+      // For multiple choice
+      if (required) {
+        // Min must be >= 1
+        const newMin = Math.max(formMinChoices, 1);
+        setFormMinChoices(newMin);
+      } else {
+        // Min can be >= 0
+        setFormMinChoices(Math.max(formMinChoices, 0));
+      }
+    }
+  };
+
+  // Handler: Type change (single vs multiple)
+  // Apply min/max logic based on new type and current Required state
+  const handleTypeChange = (type: 'single' | 'multiple') => {
+    setFormType(type);
+    
+    if (type === 'single') {
+      if (formRequired) {
+        setFormMinChoices(1);
+        setFormMaxChoices(1);
+      } else {
+        setFormMinChoices(0);
+        setFormMaxChoices(1);
+      }
+    } else {
+      // For multiple choice
+      if (formRequired) {
+        const newMin = Math.max(formMinChoices, 1);
+        setFormMinChoices(newMin);
+        setFormMaxChoices(Math.max(formMaxChoices, newMin + 1, formOptions.length));
+      } else {
+        setFormMinChoices(Math.max(formMinChoices, 0));
+        setFormMaxChoices(Math.max(formMaxChoices, 1, formOptions.length));
+      }
+    }
   };
 
   // Handlers: Options
@@ -154,19 +212,25 @@ export function useMenuModifiersPage() {
       }
     }
 
-    createGroupMutation.mutate({
-      data: {
+    // Map form options, filtering out inactive ones and only sending active options
+    const activeOptions = formOptions
+      .filter(opt => opt.active !== false)
+      .map(opt => ({
+        name: opt.name,
+        priceDelta: opt.priceDelta,
+        displayOrder: opt.displayOrder,
+      }));
+
+    createGroupMutation.mutate(
+      {
         name: formName,
         description: formDescription || undefined,
         type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
         required: formRequired,
         minChoices: formMinChoices,
         maxChoices: formMaxChoices,
-        options: formOptions.map(opt => ({
-          name: opt.name,
-          priceDelta: opt.priceDelta,
-          displayOrder: opt.displayOrder,
-        })),
+        displayOrder: formDisplayOrder,
+        options: activeOptions,
       } as unknown as {
         name: string;
         description?: string;
@@ -174,17 +238,35 @@ export function useMenuModifiersPage() {
         required: boolean;
         minChoices: number;
         maxChoices: number;
+        displayOrder: number;
         options: Array<{ name: string; priceDelta: number; displayOrder: number }>;
-        displayOrder?: number;
         active?: boolean;
       },
-    });
+      {
+        onSuccess: () => {
+          setToast({
+            message: `Modifier group "${formName}" created successfully`,
+            type: 'success',
+          });
+          setShowCreateModal(false);
+          resetForm();
+        },
+        onError: (error: any) => {
+          const errorMessage = error?.response?.data?.errorMessage || error?.message || 'Failed to create modifier group';
+          setToast({
+            message: errorMessage,
+            type: 'error',
+          });
+        },
+      }
+    );
   };
 
   const handleEditGroup = (group: ModifierGroup) => {
     setEditingGroup(group);
     setFormName(group.name);
     setFormDescription(group.description || '');
+    setFormDisplayOrder(group.displayOrder || 0);
     const normalizedType = normalizeModifierType(group.type);
     setFormType(normalizedType);
     setFormRequired(group.required);
@@ -198,11 +280,11 @@ export function useMenuModifiersPage() {
     );
 
     if (normalizedType === 'single') {
-      setFormMinChoices(1);
-      setFormMaxChoices(1);
+      setFormMinChoices(group.minChoices || 1);
+      setFormMaxChoices(group.maxChoices || 1);
     } else {
-      setFormMinChoices(0);
-      setFormMaxChoices(group.options.length);
+      setFormMinChoices(group.minChoices || 0);
+      setFormMaxChoices(group.maxChoices || group.options.length);
     }
 
     setShowEditModal(true);
@@ -243,32 +325,57 @@ export function useMenuModifiersPage() {
       }
     }
 
-    updateGroupMutation.mutate({
-      id: editingGroup.id,
-      data: {
-        name: formName,
-        description: formDescription || undefined,
-        type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
-        required: formRequired,
-        minChoices: formMinChoices,
-        maxChoices: formMaxChoices,
-        options: formOptions.map(opt => ({
-          name: opt.name,
-          priceDelta: opt.priceDelta,
-          displayOrder: opt.displayOrder,
-        })),
-      } as unknown as {
-        name: string;
-        description?: string;
-        type: 'SINGLE_CHOICE' | 'MULTI_CHOICE';
-        required: boolean;
-        minChoices: number;
-        maxChoices: number;
-        options: Array<{ name: string; priceDelta: number; displayOrder: number }>;
-        displayOrder?: number;
-        active?: boolean;
+    // Map form options, filtering out inactive ones and only sending active options
+    const activeOptions = formOptions
+      .filter(opt => opt.active !== false)
+      .map(opt => ({
+        name: opt.name,
+        priceDelta: opt.priceDelta,
+        displayOrder: opt.displayOrder,
+      }));
+
+    updateGroupMutation.mutate(
+      {
+        id: editingGroup.id,
+        body: {
+          name: formName,
+          description: formDescription || undefined,
+          type: formType === 'single' ? 'SINGLE_CHOICE' : 'MULTI_CHOICE',
+          required: formRequired,
+          minChoices: formMinChoices,
+          maxChoices: formMaxChoices,
+          displayOrder: formDisplayOrder,
+          options: activeOptions,
+        } as unknown as {
+          name: string;
+          description?: string;
+          type: 'SINGLE_CHOICE' | 'MULTI_CHOICE';
+          required: boolean;
+          minChoices: number;
+          maxChoices: number;
+          displayOrder: number;
+          options: Array<{ name: string; priceDelta: number; displayOrder: number }>;
+          active?: boolean;
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          setToast({
+            message: `Modifier group "${formName}" updated successfully`,
+            type: 'success',
+          });
+          setShowEditModal(false);
+          resetForm();
+        },
+        onError: (error: any) => {
+          const errorMessage = error?.response?.data?.errorMessage || error?.message || 'Failed to update modifier group';
+          setToast({
+            message: errorMessage,
+            type: 'error',
+          });
+        },
+      }
+    );
   };
 
   const handleDeleteGroup = (group: ModifierGroup) => {
@@ -339,6 +446,8 @@ export function useMenuModifiersPage() {
       setFormName,
       formDescription,
       setFormDescription,
+      formDisplayOrder,
+      setFormDisplayOrder,
       formType,
       setFormType,
       formRequired,
@@ -379,6 +488,9 @@ export function useMenuModifiersPage() {
       handleDeleteGroup,
       confirmDeleteGroup,
       handleApplyFilters,
+      handleResetFilters,
+      handleRequiredChange,
+      handleTypeChange,
       handleResetFilters,
       handleClearFilter,
     },

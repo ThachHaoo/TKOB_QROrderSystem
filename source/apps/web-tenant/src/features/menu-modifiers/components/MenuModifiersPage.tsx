@@ -74,10 +74,12 @@ export function MenuModifiersPage() {
         onNameChange={state.setFormName}
         formDescription={state.formDescription}
         onDescriptionChange={state.setFormDescription}
+        formDisplayOrder={state.formDisplayOrder}
+        onDisplayOrderChange={state.setFormDisplayOrder}
         formType={state.formType}
-        onTypeChange={state.setFormType}
+        onTypeChange={handlers.handleTypeChange}
         formRequired={state.formRequired}
-        onRequiredChange={state.setFormRequired}
+        onRequiredChange={handlers.handleRequiredChange}
         formMinChoices={state.formMinChoices}
         onMinChoicesChange={state.setFormMinChoices}
         formMaxChoices={state.formMaxChoices}
