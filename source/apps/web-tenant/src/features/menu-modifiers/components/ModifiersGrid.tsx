@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Card, Badge } from '@/shared/components/ui';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Layers } from 'lucide-react';
 import { CURRENCY_CONFIG } from '@/config/currency';
 import { ModifierGroup } from '../types/modifiers';
 
@@ -54,11 +54,35 @@ export function ModifiersGrid({
                         ? 'Choose 1'
                         : 'Multi-select'}
                     </Badge>
+                    {group.required && (
+                      <Badge variant="warning">Required</Badge>
+                    )}
                     {group.active === false && (
                       <Badge variant="neutral">Inactive</Badge>
                     )}
                   </div>
                 </div>
+                {/* Display Order Badge - Top Right */}
+                {group.displayOrder !== undefined && (
+                  <div
+                    className="ml-2 flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-full tooltip"
+                    title="Controls the display order of this modifier group"
+                    style={{
+                      backgroundColor: '#eff6ff',
+                      borderColor: '#bfdbfe',
+                      minWidth: 'fit-content',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                    <span
+                      className="text-blue-700 font-semibold"
+                      style={{ fontSize: '12px' }}
+                    >
+                      Order #{group.displayOrder}
+                    </span>
+                  </div>
+                )}
               </div>
               {group.description && (
                 <p

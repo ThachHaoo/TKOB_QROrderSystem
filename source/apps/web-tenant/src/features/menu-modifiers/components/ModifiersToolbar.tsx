@@ -53,12 +53,13 @@ export function ModifiersToolbar({
         >
           All Groups
         </h3>
-        <span
+        {/* Count display disabled - server doesn't support count API yet */}
+        {/* <span
           className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full"
           style={{ fontSize: '13px', fontWeight: 600 }}
         >
           {visibleGroupsCount} {visibleGroupsCount === 1 ? 'group' : 'groups'}
-        </span>
+        </span> */}
 
         {(selectedType !== 'all' || searchQuery) && (
           <button
@@ -115,7 +116,8 @@ export function ModifiersToolbar({
                       />
                       <span className="text-sm text-gray-700">All Types</span>
                     </div>
-                    <span className="text-xs text-gray-500">{singleCount + multiCount}</span>
+                    {/* Count display disabled */}
+                    {/* <span className="text-xs text-gray-500">{singleCount + multiCount}</span> */}
                   </label>
 
                   <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -129,7 +131,8 @@ export function ModifiersToolbar({
                       />
                       <span className="text-sm text-gray-700">Single Choice</span>
                     </div>
-                    <span className="text-xs text-gray-500">{singleCount}</span>
+                    {/* Count display disabled */}
+                    {/* <span className="text-xs text-gray-500">{singleCount}</span> */}
                   </label>
 
                   <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -143,7 +146,8 @@ export function ModifiersToolbar({
                       />
                       <span className="text-sm text-gray-700">Multiple Choice</span>
                     </div>
-                    <span className="text-xs text-gray-500">{multiCount}</span>
+                    {/* Count display disabled */}
+                    {/* <span className="text-xs text-gray-500">{multiCount}</span> */}
                   </label>
                 </div>
 
@@ -162,7 +166,8 @@ export function ModifiersToolbar({
                         />
                         <span className="text-sm text-gray-700">Active Groups</span>
                       </div>
-                      <span className="text-xs text-gray-500">{activeCount}</span>
+                      {/* Count display disabled */}
+                      {/* <span className="text-xs text-gray-500">{activeCount}</span> */}
                     </label>
 
                     <label className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -176,7 +181,8 @@ export function ModifiersToolbar({
                         />
                         <span className="text-sm text-gray-700">Archived Groups</span>
                       </div>
-                      <span className="text-xs text-gray-500">{archivedCount}</span>
+                      {/* Count display disabled */}
+                      {/* <span className="text-xs text-gray-500">{archivedCount}</span> */}
                     </label>
                   </div>
                 </div>

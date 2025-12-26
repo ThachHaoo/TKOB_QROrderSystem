@@ -37,6 +37,7 @@ export function useMenuModifiersPage() {
   const [formRequired, setFormRequired] = useState(false);
   const [formMinChoices, setFormMinChoices] = useState(1);
   const [formMaxChoices, setFormMaxChoices] = useState(1);
+  const [formActive, setFormActive] = useState(true);
 
   // Options management
   const [formOptions, setFormOptions] = useState<FormOption[]>([]);
@@ -47,29 +48,30 @@ export function useMenuModifiersPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // API queries and mutations
-  const { data: groupsResponse } = useModifierGroups({ activeOnly: false });
+  // Build query parameters based on selected filters
+  const queryParams = {
+    activeOnly: selectedStatus === 'archived' ? false : selectedStatus === 'all' ? undefined : true,
+    type: selectedType === 'all' 
+      ? undefined 
+      : selectedType === 'single' 
+      ? 'SINGLE_CHOICE' 
+      : 'MULTI_CHOICE',
+  };
+  
+  const { data: groupsResponse } = useModifierGroups(queryParams);
   const groups = (Array.isArray(groupsResponse?.data) ? groupsResponse.data : []) as ModifierGroup[];
 
   const createGroupMutation = useCreateModifierGroup();
   const updateGroupMutation = useUpdateModifierGroup();
   const deleteGroupMutation = useDeleteModifierGroup();
 
-  // Derived: Filter logic
+  // Derived: Filter logic - Only filter by search query since server handles type/status
   const visibleGroups = groups.filter((group) => {
-    if (selectedStatus === 'archived') {
-      if (group.active !== false) return false;
-    } else {
-      if (group.active === false) return false;
-    }
-
-    const normalizedGroupType = normalizeModifierType(group.type);
-    const matchesType = selectedType === 'all' || normalizedGroupType === selectedType;
     const matchesSearch = group.name.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesType && matchesSearch;
+    return matchesSearch;
   });
 
-  // Derived: Counts
+  // Derived: Counts - Calculate from the filtered server response
   const singleCount = groups.filter(g => normalizeModifierType(g.type) === 'single').length;
   const multiCount = groups.filter(g => normalizeModifierType(g.type) === 'multiple').length;
   const activeCount = groups.filter(g => g.active !== false).length;
@@ -84,6 +86,7 @@ export function useMenuModifiersPage() {
     setFormRequired(false);
     setFormMinChoices(1);
     setFormMaxChoices(1);
+    setFormActive(true);
     setFormOptions([]);
     setOptionName('');
     setOptionPrice('0');
@@ -267,6 +270,7 @@ export function useMenuModifiersPage() {
     setFormName(group.name);
     setFormDescription(group.description || '');
     setFormDisplayOrder(group.displayOrder || 0);
+    setFormActive(group.active !== false);
     const normalizedType = normalizeModifierType(group.type);
     setFormType(normalizedType);
     setFormRequired(group.required);
@@ -345,6 +349,7 @@ export function useMenuModifiersPage() {
           minChoices: formMinChoices,
           maxChoices: formMaxChoices,
           displayOrder: formDisplayOrder,
+          active: formActive,
           options: activeOptions,
         } as unknown as {
           name: string;
@@ -354,8 +359,8 @@ export function useMenuModifiersPage() {
           minChoices: number;
           maxChoices: number;
           displayOrder: number;
+          active: boolean;
           options: Array<{ name: string; priceDelta: number; displayOrder: number }>;
-          active?: boolean;
         },
       },
       {
@@ -456,6 +461,8 @@ export function useMenuModifiersPage() {
       setFormMinChoices,
       formMaxChoices,
       setFormMaxChoices,
+      formActive,
+      setFormActive,
       formOptions,
       setFormOptions,
       optionName,

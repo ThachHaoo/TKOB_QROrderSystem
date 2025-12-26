@@ -22,6 +22,8 @@ type ModifierGroupModalProps = {
   onMinChoicesChange: (min: number) => void;
   formMaxChoices: number;
   onMaxChoicesChange: (max: number) => void;
+  formActive?: boolean;
+  onActiveChange?: (active: boolean) => void;
   formOptions: FormOption[];
   optionName: string;
   onOptionNameChange: (name: string) => void;
@@ -50,6 +52,8 @@ export function ModifierGroupModal({
   onMinChoicesChange,
   formMaxChoices,
   onMaxChoicesChange,
+  formActive,
+  onActiveChange,
   formOptions,
   optionName,
   onOptionNameChange,
@@ -189,6 +193,24 @@ export function ModifierGroupModal({
                 </div>
               </div>
             </label>
+
+            {/* Active Status - Only in Edit Mode */}
+            {mode === 'edit' && onActiveChange && (
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formActive ?? true}
+                  onChange={(e) => onActiveChange(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded"
+                />
+                <div>
+                  <div className="text-sm font-medium text-gray-900">Active</div>
+                  <div className="text-xs text-gray-500">
+                    This modifier group is available for selection
+                  </div>
+                </div>
+              </label>
+            )}
 
             {formType === 'multiple' && (
               <div className="grid grid-cols-2 gap-3">

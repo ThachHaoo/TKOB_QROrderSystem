@@ -84,6 +84,8 @@ export function MenuModifiersPage() {
         onMinChoicesChange={state.setFormMinChoices}
         formMaxChoices={state.formMaxChoices}
         onMaxChoicesChange={state.setFormMaxChoices}
+        formActive={state.formActive}
+        onActiveChange={state.setFormActive}
         formOptions={state.formOptions}
         optionName={state.optionName}
         onOptionNameChange={state.setOptionName}
