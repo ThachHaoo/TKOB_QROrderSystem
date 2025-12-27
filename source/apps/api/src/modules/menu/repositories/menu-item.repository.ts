@@ -209,7 +209,7 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
     const where: Prisma.MenuItemWhereInput = {
       tenantId,
       status: 'PUBLISHED',
-      available: true,
+      // available: true,
       category: {
         active: true,
       },
