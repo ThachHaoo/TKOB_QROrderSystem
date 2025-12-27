@@ -241,18 +241,20 @@ export function MenuItemModal({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-semibold text-gray-900">Status *</label>
-            <select
-              value={formData.status}
-              onChange={(e) => onFormDataChange({ status: e.target.value as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' })}
-              className="px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="ARCHIVED">Archived</option>
-            </select>
-          </div>
+          {mode === 'edit' && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-gray-900">Status *</label>
+              <select
+                value={formData.status}
+                onChange={(e) => onFormDataChange({ status: e.target.value as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' })}
+                className="px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
+              >
+                <option value="DRAFT">Draft</option>
+                <option value="PUBLISHED">Published</option>
+                <option value="ARCHIVED">Archived</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
             <div className="flex flex-col">
