@@ -11,7 +11,7 @@ import {
   type ControllerProps,
   type FieldPath,
   type FieldValues,
-} from "react-hook-form@7.55.0";
+} from "react-hook-form";
 
 import { cn } from "../utils";
 import { Label } from "./label";
@@ -90,7 +90,7 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
 function FormLabel({
   className,
   ...props
-}: React.ComponentProps<typeof LabelPrimitive.Root>) {
+}: any) {
   const { error, formItemId } = useFormField();
 
   return (
@@ -104,7 +104,7 @@ function FormLabel({
   );
 }
 
-function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
+function FormControl({ ...props }: any) {
   const { error, formItemId, formDescriptionId, formMessageId } =
     useFormField();
 

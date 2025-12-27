@@ -12,7 +12,7 @@ function Slider({
   min = 0,
   max = 100,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: any) {
   const _values = React.useMemo(
     () =>
       Array.isArray(value)

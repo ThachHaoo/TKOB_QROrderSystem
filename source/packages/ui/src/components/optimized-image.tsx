@@ -1,11 +1,12 @@
 'use client'
 
-import Image, { ImageProps } from 'next/image'
 import { useState } from 'react'
 import { cn } from '../utils'
 
-interface OptimizedImageProps extends Omit<ImageProps, 'onError'> {
+interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string
+  src: string
+  alt: string
 }
 
 export function OptimizedImage({ 
@@ -19,7 +20,7 @@ export function OptimizedImage({
   const [isError, setIsError] = useState(false)
 
   return (
-    <Image
+    <img
       {...props}
       src={isError ? fallbackSrc : imgSrc}
       alt={alt}
@@ -29,7 +30,6 @@ export function OptimizedImage({
         setImgSrc(fallbackSrc)
       }}
       loading="lazy"
-      quality={85}
     />
   )
 }
