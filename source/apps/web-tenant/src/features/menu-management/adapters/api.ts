@@ -4,6 +4,7 @@
  */
 
 import type { IMenuAdapter } from './types';
+import type { ModifierGroupResponseDto } from '@/services/generated/models';
 import {
   menuCategoryControllerFindAll,
   menuCategoryControllerFindOne,
@@ -90,8 +91,25 @@ export class MenuApiAdapter implements IMenuAdapter {
   }
 
   // Menu Items
-  async listMenuItems() {
-    const data = await menuItemsControllerFindAll();
+  async listMenuItems(): Promise<{ data: any[]; meta: any }> {
+    const response = await menuItemsControllerFindAll();
+    
+    // Handle undefined/null/void - early return
+    if (response === undefined || response === null) {
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page: 1,
+          limit: 100,
+          totalPages: 0,
+        },
+      };
+    }
+    
+    // Now we know response is not undefined/null, treat it as actual data
+    const data = response as any;
+    
     // Wrap array response into expected format
     if (Array.isArray(data)) {
       return {
@@ -104,11 +122,25 @@ export class MenuApiAdapter implements IMenuAdapter {
         },
       };
     }
+    
     // If already wrapped, transform data array
-    if (data?.data) {
-      data.data = data.data.map((item: any) => this.transformMenuItemResponse(item));
+    if (typeof data === 'object' && 'data' in data) {
+      return {
+        data: ((data as any).data as any[]).map((item: any) => this.transformMenuItemResponse(item)),
+        meta: (data as any).meta
+      };
     }
-    return data;
+    
+    // Fallback - empty response
+    return {
+      data: [],
+      meta: {
+        total: 0,
+        page: 1,
+        limit: 100,
+        totalPages: 0,
+      },
+    };
   }
 
   async getMenuItemById(id: string) {
@@ -134,22 +166,18 @@ export class MenuApiAdapter implements IMenuAdapter {
   }
 
   // Modifier Groups
-  async listModifierGroups(params?: { activeOnly?: boolean }) {
+  async listModifierGroups(params?: { activeOnly?: boolean }): Promise<ModifierGroupResponseDto[]> {
     const data = await modifierGroupControllerFindAll(params ?? {});
-    // Wrap array response into expected format
+    // Return array directly as per interface
     if (Array.isArray(data)) {
-      return {
-        data,
-        meta: {
-          total: data.length,
-          page: 1,
-          limit: 100,
-          totalPages: 1,
-        },
-      };
+      return data;
     }
-    // If already wrapped, return as-is
-    return data;
+    // If wrapped, extract the data array
+    if (data && typeof data === 'object' && 'data' in data) {
+      return (data as any).data;
+    }
+    // Fallback to empty array
+    return [];
   }
 
   async getModifierGroupById(id: string) {

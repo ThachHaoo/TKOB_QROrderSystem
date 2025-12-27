@@ -6,7 +6,7 @@ import { Edit2, Eye, Trash2 } from './icons';
 type CategoryContextMenuProps = {
   contextMenu: { categoryId: string; anchor: 'cursor' | 'button'; x: number; y: number } | null;
   contextMenuPos: { left: number; top: number } | null;
-  contextMenuRef: React.RefObject<HTMLDivElement>;
+  contextMenuRef: React.RefObject<HTMLDivElement | null>;
   sortedCategories: any[];
   onEdit: (category: any) => void;
   onToggleStatus: (categoryId: string) => void;

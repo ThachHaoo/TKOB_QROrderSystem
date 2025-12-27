@@ -15,7 +15,7 @@ import { UserMenu } from '@/shared/components/ui/UserMenu';
  * - Mobile-optimized for tablet use
  */
 
-interface WaiterTopBarProps {
+export interface WaiterTopBarProps {
   restaurantName?: string;
   userName?: string;
   userRole?: string;

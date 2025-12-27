@@ -7,7 +7,7 @@ type CategoryModalProps = {
   isOpen: boolean;
   isEditing: boolean;
   onClose: () => void;
-  onSubmit: (e: React.FormEvent) => Promise<void>;
+  onSubmit: (data: any) => Promise<void>;
   register: any;
   handleSubmit: any;
   errors: any;

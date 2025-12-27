@@ -59,7 +59,7 @@ export function useMenuModifiersPage() {
   };
   
   const { data: groupsResponse } = useModifierGroups(queryParams);
-  const groups = (Array.isArray(groupsResponse?.data) ? groupsResponse.data : []) as ModifierGroup[];
+  const groups = (Array.isArray(groupsResponse) ? groupsResponse : []) as ModifierGroup[];
 
   const createGroupMutation = useCreateModifierGroup();
   const updateGroupMutation = useUpdateModifierGroup();
@@ -524,7 +524,6 @@ export function useMenuModifiersPage() {
       handleResetFilters,
       handleRequiredChange,
       handleTypeChange,
-      handleResetFilters,
       handleClearFilter,
     },
     mutations: {

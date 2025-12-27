@@ -57,7 +57,7 @@ api.interceptors.request.use((config) => {
       ? (localStorage.getItem('authToken') || sessionStorage.getItem('authToken'))
       : null;
     if (token) {
-      config.headers = config.headers || {};
+      config.headers = (config.headers || {}) as any;
       (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
       console.log(`🔑 [axios] Token attached to request: ${config.method?.toUpperCase()} ${config.url}`);
     } else {

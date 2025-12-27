@@ -3,7 +3,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { CURRENCY_CONFIG } from '@/config/currency';
-import { FormOption } from '../../types/modifiers';
+import { FormOption } from '../types/modifiers';
 
 type ModifierGroupModalProps = {
   isOpen: boolean;

@@ -234,7 +234,7 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
                       Click button to change
                     </p>
                   </div>
-                  <Button variant="secondary" size="sm" onClick={handleLogoUpload}>
+                  <Button variant="secondary" onClick={handleLogoUpload} className="h-10 px-4 text-sm">
                     Change
                   </Button>
                 </div>
@@ -275,7 +275,7 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
                   ))}
                 </select>
               </div>
-              <Button variant="secondary" size="sm" onClick={applyToAllDays}>
+              <Button variant="secondary" onClick={applyToAllDays} className="h-10 px-4 text-sm">
                 <Copy className="w-4 h-4 mr-2" />
                 Apply to all days
               </Button>
@@ -483,8 +483,8 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
             </div>
             <div>
               <h2 className="text-gray-900">Welcome to TKQR</h2>
-              <p className="text-gray-600" style={{ fontSize: '14px' }}>
-                Let's set up your restaurant
+              <p className="text-gray-600" style={{ fontSize: '14px' }}>  
+                Let&apos;s set up your restaurant
               </p>
             </div>
           </div>

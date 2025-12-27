@@ -28,7 +28,7 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
   // Fetch all menu items for recommendations
   const { data: menuResponse } = useQuery({
     queryKey: ['menu-items'],
-    queryFn: () => MenuService.getPublicMenu('') // TODO: Add proper token
+    queryFn: () => MenuService.getPublicMenu()
   });
   
   const item = itemResponse?.data;

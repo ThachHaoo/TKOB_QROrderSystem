@@ -8,7 +8,7 @@ import type { UserRole } from '@/shared/context/AuthContext';
 
 import type { AdminScreenId } from './AdminShell';
 
-interface UserMenuProps {
+export interface UserMenuProps {
   userName?: string;
   userRole?: string;
   avatarColor?: string;

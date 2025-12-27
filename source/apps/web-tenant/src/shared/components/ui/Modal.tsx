@@ -5,7 +5,7 @@ import React from 'react';
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
-interface ModalProps {
+export interface ModalProps {
   isOpen: boolean;
   title: string;
   description?: string;

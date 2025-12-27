@@ -20,7 +20,7 @@ const fakeDelay = () => new Promise((resolve) => setTimeout(resolve, 200 + Math.
 /**
  * Mock tables in-memory storage
  */
-let mockTables: TableResponseDto[] = JSON.parse(JSON.stringify(initialMockTables));
+const mockTables: TableResponseDto[] = JSON.parse(JSON.stringify(initialMockTables));
 
 export class TablesMockAdapter implements ITablesAdapter {
   async listTables(params?: TableControllerFindAllParams): Promise<TableResponseDto[]> {

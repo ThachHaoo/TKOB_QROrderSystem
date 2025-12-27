@@ -344,25 +344,25 @@ export function AnalyticsPage() {
               title="Total Revenue"
               value="$28,450"
               icon={DollarSign}
-              trend={{ value: '15% from last period', isPositive: true }}
+              trend={{ value: 15, isPositive: true }}
             />
             <KPICard
               title="Total Orders"
               value="1,248"
               icon={ShoppingBag}
-              trend={{ value: '12% from last period', isPositive: true }}
+              trend={{ value: 12, isPositive: true }}
             />
             <KPICard
               title="Avg Order Value"
               value="$22.79"
               icon={TrendingUp}
-              trend={{ value: '3% from last period', isPositive: true }}
+              trend={{ value: 3, isPositive: true }}
             />
             <KPICard
               title="Avg Prep Time"
               value="14 min"
               icon={Clock}
-              trend={{ value: '2 min from last period', isPositive: false }}
+              trend={{ value: -2, isPositive: false }}
             />
           </div>
 

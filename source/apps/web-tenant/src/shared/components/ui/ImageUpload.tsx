@@ -4,7 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { Upload, X, AlertCircle } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
 
-interface ImageUploadProps {
+export interface ImageUploadProps {
   value?: File | string | null;
   onChange: (file: File | null) => void;
   maxSizeMB?: number;

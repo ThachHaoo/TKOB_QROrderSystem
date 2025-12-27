@@ -7,7 +7,7 @@ interface ReactQueryProviderProps {
   children: ReactNode;
 }
 
-export function ReactQueryProvider({ children }: ReactQueryProviderProps) {
+export function ReactQueryProvider({ children }: ReactQueryProviderProps): React.ReactElement {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -32,7 +32,7 @@ export function ReactQueryProvider({ children }: ReactQueryProviderProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      {children as any}
     </QueryClientProvider>
   );
 }

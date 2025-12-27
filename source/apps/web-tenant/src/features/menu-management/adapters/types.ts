@@ -29,6 +29,7 @@ export interface IMenuAdapter {
   createMenuItem(data: CreateMenuItemDto): Promise<MenuItemResponseDto>;
   updateMenuItem(id: string, data: UpdateMenuItemDto): Promise<MenuItemResponseDto>;
   deleteMenuItem(id: string): Promise<void>;
+  publishMenuItem(id: string, status: 'DRAFT' | 'PUBLISHED'): Promise<MenuItemResponseDto>;
 
   // Modifier Groups
   listModifierGroups(params?: { activeOnly?: boolean }): Promise<ModifierGroupResponseDto[]>;

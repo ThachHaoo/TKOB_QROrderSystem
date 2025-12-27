@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button, Input, Card } from '@/shared/components/ui';
 import { QrCode, AlertTriangle, CheckCircle } from 'lucide-react';
 import { ROUTES } from '@/lib/routes';

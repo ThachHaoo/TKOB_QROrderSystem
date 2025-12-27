@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
-interface ScreenNavigatorProps {
+export interface ScreenNavigatorProps {
   currentScreen: string;
   onNavigate: (screen: string) => void;
 }

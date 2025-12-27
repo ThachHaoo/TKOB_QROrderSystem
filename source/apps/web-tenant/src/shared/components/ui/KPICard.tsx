@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from './Card';
 import { LucideIcon, ArrowUp, ArrowDown } from 'lucide-react';
 
-interface KPICardProps {
+export interface KPICardProps {
   title: string;
   value: string;
   icon: LucideIcon;

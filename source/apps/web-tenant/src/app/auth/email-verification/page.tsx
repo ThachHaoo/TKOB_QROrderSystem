@@ -1,10 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import EmailVerification from '@/features/auth/EmailVerification';
 
-export default function EmailVerificationPage() {
+function EmailVerificationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailFromQuery = searchParams.get('email');
@@ -16,5 +16,13 @@ export default function EmailVerificationPage() {
       userEmail={emailFromQuery || undefined}
       registrationToken={registrationTokenFromQuery || undefined}
     />
+  );
+}
+
+export default function EmailVerificationPage() {
+  return (
+    <Suspense>
+      <EmailVerificationContent />
+    </Suspense>
   );
 }

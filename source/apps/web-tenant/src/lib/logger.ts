@@ -3,9 +3,7 @@
  * Controlled by NEXT_PUBLIC_USE_LOGGING environment variable
  */
 
-import { config } from './config';
-
-const USE_LOGGING = config.useLogging;
+const USE_LOGGING = process.env.NEXT_PUBLIC_USE_LOGGING === 'true' || process.env.NODE_ENV === 'development';
 
 export const logger = {
   log: (...args: any[]) => {

@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { CheckCircle, X, AlertCircle, Info } from 'lucide-react';
 
-interface ToastProps {
+export interface ToastProps {
   message: string;
   type?: 'success' | 'error' | 'info';
   onClose: () => void;

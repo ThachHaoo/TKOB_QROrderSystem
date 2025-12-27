@@ -18,7 +18,7 @@ const ERROR_IMG_SRC =
  * - Maintains accessibility with alt text
  */
 
-interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+export interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src?: string;
   alt?: string;
   className?: string;

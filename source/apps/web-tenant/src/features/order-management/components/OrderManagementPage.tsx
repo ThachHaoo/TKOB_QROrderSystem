@@ -80,7 +80,7 @@ export function OrderManagementPage() {
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Today's Orders</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Orders</h2>
             <div className="text-sm text-gray-500">
               Updated <span className="font-medium">just now</span>
             </div>

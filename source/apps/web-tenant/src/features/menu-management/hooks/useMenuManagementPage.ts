@@ -66,6 +66,10 @@ export function useMenuManagementPage() {
   const [showActiveOnlyCategories, setShowActiveOnlyCategories] = useState(false);
   const [_selectedArchiveStatus, setSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
   const [tempSelectedArchiveStatus, setTempSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
+  const [showFilter, setShowFilter] = useState(false);
+  const [selectedAvailability, setSelectedAvailability] = useState<'all' | 'available' | 'unavailable'>('all');
+  const [tempSelectedStatus, setTempSelectedStatus] = useState('All Status');
+  const [tempSelectedAvailability, setTempSelectedAvailability] = useState<'all' | 'available' | 'unavailable'>('all');
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -128,7 +132,7 @@ export function useMenuManagementPage() {
   const menuItems = Array.isArray(itemsResponse?.data) ? itemsResponse.data : [];
 
   const { data: modifierGroupsResponse } = useModifierGroups({ activeOnly: false });
-  const modifierGroups = Array.isArray(modifierGroupsResponse?.data) ? modifierGroupsResponse.data : [];
+  const modifierGroups = Array.isArray(modifierGroupsResponse) ? modifierGroupsResponse : [];
 
   // ============ MUTATIONS ============
   const createCategoryMutation = useCreateMenuCategory();
@@ -194,9 +198,15 @@ export function useMenuManagementPage() {
     })
     .filter((item: any) => {
       if (selectedStatus === 'All Status') return true;
-      if (selectedStatus === 'Available') return item.isAvailable && item.status !== 'SOLD_OUT';
-      if (selectedStatus === 'Unavailable') return !item.isAvailable;
-      if (selectedStatus === 'Sold Out') return item.status === 'SOLD_OUT';
+      if (selectedStatus === 'Draft') return item.status === 'DRAFT';
+      if (selectedStatus === 'Published') return item.status === 'PUBLISHED';
+      if (selectedStatus === 'Archived') return item.status === 'ARCHIVED';
+      return true;
+    })
+    .filter((item: any) => {
+      if (selectedAvailability === 'all') return true;
+      if (selectedAvailability === 'available') return item.available === true;
+      if (selectedAvailability === 'unavailable') return item.available === false;
       return true;
     })
     .sort((a: any, b: any) => {
@@ -227,19 +237,17 @@ export function useMenuManagementPage() {
   const onCategorySubmit = async (data: CategoryFormData) => {
     try {
       const payload = {
-        data: {
-          name: data.name,
-          description: data.description || undefined,
-          displayOrder: data.displayOrder !== null && data.displayOrder !== '' ? Number(data.displayOrder) : undefined,
-          active: data.status === 'ACTIVE',
-        }
+        name: data.name,
+        description: data.description || undefined,
+        displayOrder: data.displayOrder !== null && data.displayOrder !== '' ? Number(data.displayOrder) : undefined,
+        active: data.status === 'ACTIVE',
       };
 
       let result;
       if (editingCategoryId) {
         await updateCategoryMutation.mutateAsync({
           id: editingCategoryId,
-          ...payload
+          data: payload
         });
         setToastMessage(`Category "${data.name}" updated successfully`);
       } else {
@@ -349,7 +357,7 @@ export function useMenuManagementPage() {
     if (!categoryId) return;
 
     try {
-      await deleteCategoryMutation.mutateAsync({ id: categoryId });
+      await deleteCategoryMutation.mutateAsync(categoryId);
 
       if (selectedCategory === categoryId) {
         setSelectedCategory('all');
@@ -433,17 +441,15 @@ export function useMenuManagementPage() {
     try {
       if (itemModalMode === 'add') {
         const result = await createItemMutation.mutateAsync({
-          data: {
-            name: itemFormData.name,
-            categoryId: itemFormData.category,
-            description: itemFormData.description || undefined,
-            price: parseFloat(itemFormData.price),
-            preparationTime: itemFormData.prepTimeMinutes ?? undefined,
-            chefRecommended: itemFormData.chefRecommended,
-            tags: itemFormData.dietary.length > 0 ? itemFormData.dietary : undefined,
-            allergens: itemFormData.allergens.length > 0 ? itemFormData.allergens : undefined,
-            modifierGroupIds: itemFormData.modifierGroupIds.length > 0 ? itemFormData.modifierGroupIds : undefined,
-          }
+          name: itemFormData.name,
+          categoryId: itemFormData.category,
+          description: itemFormData.description || undefined,
+          price: parseFloat(itemFormData.price),
+          preparationTime: itemFormData.prepTimeMinutes ?? undefined,
+          chefRecommended: itemFormData.chefRecommended,
+          tags: itemFormData.dietary.length > 0 ? itemFormData.dietary : undefined,
+          allergens: itemFormData.allergens.length > 0 ? itemFormData.allergens : undefined,
+          modifierGroupIds: itemFormData.modifierGroupIds.length > 0 ? itemFormData.modifierGroupIds : undefined,
         });
 
         if (itemFormData.menuItemPhotos.length > 0 && result?.id) {
@@ -685,6 +691,37 @@ export function useMenuManagementPage() {
     };
   }, [contextMenu]);
 
+  // ============ FILTER PANEL HANDLERS ============
+  const handleToggleFilter = () => {
+    setShowFilter(!showFilter);
+  };
+
+  const handleTempStatusChange = (status: string) => {
+    setTempSelectedStatus(status);
+  };
+
+  const handleTempAvailabilityChange = (availability: 'all' | 'available' | 'unavailable') => {
+    setTempSelectedAvailability(availability);
+  };
+
+  const handleResetFilters = () => {
+    setTempSelectedStatus('All Status');
+    setTempSelectedAvailability('all');
+  };
+
+  const handleApplyFilters = () => {
+    setSelectedStatus(tempSelectedStatus);
+    setSelectedAvailability(tempSelectedAvailability);
+    setShowFilter(false);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedStatus('All Status');
+    setSelectedAvailability('all');
+    setTempSelectedStatus('All Status');
+    setTempSelectedAvailability('all');
+  };
+
   // ============ RETURN GROUPED OBJECT ============
   return {
     state: {
@@ -702,6 +739,14 @@ export function useMenuManagementPage() {
       setShowActiveOnlyCategories,
       tempSelectedArchiveStatus,
       setTempSelectedArchiveStatus,
+      showFilter,
+      setShowFilter,
+      selectedAvailability,
+      setSelectedAvailability,
+      tempSelectedStatus,
+      setTempSelectedStatus,
+      tempSelectedAvailability,
+      setTempSelectedAvailability,
       isAddCategoryModalOpen,
       setIsAddCategoryModalOpen,
       editingCategoryId,
@@ -760,6 +805,13 @@ export function useMenuManagementPage() {
       handleSaveItem,
       handleDeleteClick,
       handleConfirmDelete,
+      // Filter handlers
+      handleToggleFilter,
+      handleTempStatusChange,
+      handleTempAvailabilityChange,
+      handleResetFilters,
+      handleApplyFilters,
+      handleClearFilters,
       // Image handlers
       handleImageUpload,
       handleFileInputChange,

@@ -15,6 +15,8 @@ export interface ModifierGroup {
   linkedItems?: number;
   type: 'single' | 'multiple' | 'SINGLE_CHOICE' | 'MULTI_CHOICE';
   required: boolean;
+  minChoices?: number;
+  maxChoices?: number;
   active?: boolean;
 }
 

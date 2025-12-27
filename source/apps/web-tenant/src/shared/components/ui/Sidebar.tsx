@@ -3,7 +3,7 @@ import { LayoutDashboard, Menu, QrCode, ShoppingBag, BarChart3, Users, Settings,
 
 import type { AdminNavItem, AdminScreenId } from './AdminShell';
 
-interface SidebarProps {
+export interface SidebarProps {
   activeItem: AdminNavItem;
   onNavigate: (item: AdminScreenId) => void;
 }

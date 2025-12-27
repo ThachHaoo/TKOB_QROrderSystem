@@ -165,13 +165,19 @@ export function MenuManagementPage() {
               searchQuery={state.searchQuery}
               onSearchChange={state.setSearchQuery}
               selectedStatus={state.selectedStatus}
-              onStatusChange={state.setSelectedStatus}
-              tempSelectedArchiveStatus={state.tempSelectedArchiveStatus}
-              onArchiveStatusChange={state.setTempSelectedArchiveStatus}
-              onApplyArchiveFilter={() => state.setSelectedArchiveStatus(state.tempSelectedArchiveStatus)}
+              tempSelectedStatus={state.tempSelectedStatus}
+              onTempStatusChange={handlers.handleTempStatusChange}
+              selectedAvailability={state.selectedAvailability}
+              tempSelectedAvailability={state.tempSelectedAvailability}
+              onTempAvailabilityChange={handlers.handleTempAvailabilityChange}
+              showFilter={state.showFilter}
+              onToggleFilter={handlers.handleToggleFilter}
+              onResetFilters={handlers.handleResetFilters}
+              onApplyFilters={handlers.handleApplyFilters}
               sortOption={state.sortOption}
               onSortChange={state.setSortOption}
               onAddItem={handlers.handleOpenAddItemModal}
+              onClearFilter={handlers.handleClearFilters}
             />
 
             {/* Items Grid */}
@@ -204,15 +210,6 @@ export function MenuManagementPage() {
         onToggleStatus={handlers.handleToggleCategoryStatus}
         onDelete={handlers.handleDeleteCategory}
       />
-
-      <style jsx>{`
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </>
   );
 }

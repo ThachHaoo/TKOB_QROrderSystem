@@ -70,7 +70,7 @@ export function TablesPage() {
   const handlePrintQR = useReactToPrint({
     contentRef: qrPrintRef,
     documentTitle: `QR-Code-${selectedTable?.name || 'Table'}`,
-    onBeforePrint: () => {
+    onBeforePrint: async () => {
       // Validate that content exists before printing
       if (!qrPrintRef.current) {
         throw new Error('QR code content not found. Please try again.');
@@ -414,7 +414,7 @@ export function TablesPage() {
           : String(tableNumberRaw ?? selectedTable.name);
       
       // Map fresh data to component format
-      const mappedTable = {
+      const mappedTable: Table = {
         id: freshTable.id,
         name: nameValue,
         capacity: freshTable.capacity,
@@ -422,9 +422,10 @@ export function TablesPage() {
           : freshTable.status === 'OCCUPIED' ? 'occupied'
           : freshTable.status === 'RESERVED' ? 'reserved'
           : 'inactive') as 'available' | 'occupied' | 'reserved' | 'inactive',
-        zone: freshTable.location?.toLowerCase() || 'indoor',
+        zone: (freshTable.location?.toLowerCase() || 'indoor') as 'indoor' | 'outdoor' | 'patio' | 'vip',
         tableNumber: tableNumberParsed,
         description: freshTable.description || '',
+        createdAt: freshTable.createdAt ? new Date(freshTable.createdAt) : new Date(),
       };
       
       // Update selectedTable with fresh data
@@ -504,10 +505,10 @@ export function TablesPage() {
 
     try {
       // Map status to API format
-      const apiStatus = formData.status === 'available' ? 'AVAILABLE'
+      const apiStatus = (formData.status === 'available' ? 'AVAILABLE'
         : formData.status === 'occupied' ? 'OCCUPIED'
         : formData.status === 'reserved' ? 'RESERVED'
-        : 'INACTIVE';
+        : 'INACTIVE') as 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'INACTIVE';
 
       const payload = {
         id: selectedTable.id,

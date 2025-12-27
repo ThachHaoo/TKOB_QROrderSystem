@@ -163,7 +163,7 @@ export const mockTables: TableResponseDto[] = [
     capacity: 4,
     location: 'Main Hall',
     description: '',
-    status: 'CLEANING',
+    status: 'INACTIVE',
     active: true,
     displayOrder: 11,
     qrCodeUrl: '/api/v1/admin/tables/table-11/qr/download',

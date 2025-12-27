@@ -41,6 +41,7 @@ export class MenuMockAdapter implements IMenuAdapter {
     const newCategory = {
       id: `cat-${Date.now()}`,
       ...data,
+      itemCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -124,6 +125,18 @@ export class MenuMockAdapter implements IMenuAdapter {
     }
   }
 
+  async publishMenuItem(id: string, status: 'DRAFT' | 'PUBLISHED') {
+    await fakeDelay();
+    const index = mockMenuItems.findIndex((i) => i.id === id);
+    if (index === -1) throw new Error('Menu item not found');
+    mockMenuItems[index] = {
+      ...mockMenuItems[index],
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+    return mockMenuItems[index];
+  }
+
   // Modifier Groups
   async listModifierGroups(params?: { activeOnly?: boolean }) {
     await fakeDelay();
@@ -134,12 +147,8 @@ export class MenuMockAdapter implements IMenuAdapter {
       filtered = filtered.filter((g) => g.active);
     }
     
-    return {
-      data: filtered,
-      meta: {
-        total: filtered.length,
-      },
-    };
+    // Return array directly (not wrapped)
+    return filtered;
   }
 
   async getModifierGroupById(id: string) {

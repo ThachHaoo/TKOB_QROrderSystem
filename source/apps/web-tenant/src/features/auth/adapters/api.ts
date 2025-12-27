@@ -37,7 +37,11 @@ export class AuthApiAdapter implements IAuthAdapter {
   }
 
   async refreshToken(data: RefreshTokenDto): Promise<{ accessToken: string }> {
-    return authControllerRefresh(data);
+    const response = await authControllerRefresh(data);
+    if (!response.accessToken) {
+      throw new Error('Access token not received from refresh endpoint');
+    }
+    return { accessToken: response.accessToken };
   }
 
   async logout(data: LogoutDto): Promise<void> {
@@ -68,6 +72,13 @@ export class AuthApiAdapter implements IAuthAdapter {
     user: AuthResponseDto['user'];
     tenant: AuthResponseDto['tenant'];
   }> {
-    return authControllerGetMe();
+    const response = await authControllerGetMe();
+    if (!response.user || !response.user.id || !response.user.email) {
+      throw new Error('Invalid user data received from getCurrentUser endpoint');
+    }
+    return {
+      user: response.user as AuthResponseDto['user'],
+      tenant: response.tenant as AuthResponseDto['tenant']
+    };
   }
 }

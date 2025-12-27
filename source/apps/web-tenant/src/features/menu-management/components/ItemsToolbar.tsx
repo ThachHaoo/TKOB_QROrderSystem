@@ -1,36 +1,49 @@
 'use client';
 
 import React from 'react';
-import { Search, ChevronDown, Plus } from './icons';
+import { Search, ChevronDown, Plus, Filter, XCircle } from './icons';
+import { ItemsFilterPanel } from './ItemsFilterPanel';
 
 type ItemsToolbarProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   selectedStatus: string;
-  onStatusChange: (status: string) => void;
-  tempSelectedArchiveStatus: 'all' | 'archived';
-  onArchiveStatusChange: (status: 'all' | 'archived') => void;
-  onApplyArchiveFilter: () => void;
+  tempSelectedStatus: string;
+  onTempStatusChange: (status: string) => void;
+  selectedAvailability: 'all' | 'available' | 'unavailable';
+  tempSelectedAvailability: 'all' | 'available' | 'unavailable';
+  onTempAvailabilityChange: (availability: 'all' | 'available' | 'unavailable') => void;
+  showFilter: boolean;
+  onToggleFilter: () => void;
+  onResetFilters: () => void;
+  onApplyFilters: () => void;
   sortOption: string;
   onSortChange: (sort: string) => void;
   onAddItem: () => void;
+  onClearFilter?: () => void;
 };
 
 export function ItemsToolbar({
   searchQuery,
   onSearchChange,
   selectedStatus,
-  onStatusChange,
-  tempSelectedArchiveStatus,
-  onArchiveStatusChange,
-  onApplyArchiveFilter,
+  tempSelectedStatus,
+  onTempStatusChange,
+  selectedAvailability,
+  tempSelectedAvailability,
+  onTempAvailabilityChange,
+  showFilter,
+  onToggleFilter,
+  onResetFilters,
+  onApplyFilters,
   sortOption,
   onSortChange,
   onAddItem,
+  onClearFilter,
 }: ItemsToolbarProps) {
   return (
     <div className="px-5 py-2 bg-white border-b border-gray-200">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 mb-3">
         {/* Search */}
         <div className="relative w-full max-w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -43,39 +56,37 @@ export function ItemsToolbar({
           />
         </div>
 
-        {/* Status + Sort + Add Item */}
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
-          {/* Status Filter */}
+        {/* Status + Availability + Sort + Add Item */}
+        <div className="flex items-center gap-2 shrink-0 ml-auto relative">
+          {/* Filter button - replaces dropdown selects */}
           <div className="relative">
-            <select
-              value={selectedStatus}
-              onChange={(e) => onStatusChange(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 border border-gray-300 bg-white text-gray-700 cursor-pointer rounded-xl text-sm font-medium min-w-32 h-10"
+            <button
+              onClick={onToggleFilter}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-emerald-400 transition-all rounded-xl h-10"
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+              }}
             >
-              <option>All Status</option>
-              <option>Draft</option>
-              <option>Published</option>
-              <option>Archived</option>
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Filter className="w-4 h-4" />
+              Filter
+            </button>
+
+            {/* Filter Panel */}
+            <ItemsFilterPanel
+              showFilter={showFilter}
+              onToggleFilter={onToggleFilter}
+              tempSelectedStatus={tempSelectedStatus}
+              onTempStatusChange={onTempStatusChange}
+              tempSelectedAvailability={tempSelectedAvailability}
+              onTempAvailabilityChange={onTempAvailabilityChange}
+              onResetFilters={onResetFilters}
+            />
           </div>
 
-          {/* Availability Filter */}
-          <div className="relative">
-            <select
-              value={tempSelectedArchiveStatus}
-              onChange={(e) => onArchiveStatusChange(e.target.value as 'all' | 'archived')}
-              className="appearance-none pl-3 pr-8 py-2 border border-gray-300 bg-white text-gray-700 cursor-pointer rounded-xl text-sm font-medium min-w-32 h-10"
-            >
-              <option value="all">Available</option>
-              <option value="archived">Unavailable</option>
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          </div>
-
-          {/* Apply Filter Button */}
+          {/* Apply button */}
           <button
-            onClick={onApplyArchiveFilter}
+            onClick={onApplyFilters}
             className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors h-10"
           >
             Apply
@@ -98,16 +109,34 @@ export function ItemsToolbar({
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
 
-          {/* Add Item Button */}
+          {/* Add Item button */}
           <button
             onClick={onAddItem}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white transition-all rounded-xl text-sm font-semibold h-10"
+            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium h-10 shrink-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5" />
             Add Item
           </button>
         </div>
       </div>
+
+      {/* Clear filter indicator */}
+      {(selectedStatus !== 'All Status' || selectedAvailability !== 'all') && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">
+            Filters: {selectedStatus !== 'All Status' && `${selectedStatus}`} {selectedAvailability !== 'all' && `${selectedAvailability.charAt(0).toUpperCase() + selectedAvailability.slice(1)}`}
+          </span>
+          {onClearFilter && (
+            <button
+              onClick={onClearFilter}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              Clear
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

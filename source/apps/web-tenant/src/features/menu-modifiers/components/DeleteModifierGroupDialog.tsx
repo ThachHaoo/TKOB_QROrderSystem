@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { ModifierGroup } from '../../types/modifiers';
+import { ModifierGroup } from '../types/modifiers';
 
 type DeleteModifierGroupDialogProps = {
   isOpen: boolean;

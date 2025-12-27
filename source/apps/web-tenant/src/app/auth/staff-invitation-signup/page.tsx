@@ -3,10 +3,11 @@
 import { Card, Button, Input } from '@/shared/components/ui';
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { toast } from 'sonner';
 import { QrCode, Shield, CheckCircle } from 'lucide-react';
 
-export default function StaffInvitationSignupPage() {
+function StaffInvitationSignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || 'mike@tkob.com';
@@ -90,7 +91,7 @@ export default function StaffInvitationSignupPage() {
             <div className="flex flex-col items-center gap-2 text-center">
               <h2 className="text-gray-900">Join TKOB Restaurant</h2>
               <p className="text-gray-600">
-                You've been invited to join as a{' '}
+                You&apos;ve been invited to join as a{' '}
                 <span style={{ fontWeight: 600 }}>{role}</span>
               </p>
             </div>
@@ -175,5 +176,13 @@ export default function StaffInvitationSignupPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function StaffInvitationSignupPage() {
+  return (
+    <Suspense>
+      <StaffInvitationSignupContent />
+    </Suspense>
   );
 }

@@ -39,11 +39,11 @@ export interface AdminShellProps {
   enableDevModeSwitch?: boolean;
 }
 
-export const AdminShell: React.FC<AdminShellProps> = ({
+export function AdminShell({
   restaurantName = 'TKOB Restaurant',
   enableDevModeSwitch = false,
   children,
-}) => {
+}: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -105,4 +105,4 @@ export const AdminShell: React.FC<AdminShellProps> = ({
       </div>
     </div>
   );
-};
+}

@@ -21,7 +21,7 @@ import { X } from 'lucide-react';
  * 4. Maintains accessibility with proper focus management
  */
 
-interface ModalDemoProps {
+export interface ModalDemoProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;

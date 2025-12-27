@@ -3,7 +3,7 @@ import { UserMenu } from './UserMenu';
 
 import type { AdminScreenId } from './AdminShell';
 
-interface TopBarProps {
+export interface TopBarProps {
   restaurantName: string;
   userName?: string;
   showDateFilter?: boolean;

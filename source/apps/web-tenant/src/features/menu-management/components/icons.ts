@@ -14,5 +14,7 @@ export {
   Star,
   MoreVertical,
   Edit2,
-  Eye
+  Eye,
+  Filter,
+  XCircle
 } from 'lucide-react';
