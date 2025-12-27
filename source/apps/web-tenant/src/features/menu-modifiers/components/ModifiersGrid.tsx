@@ -31,18 +31,18 @@ export function ModifiersGrid({
         {groups.map((group) => (
           <Card
             key={group.id}
-            className="p-6 hover:shadow-xl transition-all border-2 border-gray-100 hover:border-emerald-300"
+            className="p-4 hover:shadow-xl transition-all border-2 border-gray-100 hover:border-emerald-300 flex flex-col h-full"
           >
             <div className="mb-4">
-              <div className="flex items-start justify-between mb-2">
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h4
-                    className="text-gray-900 mb-1"
+                    className="text-gray-900"
                     style={{ fontSize: '17px', fontWeight: 700 }}
                   >
                     {group.name}
                   </h4>
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant={
                         normalizeType(group.type) === 'single'
@@ -87,15 +87,18 @@ export function ModifiersGrid({
               {group.description && (
                 <p
                   className="text-gray-600 line-clamp-2"
-                  style={{ fontSize: '13px', lineHeight: '1.5' }}
+                  style={{ fontSize: '13px', lineHeight: '1.5', minHeight: '3rem' }}
                 >
                   {group.description}
                 </p>
               )}
+              {!group.description && (
+                <div style={{ minHeight: '3rem' }} />
+              )}
             </div>
 
             {/* Stats */}
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b-2 border-gray-100">
+            <div className="flex items-center gap-3 mb-2 pb-2 border-b-2 border-gray-100">
               <div className="flex items-center gap-2">
                 <span
                   className="text-gray-600"
@@ -127,7 +130,7 @@ export function ModifiersGrid({
             </div>
 
             {/* Sample Options Preview */}
-            <div className="mb-4">
+            <div className="">
               <div
                 className="text-gray-700 mb-2"
                 style={{ fontSize: '12px', fontWeight: 700 }}
@@ -162,8 +165,14 @@ export function ModifiersGrid({
               </div>
             </div>
 
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
             {/* Actions */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => onEditGroup(group)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition-all border border-emerald-200 hover:border-emerald-300"

@@ -36,7 +36,7 @@ export function CategoryPanel({
 }: CategoryPanelProps) {
   return (
     <div className="w-52 bg-white border-r border-gray-200 flex flex-col overflow-y-auto relative">
-      <div className="p-3 border-b border-gray-200">
+      <div className="px-3 py-2 border-b border-gray-200">
         <h3 className="text-gray-900 mb-3" style={{ fontSize: '16px', fontWeight: 700 }}>Categories</h3>
         <button
           onClick={onAddCategory}
@@ -49,7 +49,7 @@ export function CategoryPanel({
       </div>
 
       {/* Sort Control */}
-      <div className="p-3 border-b border-gray-200">
+      <div className="px-3 py-2 border-b border-gray-200">
         <label className="text-xs font-semibold text-gray-600 block mb-2">Sort by:</label>
         <select
           value={categorySortBy}
@@ -63,7 +63,7 @@ export function CategoryPanel({
       </div>
 
       {/* Active Only Filter */}
-      <div className="p-3 border-b border-gray-200">
+      <div className="px-3 py-2 border-b border-gray-200">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
