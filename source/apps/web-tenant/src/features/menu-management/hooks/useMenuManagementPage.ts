@@ -648,6 +648,13 @@ export function useMenuManagementPage() {
       }
 
       setShowSuccessToast(true);
+      
+      // Invalidate queries to refetch menu items list
+      await queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
+      if (itemId) {
+        await queryClient.invalidateQueries({ queryKey: ['menu', 'item', itemId] });
+      }
+      
       handleCloseItemModal();
 
     } catch (error) {
