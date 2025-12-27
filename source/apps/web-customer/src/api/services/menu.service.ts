@@ -105,12 +105,12 @@ export const MenuService = {
     // Transform backend response to frontend format
     const items: MenuItem[] = menuData.categories.flatMap(cat =>
       cat.items.map(item => {
-        const rawPrice: any = (item as any).price;
+        const rawPrice = item.price as number | string | undefined;
         const numericPrice =
           typeof rawPrice === 'number'
             ? rawPrice
             : rawPrice != null
-              ? parseFloat(rawPrice)
+              ? parseFloat(String(rawPrice))
               : 0;
 
         // Map availability: available=false -> Unavailable, otherwise Available
@@ -124,6 +124,19 @@ export const MenuService = {
           badge = 'Popular';
         }
 
+        // Normalize modifier groups to ensure priceDelta is numeric
+        const normalizedModifierGroups = item.modifierGroups?.map(g => ({
+          ...g,
+          options: g.options.map(o => ({
+            ...o,
+            priceDelta: typeof o.priceDelta === 'number' ? o.priceDelta : parseFloat(String(o.priceDelta)) || 0,
+          })),
+        }));
+
+        // Filter dietary tags to supported set
+        const allowedDietary = ['Vegan', 'Vegetarian', 'Spicy', 'Gluten-Free'] as const;
+        const dietary = ((item.tags || []).filter(t => (allowedDietary as readonly string[]).includes(t)) as MenuItem['dietary']);
+
         return {
           id: item.id,
           name: item.name,
@@ -133,11 +146,11 @@ export const MenuService = {
           imageUrl: item.primaryPhoto?.url || item.imageUrl || '',
           primaryPhoto: item.primaryPhoto || undefined,
           photos: item.photos,
-          modifierGroups: item.modifierGroups,
+          modifierGroups: normalizedModifierGroups,
           preparationTime: item.preparationTime,
           chefRecommended: item.chefRecommended,
           popularity: item.popularity,
-          dietary: item.tags as any,
+          dietary,
           badge,
           availability,
         };
@@ -150,9 +163,10 @@ export const MenuService = {
         success: true,
         data: { items, categories },
       };
-    } catch (err: any) {
-      if (err?.response) {
-        console.error('[MenuService.getPublicMenu] failed response', err.response.data);
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const e = err as { response?: { data?: unknown } };
+        console.error('[MenuService.getPublicMenu] failed response', e.response?.data);
       } else {
         console.error('[MenuService.getPublicMenu] failed', err);
       }
