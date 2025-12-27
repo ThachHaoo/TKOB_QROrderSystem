@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -15,6 +15,10 @@ export enum SortOrderEnum {
 }
 
 export class PublicMenuFiltersDto {
+  @ApiProperty()
+  @IsString()
+  tenantId: string;
+
   @ApiPropertyOptional({ description: 'Search by item name or description' })
   @IsOptional()
   @IsString()

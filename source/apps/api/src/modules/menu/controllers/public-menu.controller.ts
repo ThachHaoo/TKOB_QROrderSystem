@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Headers, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MenuItemsService } from '../services/menu-item.service';
 import { PublicMenuResponseDto } from '../dto/menu-response.dto';
@@ -18,27 +18,26 @@ export class PublicMenuController {
   @ApiOperation({
     summary: 'Get published menu (for customers)',
     description:
-      'Public endpoint - can be accessed with or without authentication. If not authenticated, tenantId must be provided via query parameter or header.',
+      'Public endpoint - can be accessed with or without authentication. If not authenticated, tenantId must be provided via query parameter.',
   })
   @ApiQuery({
     name: 'tenantId',
     required: false,
     description: 'Tenant ID (required if not authenticated)',
+    type: String,
   })
   @ApiResponse({ status: 200, type: PublicMenuResponseDto })
   async getPublicMenu(
-    @Query() filters: PublicMenuFiltersDto,
     @Query('tenantId') queryTenantId?: string,
-    // @Headers('x-tenant-id') headerTenantId?: string,
+    @Query() filters?: PublicMenuFiltersDto,
     @CurrentUser() user?: AuthenticatedUser,
   ) {
-    // Priority: Authenticated user > Query param > Header
+    // Priority: Authenticated user > Query param
     const tenantId = user?.tenantId || queryTenantId;
-    // || headerTenantId;
 
     if (!tenantId) {
       throw new BadRequestException(
-        'Missing tenantId. Please provide tenantId via query parameter (?tenantId=xxx) or header (x-tenant-id)',
+        'Missing tenantId. Please provide tenantId via query parameter (?tenantId=xxx)',
       );
     }
 
