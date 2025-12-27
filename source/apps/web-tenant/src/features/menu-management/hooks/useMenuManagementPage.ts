@@ -103,6 +103,7 @@ export function useMenuManagementPage() {
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [itemModalMode, setItemModalMode] = useState<'add' | 'edit'>('add');
   const [currentEditItemId, setCurrentEditItemId] = useState<string | null>(null);
+  const [initialItemStatus, setInitialItemStatus] = useState<string | null>(null);
   const [itemFormData, setItemFormData] = useState<ItemFormData>({
     name: '',
     category: '',
@@ -422,13 +423,16 @@ export function useMenuManagementPage() {
         queryFn: () => menuService.getMenuItemById(item.id),
       });
       
+      const itemStatus = fullItemData.status || 'DRAFT';
+      setInitialItemStatus(itemStatus);
+      
       setItemFormData({
         name: fullItemData.name,
         category: fullItemData.categoryId || selectedCategory,
         description: fullItemData.description || '',
         price: String(fullItemData.price || ''),
         prepTimeMinutes: fullItemData.preparationTime || null,
-        status: fullItemData.status || 'DRAFT',
+        status: itemStatus,
         available: fullItemData.available ?? true,
         displayOrder: fullItemData.displayOrder ?? 0,
         menuItemPhotos: [],
@@ -473,6 +477,7 @@ export function useMenuManagementPage() {
     photoManager.reset(); // Cleanup photo manager state and object URLs
     setIsItemModalOpen(false);
     setCurrentEditItemId(null);
+    setInitialItemStatus(null);
     setIsSaving(false);
     setSaveProgress('');
     setItemFormData({
@@ -512,6 +517,8 @@ export function useMenuManagementPage() {
     setIsSaving(true);
     let itemId: string | null = null;
     let photoUploadFailed = false;
+    let photoDeleteFailed = false;
+    let photoOperationErrors: string[] = [];
 
     try {
       // ============ ROUNDTRIP 1: Save Menu Item ============
@@ -558,14 +565,17 @@ export function useMenuManagementPage() {
           }
         });
 
-        // Handle status changes separately
-        if (itemFormData.status === 'DRAFT' || itemFormData.status === 'PUBLISHED') {
-          await publishItemMutation.mutateAsync({
-            id: currentEditItemId,
-            status: itemFormData.status,
-          });
-        } else if (itemFormData.status === 'ARCHIVED') {
-          await deleteItemMutation.mutateAsync(currentEditItemId);
+        // Handle status changes separately (only if status actually changed)
+        const statusChanged = initialItemStatus !== itemFormData.status;
+        if (statusChanged) {
+          if (itemFormData.status === 'DRAFT' || itemFormData.status === 'PUBLISHED') {
+            await publishItemMutation.mutateAsync({
+              id: currentEditItemId,
+              status: itemFormData.status,
+            });
+          } else if (itemFormData.status === 'ARCHIVED') {
+            await deleteItemMutation.mutateAsync(currentEditItemId);
+          }
         }
       }
 
@@ -576,31 +586,87 @@ export function useMenuManagementPage() {
 
           // Step 2a: Delete removed photos (Edit mode only)
           if (photoManager.removedPhotoIds.length > 0) {
-            const deleteResults = await Promise.allSettled(
-              photoManager.removedPhotoIds.map(photoId =>
-                deletePhotoMutation.mutateAsync({ itemId, photoId })
-              )
-            );
+            // Deduplicate IDs and filter out any invalid ones
+            const uniquePhotoIds = Array.from(new Set(
+              photoManager.removedPhotoIds.filter(id => id && typeof id === 'string' && id.trim() !== '')
+            ));
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[Photo Delete] Attempting to delete photos:', {
+                originalCount: photoManager.removedPhotoIds.length,
+                uniqueCount: uniquePhotoIds.length,
+                hasDuplicates: photoManager.removedPhotoIds.length !== uniquePhotoIds.length,
+                ids: uniquePhotoIds,
+              });
+            }
+            
+            if (uniquePhotoIds.length > 0) {
+              const deleteResults = await Promise.allSettled(
+                uniquePhotoIds.map(photoId =>
+                  deletePhotoMutation.mutateAsync({ itemId, photoId })
+                )
+              );
 
-            const failedDeletes = deleteResults.filter(r => r.status === 'rejected');
-            if (failedDeletes.length > 0) {
-              console.error('Some photo deletions failed:', failedDeletes);
+              const failedDeletes = deleteResults.filter(r => r.status === 'rejected');
+              if (failedDeletes.length > 0) {
+                // Extract error details for user message
+                const failedCount = failedDeletes.length;
+                const errorMessages = failedDeletes.map((result: any) => {
+                  const reason = result.reason;
+                  const statusCode = reason?.response?.status;
+                  const message = reason?.response?.data?.message || reason?.message || 'Unknown error';
+                  return { statusCode, message };
+                });
+                
+                // Only warn for non-404 errors (404 means already deleted, which is okay)
+                const non404Errors = errorMessages.filter(e => e.statusCode !== 404);
+                
+                if (non404Errors.length > 0) {
+                  // Log detailed errors for debugging (only in development)
+                  if (process.env.NODE_ENV === 'development') {
+                    console.warn('[Photo Delete] Failed to delete some photos:', {
+                      failedCount: non404Errors.length,
+                      totalAttempted: uniquePhotoIds.length,
+                      attemptedIds: uniquePhotoIds,
+                      errors: non404Errors,
+                    });
+                  }
+                  
+                  // Set flags and collect errors (only for real errors, not 404s)
+                  photoDeleteFailed = true;
+                  photoOperationErrors.push(`Failed to delete ${non404Errors.length} photo(s)`);
+                } else if (process.env.NODE_ENV === 'development') {
+                  // All errors were 404s - photos already deleted
+                  console.log('[Photo Delete] Some photos were already deleted (404), continuing...');
+                }
+              }
             }
           }
 
-          // Step 2b: Upload new files (bulk)
+          // Step 2b: Upload new files (single or bulk)
           let uploadedPhotos: MenuItemPhotoResponseDto[] = [];
           const newFiles = photoManager.getNewFiles();
           
           if (newFiles.length > 0) {
             try {
-              uploadedPhotos = await uploadPhotosBulkMutation.mutateAsync({
-                itemId,
-                data: { files: newFiles }
-              });
+              if (newFiles.length === 1) {
+                // Single file upload - use single endpoint for efficiency
+                const singlePhoto = await uploadPhotoMutation.mutateAsync({
+                  itemId,
+                  data: { file: newFiles[0] }
+                });
+                uploadedPhotos = [singlePhoto]; // Wrap in array for consistent handling
+              } else {
+                // Multiple files - use bulk upload endpoint
+                uploadedPhotos = await uploadPhotosBulkMutation.mutateAsync({
+                  itemId,
+                  data: { files: newFiles }
+                });
+              }
             } catch (uploadError) {
               console.error('Photo upload failed:', uploadError);
               photoUploadFailed = true;
+              photoOperationErrors.push('Failed to upload new photos');
               // Continue to show item saved but photos failed
             }
           }
@@ -652,6 +718,10 @@ export function useMenuManagementPage() {
                   itemId,
                   photoId: primaryPhotoId,
                 });
+                // Explicitly invalidate queries after setting primary photo
+                await queryClient.invalidateQueries({ 
+                  queryKey: getMenuPhotoControllerGetPhotosQueryKey(itemId)
+                });
               } catch (primaryError) {
                 console.error('Failed to set primary photo:', primaryError);
               }
@@ -670,9 +740,12 @@ export function useMenuManagementPage() {
       }
 
       // ============ Success Messages ============
-      if (photoUploadFailed) {
+      if (photoUploadFailed || photoDeleteFailed) {
+        const errorDetails = photoOperationErrors.length > 0 
+          ? `: ${photoOperationErrors.join(', ')}` 
+          : '';
         setToastMessage(
-          `Item "${itemFormData.name}" saved, but some photo operations failed. Please edit the item to retry.`
+          `Item "${itemFormData.name}" saved${errorDetails}. Please edit the item to retry photo operations.`
         );
       } else {
         setToastMessage(
@@ -684,11 +757,17 @@ export function useMenuManagementPage() {
 
       setShowSuccessToast(true);
       
-      // Invalidate queries to refetch menu items list
-      await queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
-      if (itemId) {
-        await queryClient.invalidateQueries({ queryKey: ['menu', 'item', itemId] });
-      }
+      // Invalidate and refetch queries to get updated menu items with new primary photo
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['menu', 'items'] }),
+        itemId ? queryClient.invalidateQueries({ queryKey: ['menu', 'item', itemId] }) : Promise.resolve(),
+        itemId ? queryClient.invalidateQueries({ 
+          queryKey: getMenuPhotoControllerGetPhotosQueryKey(itemId) 
+        }) : Promise.resolve(),
+      ]);
+      
+      // Force refetch to ensure fresh data
+      await queryClient.refetchQueries({ queryKey: ['menu', 'items'] });
       
       handleCloseItemModal();
 

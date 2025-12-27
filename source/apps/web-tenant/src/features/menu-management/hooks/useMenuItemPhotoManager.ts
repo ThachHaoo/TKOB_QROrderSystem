@@ -35,6 +35,7 @@ export function useMenuItemPhotoManager() {
   const [photos, setPhotos] = useState<PhotoState[]>([]);
   const [removedPhotoIds, setRemovedPhotoIds] = useState<string[]>([]);
   const [primaryCandidateId, setPrimaryCandidateId] = useState<string | null>(null);
+  const [initialPrimaryId, setInitialPrimaryId] = useState<string | null>(null);
   
   // Track object URLs for cleanup
   const objectUrlsRef = useRef<string[]>([]);
@@ -59,9 +60,11 @@ export function useMenuItemPhotoManager() {
     setPhotos(photoStates);
     setRemovedPhotoIds([]);
     
-    // Find current primary
+    // Find current primary and track it as initial primary
     const primary = photoStates.find(p => p.isPrimary);
-    setPrimaryCandidateId(primary?.localId || null);
+    const primaryId = primary?.localId || null;
+    setPrimaryCandidateId(primaryId);
+    setInitialPrimaryId(primaryId);
   }, []);
 
   /**
@@ -75,6 +78,7 @@ export function useMenuItemPhotoManager() {
     setPhotos([]);
     setRemovedPhotoIds([]);
     setPrimaryCandidateId(null);
+    setInitialPrimaryId(null);
   }, []);
 
   /**
@@ -121,9 +125,15 @@ export function useMenuItemPhotoManager() {
       const photoToRemove = prev.find(p => p.localId === localId);
       
       if (photoToRemove) {
-        // If it's an existing server photo, mark for deletion
+        // If it's an existing server photo, mark for deletion (avoid duplicates)
         if (!photoToRemove.isNewFile && photoToRemove.id) {
-          setRemovedPhotoIds(ids => [...ids, photoToRemove.id!]);
+          setRemovedPhotoIds(ids => {
+            // Only add if not already in the list
+            if (!ids.includes(photoToRemove.id!)) {
+              return [...ids, photoToRemove.id!];
+            }
+            return ids;
+          });
         }
         
         // If it's a new file, cleanup object URL
@@ -247,7 +257,7 @@ export function useMenuItemPhotoManager() {
     getPhotoOrder,
     
     // Computed
-    hasChanges: removedPhotoIds.length > 0 || photos.some(p => p.isNewFile),
+    hasChanges: removedPhotoIds.length > 0 || photos.some(p => p.isNewFile) || primaryCandidateId !== initialPrimaryId,
     hasNewFiles: photos.some(p => p.isNewFile),
   };
 }
