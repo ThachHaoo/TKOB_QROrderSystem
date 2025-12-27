@@ -48,6 +48,7 @@ import { StorageModule } from './infrastructure/storage/storage.module';
   exports: [
     // Export services for use in other modules (e.g., Orders, Table modules)
     MenuItemsService,
+    MenuPhotoService,
   ],
 })
 export class MenuModule {}

@@ -1,18 +1,5 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Res,
-  BadRequestException,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiCookieAuth,
-} from '@nestjs/swagger';
+import { Controller, Get, Param, Res, BadRequestException, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiCookieAuth } from '@nestjs/swagger';
 import { Public } from '@common/decorators/public.decorator';
 import { Session } from '@common/decorators/session.decorator';
 import { TableSessionService } from '../services/table-session.service';
@@ -36,17 +23,13 @@ export class PublicTableController {
   @Public()
   @ApiOperation({
     summary: 'Scan QR code (Haidilao style)',
-    description:
-      'Customer scans QR code, creates session, sets cookie, and redirects to menu',
+    description: 'Customer scans QR code, creates session, sets cookie, and redirects to menu',
   })
   @ApiParam({ name: 'qrToken', description: 'QR token from scanned code' })
   @ApiResponse({ status: 302, description: 'Redirect to /menu with session cookie' })
   @ApiResponse({ status: 400, description: 'Invalid QR token' })
   @ApiResponse({ status: 409, description: 'Table is already in use' })
-  async scanQr(
-    @Param('qrToken') qrToken: string,
-    @Res() response: any,
-  ) {
+  async scanQr(@Param('qrToken') qrToken: string, @Res() response: any) {
     if (!qrToken) {
       throw new BadRequestException('QR token is required');
     }
@@ -58,7 +41,7 @@ export class PublicTableController {
     response.cookie('table_session_id', result.sessionId, {
       httpOnly: true, // XSS protection
       secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
-      sameSite: 'lax', // CSRF protection
+      sameSite: 'none',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       path: '/', // Available for all routes
     });
@@ -104,4 +87,3 @@ export class PublicTableController {
     return this.menuService.getPublicMenu(session.tenantId);
   }
 }
-

@@ -10,6 +10,7 @@ import { ROUTES } from '@/lib/routes';
 import { CategoryPanel } from './CategoryPanel';
 import { ItemsToolbar } from './ItemsToolbar';
 import { MenuItemsGrid } from './MenuItemsGrid';
+import { PaginationControls } from './PaginationControls';
 import { CategoryModal } from './modals/CategoryModal';
 import { MenuItemModal } from './modals/MenuItemModal';
 import { DeleteItemModal } from './modals/DeleteItemModal';
@@ -119,7 +120,7 @@ export function MenuManagementPage() {
         </div>
 
         {/* Main Content - Split Layout */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex flex-1 min-h-0">
           {/* LEFT PANEL - Categories */}
           <CategoryPanel
             selectedCategory={state.selectedCategory}
@@ -162,7 +163,7 @@ export function MenuManagementPage() {
           />
 
           {/* RIGHT PANEL - Items Grid */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Toolbar */}
             <ItemsToolbar
               searchQuery={state.searchQuery}
@@ -186,14 +187,29 @@ export function MenuManagementPage() {
               onClearFilter={handlers.handleClearFilters}
             />
 
-            {/* Items Grid */}
-            <MenuItemsGrid
-              items={derived.visibleMenuItems}
-              searchQuery={state.searchQuery}
-              onEditItem={handlers.handleOpenEditItemModal}
-              onDeleteItem={handlers.handleDeleteClick}
-              onAddItem={handlers.handleOpenAddItemModal}
-            />
+            {/* Items Grid Scrollable Area */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <MenuItemsGrid
+                items={derived.visibleMenuItems}
+                searchQuery={state.searchQuery}
+                onEditItem={handlers.handleOpenEditItemModal}
+                onDeleteItem={handlers.handleDeleteClick}
+                onAddItem={handlers.handleOpenAddItemModal}
+              />
+            </div>
+
+            {/* Pagination Controls - Always visible at bottom */}
+            <div className="shrink-0">
+              <PaginationControls
+                currentPage={state.currentPage}
+                totalPages={data.totalPages}
+                totalItems={data.totalItems}
+                itemsPerPage={data.ITEMS_PER_PAGE}
+                onPreviousPage={handlers.handlePreviousPage}
+                onNextPage={handlers.handleNextPage}
+                onGoToPage={handlers.handleGoToPage}
+              />
+            </div>
           </div>
         </div>
       </div>

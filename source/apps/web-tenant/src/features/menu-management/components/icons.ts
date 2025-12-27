@@ -11,6 +11,8 @@ export {
   Flame,
   Milk,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Star,
   MoreVertical,
   Edit2,

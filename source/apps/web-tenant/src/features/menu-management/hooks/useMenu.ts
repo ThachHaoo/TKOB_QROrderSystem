@@ -34,7 +34,7 @@ export const useMenuCategories = (params?: { activeOnly?: boolean }) => {
 /**
  * List menu items query
  */
-export const useMenuItems = (params?: { categoryId?: string; status?: string; available?: boolean; search?: string; chefRecommended?: boolean; sortBy?: string; sortOrder?: string }) => {
+export const useMenuItems = (params?: { categoryId?: string; status?: string; available?: boolean; search?: string; chefRecommended?: boolean; sortBy?: string; sortOrder?: string; page?: number; limit?: number }) => {
   return useQuery({
     queryKey: ['menu', 'items', params],
     queryFn: async () => {

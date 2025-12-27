@@ -97,14 +97,14 @@ export class MenuCategoryService {
     // Verify category exists
     await this.findById(categoryId);
 
-    // Check if category has menu items
-    const hasItems = await this.categoryRepo.hasMenuItems(categoryId);
+    // // Check if category has menu items
+    // const hasItems = await this.categoryRepo.hasMenuItems(categoryId);
 
-    if (hasItems) {
-      throw new ConflictException(
-        'Cannot archive category that contains menu items. Please move or delete all items first.',
-      );
-    }
+    // if (hasItems) {
+    //   throw new ConflictException(
+    //     'Cannot archive category that contains menu items. Please move or delete all items first.',
+    //   );
+    // }
 
     // Soft delete: set active = false
     await this.categoryRepo.update(categoryId, { active: false });

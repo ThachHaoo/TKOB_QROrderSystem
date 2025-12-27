@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { EmailService } from '../../email/email.service';
@@ -18,6 +13,7 @@ import { RegisterConfirmDto } from '../dto/register-confirm.dto';
 import { RegisterSubmitResponseDto, AuthResponseDto } from '../dto/auth-response.dto';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { SeedService } from '@/database/seed/seed.service';
 
 /**
  * Registration Service
@@ -39,6 +35,7 @@ export class RegistrationService {
     private readonly otp: OtpService,
     private readonly session: SessionService,
     private readonly config: ConfigService<EnvConfig, true>,
+    private readonly seedService: SeedService,
   ) {}
 
   /**
@@ -154,9 +151,18 @@ export class RegistrationService {
 
       user = result.user;
       tenant = result.tenant;
+
+      try {
+        await this.seedService.seedTenantData(tenant.id);
+        await this.seedService.seedDemoStaffUser(tenant.id, user.email);
+        this.logger.log(`✅ Demo data seeded for tenant: ${tenant.id}`);
+      } catch (seedError) {
+        // Don't fail registration if seed fails
+        this.logger.error(`Failed to seed demo data for ${tenant.id}:`, seedError);
+      }
     } catch (error) {
       this.logger.error('Registration transaction failed', error.stack);
-      
+
       // Don't delete Redis data to allow retry
       throw new BadRequestException(
         'Failed to create account. Please try again or contact support.',
@@ -164,10 +170,7 @@ export class RegistrationService {
     }
 
     // 4. Create session and generate tokens
-    const tokens = await this.session.createSessionWithTokens(
-      user.id,
-      'Registration Device',
-    );
+    const tokens = await this.session.createSessionWithTokens(user.id, 'Registration Device');
 
     // 5. Cleanup Redis
     await this.redis.del(redisKey);
