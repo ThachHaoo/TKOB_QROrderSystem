@@ -4,7 +4,7 @@
  */
 
 import type { IMenuAdapter } from './types';
-import type { ModifierGroupResponseDto } from '@/services/generated/models';
+import type { ModifierGroupResponseDto, MenuItemsControllerFindAllStatus, MenuItemsControllerFindAllSortBy, MenuItemsControllerFindAllSortOrder } from '@/services/generated/models';
 import {
   menuCategoryControllerFindAll,
   menuCategoryControllerFindOne,
@@ -91,7 +91,7 @@ export class MenuApiAdapter implements IMenuAdapter {
   }
 
   // Menu Items
-  async listMenuItems(params?: { categoryId?: string; status?: string; available?: boolean; search?: string; chefRecommended?: boolean; sortBy?: string; sortOrder?: string }): Promise<{ data: any[]; meta: any }> {
+  async listMenuItems(params?: { categoryId?: string; status?: MenuItemsControllerFindAllStatus; available?: boolean; search?: string; chefRecommended?: boolean; sortBy?: MenuItemsControllerFindAllSortBy; sortOrder?: MenuItemsControllerFindAllSortOrder }): Promise<{ data: any[]; meta: any }> {
     const response = await menuItemsControllerFindAll(params);
     
     // Handle undefined/null/void - early return

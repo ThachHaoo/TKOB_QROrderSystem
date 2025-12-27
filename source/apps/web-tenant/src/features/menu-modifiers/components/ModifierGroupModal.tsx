@@ -76,7 +76,7 @@ export function ModifierGroupModal({
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] animate-scaleIn flex flex-col">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl shrink-0">
           <h3 className="text-lg font-semibold text-gray-900">
             {mode === 'create' ? 'Create Modifier Group' : 'Edit Modifier Group'}
           </h3>
@@ -334,7 +334,7 @@ export function ModifierGroupModal({
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200 rounded-b-2xl flex-shrink-0">
+        <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t border-gray-200 rounded-b-2xl shrink-0">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

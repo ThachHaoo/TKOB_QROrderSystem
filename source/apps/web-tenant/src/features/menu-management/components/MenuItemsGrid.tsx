@@ -64,7 +64,7 @@ export function MenuItemsGrid({
             {items.map((item: any) => (
               <Card key={item.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full rounded-xl">
                 {/* Hero Image - Full width, fixed height */}
-                <div className="relative w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="relative w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shrink-0">
                   {item.imageUrl ? (
                     <>
                       <Image

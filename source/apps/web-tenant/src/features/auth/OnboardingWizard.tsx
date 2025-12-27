@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Button, Input, Card } from '@/shared/components/ui';
 import { Check, Upload, Copy } from 'lucide-react';
 import { useAuth } from '@/shared/context/AuthContext';
@@ -221,10 +222,12 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
               <label className="text-gray-900">Logo</label>
               {formData.logoUrl ? (
                 <div className="flex items-center gap-3 p-4 border border-gray-300 rounded-xl">
-                  <img 
+                  <Image 
                     src={formData.logoUrl} 
                     alt="Logo preview" 
-                    className="w-16 h-16 rounded-lg object-cover"
+                    width={64}
+                    height={64}
+                    className="rounded-lg object-cover"
                   />
                   <div className="flex-1">
                     <p className="text-gray-900" style={{ fontSize: '14px', fontWeight: 500 }}>
@@ -291,7 +294,7 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
                   <div key={day} className="flex flex-col gap-2">
                     <div className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl bg-white">
                       {/* Checkbox */}
-                      <label className="flex items-center gap-2 cursor-pointer min-w-[120px]">
+                      <label className="flex items-center gap-2 cursor-pointer min-w-30">
                         <input
                           type="checkbox"
                           checked={hours.enabled}
@@ -425,10 +428,12 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
                   <p className="text-gray-600" style={{ fontSize: '13px' }}>Logo</p>
                   {formData.logoUrl ? (
                     <div className="flex items-center gap-2 mt-1">
-                      <img 
+                      <Image 
                         src={formData.logoUrl} 
                         alt="Logo" 
-                        className="w-10 h-10 rounded-lg object-cover"
+                        width={40}
+                        height={40}
+                        className="rounded-lg object-cover"
                       />
                       <p className="text-gray-900" style={{ fontSize: '15px', fontWeight: 500 }}>
                         Logo uploaded
@@ -533,7 +538,7 @@ export function OnboardingWizard({ onNavigate }: OnboardingWizardProps) {
           </div>
 
           {/* Content */}
-          <div className="min-h-[400px]">{renderStepContent()}</div>
+          <div className="min-h-100">{renderStepContent()}</div>
 
           {/* Actions */}
           <div className="flex items-center justify-between pt-6 border-t border-gray-200">

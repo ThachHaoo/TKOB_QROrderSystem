@@ -423,7 +423,7 @@ export function useMenuManagementPage() {
         queryFn: () => menuService.getMenuItemById(item.id),
       });
       
-      const itemStatus = fullItemData.status || 'DRAFT';
+      const itemStatus = (fullItemData.status || 'DRAFT') as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
       setInitialItemStatus(itemStatus);
       
       setItemFormData({
@@ -518,7 +518,7 @@ export function useMenuManagementPage() {
     let itemId: string | null = null;
     let photoUploadFailed = false;
     let photoDeleteFailed = false;
-    let photoOperationErrors: string[] = [];
+    const photoOperationErrors: string[] = [];
 
     try {
       // ============ ROUNDTRIP 1: Save Menu Item ============

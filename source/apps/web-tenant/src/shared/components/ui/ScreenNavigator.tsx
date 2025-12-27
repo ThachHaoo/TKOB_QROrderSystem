@@ -49,7 +49,7 @@ export function ScreenNavigator({ currentScreen, onNavigate }: ScreenNavigatorPr
 
       {/* Navigation Panel */}
       {isOpen && (
-        <div className="fixed bottom-24 right-8 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-[600px] overflow-y-auto">
+        <div className="fixed bottom-24 right-8 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-150 overflow-y-auto">
           <div className="p-4 border-b border-gray-200 sticky top-0 bg-white">
             <h3 className="text-gray-900">Screen Navigator</h3>
             <p className="text-gray-600" style={{ fontSize: '13px' }}>

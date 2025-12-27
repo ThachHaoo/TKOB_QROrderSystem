@@ -53,7 +53,7 @@ export function MenuPreviewPage() {
       }, {} as Record<string, typeof menuItems>);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white">
+    <div className="min-h-screen bg-linear-to-b from-emerald-50 to-white">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-6">
@@ -82,7 +82,7 @@ export function MenuPreviewPage() {
       </div>
 
       {/* Category Filter */}
-      <div className="sticky top-[148px] z-10 bg-white border-b border-gray-200">
+      <div className="sticky top-37 z-10 bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 py-3">
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             <button
@@ -130,7 +130,7 @@ export function MenuPreviewPage() {
                   >
                     <div className="flex gap-4">
                       {/* Placeholder for image */}
-                      <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center">
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg shrink-0 flex items-center justify-center">
                         <span className="text-gray-400 text-xs">No image</span>
                       </div>
 
@@ -146,7 +146,7 @@ export function MenuPreviewPage() {
                       </div>
 
                       {/* Arrow Icon */}
-                      <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
                     </div>
                   </Card>
                 ))}

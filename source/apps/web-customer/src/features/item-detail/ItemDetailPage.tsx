@@ -255,16 +255,16 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
                   onClick={() => setSelectedSize(size.size)}
                   className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
                     selectedSize === size.size
-                      ? 'border-[var(--orange-500)] bg-[var(--orange-50)]'
-                      : 'border-[var(--gray-200)] hover:border-[var(--gray-300)]'
+                      ? 'border-(--orange-500) bg-(--orange-50)'
+                      : 'border-(--gray-200) hover:border-(--gray-300)'
                   }`}
                   style={{ minHeight: '48px' }}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       selectedSize === size.size
-                        ? 'border-[var(--orange-500)]'
-                        : 'border-[var(--gray-300)]'
+                        ? 'border-(--orange-500)'
+                        : 'border-(--gray-300)'
                     }`}>
                       {selectedSize === size.size && (
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'var(--orange-500)' }} />
@@ -296,16 +296,16 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
                   onClick={() => toggleTopping(topping.id)}
                   className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${
                     selectedToppings.includes(topping.id)
-                      ? 'border-[var(--orange-500)] bg-[var(--orange-50)]'
-                      : 'border-[var(--gray-200)] hover:border-[var(--gray-300)]'
+                      ? 'border-(--orange-500) bg-(--orange-50)'
+                      : 'border-(--gray-200) hover:border-(--gray-300)'
                   }`}
                   style={{ minHeight: '48px' }}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                       selectedToppings.includes(topping.id)
-                        ? 'border-[var(--orange-500)] bg-[var(--orange-500)]'
-                        : 'border-[var(--gray-300)]'
+                        ? 'border-(--orange-500) bg-(--orange-500)'
+                        : 'border-(--gray-300)'
                     }`}>
                       {selectedToppings.includes(topping.id) && (
                         <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -338,7 +338,7 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
                   <button
                     key={relatedItem.id}
                     onClick={() => handleItemClick(relatedItem)}
-                    className="flex-shrink-0 w-36 bg-white rounded-xl overflow-hidden border transition-all hover:shadow-md active:scale-98"
+                    className="shrink-0 w-36 bg-white rounded-xl overflow-hidden border transition-all hover:shadow-md active:scale-98"
                     style={{ borderColor: 'var(--gray-200)' }}
                   >
                     <OptimizedImage
@@ -444,7 +444,7 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
                 <button
                   onClick={handlePreviousReview}
                   disabled={reviewPage === 1}
-                  className="flex items-center gap-1 px-3 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--gray-50)] active:scale-95"
+                  className="flex items-center gap-1 px-3 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-(--gray-50) active:scale-95"
                   style={{ borderColor: 'var(--gray-300)' }}
                 >
                   <ChevronLeft className="w-4 h-4" style={{ color: 'var(--gray-700)' }} />
@@ -458,7 +458,7 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
                 <button
                   onClick={handleNextReview}
                   disabled={reviewPage === totalReviewPages}
-                  className="flex items-center gap-1 px-3 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--gray-50)] active:scale-95"
+                  className="flex items-center gap-1 px-3 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-(--gray-50) active:scale-95"
                   style={{ borderColor: 'var(--gray-300)' }}
                 >
                   <span style={{ color: 'var(--gray-700)', fontSize: '14px' }}>Next</span>
@@ -472,22 +472,22 @@ export function ItemDetailPage({ itemId }: ItemDetailProps) {
 
       {/* Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 shadow-lg" style={{ borderColor: 'var(--gray-200)' }}>
-        <div className="max-w-[480px] mx-auto flex items-center gap-3">
+        <div className="max-w-120 mx-auto flex items-center gap-3">
           {/* Quantity Controls */}
           <div className="flex items-center gap-3 border rounded-full px-2 py-1" style={{ borderColor: 'var(--gray-300)' }}>
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--gray-100)]"
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-(--gray-100)"
               disabled={quantity <= 1}
             >
               <Minus className="w-5 h-5" style={{ color: 'var(--gray-700)' }} />
             </button>
-            <span className="min-w-[24px] text-center" style={{ color: 'var(--gray-900)' }}>
+            <span className="min-w-6 text-center" style={{ color: 'var(--gray-900)' }}>
               {quantity}
             </span>
             <button
               onClick={() => setQuantity(quantity + 1)}
-              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--gray-100)]"
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-(--gray-100)"
             >
               <Plus className="w-5 h-5" style={{ color: 'var(--gray-700)' }} />
             </button>

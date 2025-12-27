@@ -50,7 +50,7 @@ export default function QRScanPage() {
   }, [qrToken])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-orange-50 to-gray-50">
       <div className="text-center space-y-6 p-8">
         {/* Animated Loading Spinner with Icon */}
         <div className="relative">

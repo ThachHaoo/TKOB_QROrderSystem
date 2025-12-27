@@ -102,7 +102,7 @@ export function MenuPage() {
             <LanguageSwitcher currentLanguage={language} onLanguageChange={setLanguage} />
             <button
               onClick={() => router.push('/cart')}
-              className="relative w-10 h-10 rounded-full flex items-center justify-center border transition-colors hover:bg-[var(--gray-50)]"
+              className="relative w-10 h-10 rounded-full flex items-center justify-center border transition-colors hover:bg-(--gray-50)"
               style={{ borderColor: 'var(--gray-300)' }}
             >
               <ShoppingCart className="w-5 h-5" style={{ color: 'var(--gray-700)' }} />
@@ -120,7 +120,7 @@ export function MenuPage() {
           <div className="max-w-4xl mx-auto flex gap-2">
             <button
               onClick={() => setSelectedCategory('All')}
-              className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${selectedCategory === 'All' ? 'bg-[var(--orange-500)] text-white' : 'bg-white border text-[var(--gray-700)] hover:bg-[var(--gray-50)]'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${selectedCategory === 'All' ? 'bg-(--orange-500) text-white' : 'bg-white border text-(--gray-700) hover:bg-(--gray-50)'}`}
               style={selectedCategory !== 'All' ? { borderColor: 'var(--gray-300)' } : {}}
             >
               All
@@ -129,7 +129,7 @@ export function MenuPage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-[var(--orange-500)] text-white' : 'bg-white border text-[var(--gray-700)] hover:bg-[var(--gray-50)]'}`}
+                className={`px-4 py-2 rounded-full whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-(--orange-500) text-white' : 'bg-white border text-(--gray-700) hover:bg-(--gray-50)'}`}
                 style={selectedCategory !== cat ? { borderColor: 'var(--gray-300)' } : {}}
               >
                 {cat}
@@ -147,7 +147,7 @@ export function MenuPage() {
               placeholder={t.searchPlaceholder}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-full border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--orange-200)] focus:border-[var(--orange-500)]"
+              className="w-full pl-11 pr-4 py-3 rounded-full border transition-all focus:outline-none focus:ring-2 focus:ring-(--orange-200) focus:border-(--orange-500)"
               style={{ borderColor: 'var(--gray-300)', fontSize: '15px' }}
             />
           </div>
@@ -165,14 +165,14 @@ export function MenuPage() {
             <div className="flex gap-1">
               <button
                 onClick={() => setSortBy('default')}
-                className={`px-3 py-1.5 rounded-full transition-all ${sortBy === 'default' ? 'bg-[var(--orange-500)] text-white' : 'bg-white border text-[var(--gray-700)] hover:bg-[var(--gray-50)]'}`}
+                className={`px-3 py-1.5 rounded-full transition-all ${sortBy === 'default' ? 'bg-(--orange-500) text-white' : 'bg-white border text-(--gray-700) hover:bg-(--gray-50)'}`}
                 style={sortBy !== 'default' ? { borderColor: 'var(--gray-300)', fontSize: '13px' } : { fontSize: '13px' }}
               >
                 {t.default}
               </button>
               <button
                 onClick={() => setSortBy('popular')}
-                className={`px-3 py-1.5 rounded-full transition-all ${sortBy === 'popular' ? 'bg-[var(--orange-500)] text-white' : 'bg-white border text-[var(--gray-700)] hover:bg-[var(--gray-50)]'}`}
+                className={`px-3 py-1.5 rounded-full transition-all ${sortBy === 'popular' ? 'bg-(--orange-500) text-white' : 'bg-white border text-(--gray-700) hover:bg-(--gray-50)'}`}
                 style={sortBy !== 'popular' ? { borderColor: 'var(--gray-300)', fontSize: '13px' } : { fontSize: '13px' }}
               >
                 {t.popular}
@@ -194,7 +194,7 @@ export function MenuPage() {
                 <button
                   onClick={pagination.prevPage}
                   disabled={!pagination.hasPrev}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--gray-50)]"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-(--gray-50)"
                   style={{ borderColor: 'var(--gray-300)' }}
                 >
                   <ChevronLeft className="w-5 h-5" style={{ color: 'var(--gray-700)' }} />
@@ -206,7 +206,7 @@ export function MenuPage() {
                 <button
                   onClick={pagination.nextPage}
                   disabled={!pagination.hasNext}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--gray-50)]"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-(--gray-50)"
                   style={{ borderColor: 'var(--gray-300)' }}
                 >
                   <span style={{ color: 'var(--gray-700)', fontSize: '15px' }}>{t.next}</span>
