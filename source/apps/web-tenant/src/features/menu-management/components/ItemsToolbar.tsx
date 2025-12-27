@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, Plus, Filter, XCircle } from './icons';
 import { ItemsFilterPanel } from './ItemsFilterPanel';
+import { useDebounce } from '../hooks/useDebounce';
 
 type ItemsToolbarProps = {
   searchQuery: string;
@@ -47,6 +48,22 @@ export function ItemsToolbar({
   onAddItem,
   onClearFilter,
 }: ItemsToolbarProps) {
+  // Local state for search input (immediate feedback)
+  const [localSearchInput, setLocalSearchInput] = useState(searchQuery);
+  
+  // Debounced search value (500ms delay)
+  const debouncedSearchQuery = useDebounce(localSearchInput, 500);
+
+  // Update parent when debounced value changes
+  useEffect(() => {
+    onSearchChange(debouncedSearchQuery);
+  }, [debouncedSearchQuery, onSearchChange]);
+
+  // Sync local input with parent when searchQuery prop changes (e.g., from reset)
+  useEffect(() => {
+    setLocalSearchInput(searchQuery);
+  }, [searchQuery]);
+
   return (
     <div className="px-5 py-2 bg-white border-b border-gray-200">
       <div className="flex items-center gap-2.5">
@@ -55,8 +72,8 @@ export function ItemsToolbar({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={localSearchInput}
+            onChange={(e) => setLocalSearchInput(e.target.value)}
             placeholder="Search menu items..."
             className="w-full pl-9 pr-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 rounded-xl text-sm h-10"
           />
