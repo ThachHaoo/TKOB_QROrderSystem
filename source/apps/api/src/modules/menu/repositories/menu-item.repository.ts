@@ -37,6 +37,11 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
           orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
         },
         modifierGroups: {
+          where: {
+            modifierGroup: {
+              active: true,
+            },
+          },
           include: {
             modifierGroup: {
               include: {
@@ -120,6 +125,11 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
           take: 1,
         },
         modifierGroups: {
+          where: {
+            modifierGroup: {
+              active: true,
+            },
+          },
           include: {
             modifierGroup: {
               include: {
@@ -209,7 +219,7 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
     const where: Prisma.MenuItemWhereInput = {
       tenantId,
       status: 'PUBLISHED',
-      available: true,
+      // available: true,
       category: {
         active: true,
       },
@@ -269,6 +279,11 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
             orderBy: [{ isPrimary: 'desc' }, { displayOrder: 'asc' }],
           },
           modifierGroups: {
+            where: {
+              modifierGroup: {
+                active: true,
+              },
+            },
             include: {
               modifierGroup: {
                 include: {

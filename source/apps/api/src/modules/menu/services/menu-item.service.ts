@@ -204,6 +204,7 @@ export class MenuItemsService {
         photos: item.photo || [],
         tags: item.tags,
         allergens: item.allergens,
+        available: item.available,
         modifierGroups,
         preparationTime: item.preparationTime,
         chefRecommended: item.chefRecommended,

@@ -30,7 +30,7 @@ export function MenuModifiersPage() {
         />
 
         {/* Content area - scrollable */}
-        <div className="flex-1 px-6 pt-6 overflow-y-auto bg-gray-50">
+        <div className="flex-1 px-6 pt-4 overflow-y-auto bg-gray-50">
           {/* Toolbar */}
           <ModifiersToolbar
             visibleGroupsCount={derived.visibleGroups.length}

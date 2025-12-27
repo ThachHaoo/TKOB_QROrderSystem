@@ -10,6 +10,9 @@ export * from './error'
 // Forms
 export * from './forms'
 
+// Indicators
+export * from './indicators'
+
 // Modals
 export * from './modals'
 

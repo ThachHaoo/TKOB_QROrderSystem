@@ -116,9 +116,9 @@ export function MenuItemsGrid({
                 </div>
 
                 {/* Content Section */}
-                <div className="p-4 flex-1 flex flex-col">
+                <div className="py-3 px-3 flex-1 flex flex-col">
                   {/* Title */}
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-1">
                     {item.name}
                   </h4>
                   
@@ -127,8 +127,11 @@ export function MenuItemsGrid({
                     {item.description || 'No description available'}
                   </p>
 
+                  {/* Spacer to push badges to bottom */}
+                  <div className="flex-1" />
+
                   {/* Chips Row: Availability, Order, Dietary, Allergens */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
+                  <div className="flex flex-wrap gap-1.5 mt-3">
                     <Badge variant={item.available ? 'success' : 'neutral'} className="text-xs">
                       {item.available ? 'Available' : 'Unavailable'}
                     </Badge>
@@ -171,13 +174,10 @@ export function MenuItemsGrid({
                       </Badge>
                     )}
                   </div>
-                  
-                  {/* Spacer */}
-                  <div className="flex-1" />
                 </div>
 
                 {/* Footer: Price and Actions */}
-                <div className="flex items-center justify-between px-4 pb-4 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100">
                   <span className="text-2xl font-bold text-emerald-600">
                     {CURRENCY_CONFIG.format(item.price)}
                   </span>

@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 import { MenuItem } from '@/types';
 import { OptimizedImage } from '@packages/ui';
+import { ChefRecommendationIndicator } from '@/components/indicators/ChefRecommendationIndicator';
 
 interface FoodCardProps {
   item: MenuItem;
@@ -12,18 +13,13 @@ export function FoodCard({ item, onAdd }: FoodCardProps) {
   const isAvailable = availability === 'Available';
   const isSoldOut = availability === 'Sold out';
   const isUnavailable = availability === 'Unavailable';
+  const isChefRecommended = item.chefRecommended === true;
 
-  // Badge styling
+  // Badge styling for "Popular" only
   const getBadgeStyles = () => {
     if (item.badge === 'Popular') {
       return {
         backgroundColor: 'rgba(245, 158, 11, 0.95)', // Amber with slight transparency
-        color: 'white',
-      };
-    }
-    if (item.badge === 'Chef\'s recommendation') {
-      return {
-        backgroundColor: 'rgba(16, 185, 129, 0.95)', // Emerald with slight transparency
         color: 'white',
       };
     }
@@ -42,21 +38,28 @@ export function FoodCard({ item, onAdd }: FoodCardProps) {
     >
       <div className="flex md:flex-row gap-4 p-4">
         {/* Image */}
-        <div className="flex-shrink-0 relative w-24 md:w-40">
+        <div className="flex-shrink-0 relative w-28 md:w-40">
           <OptimizedImage
             src={item.imageUrl}
             alt={item.name}
             width={160}
             height={160}
-            className="w-full h-24 md:h-40 object-cover rounded-lg"
+            className="w-full h-28 md:h-40 object-cover rounded-lg"
             style={{
               opacity: isSoldOut ? 0.5 : 1,
               filter: isSoldOut ? 'grayscale(30%)' : 'none',
             }}
           />
           
-          {/* Badge - Top Left */}
-          {item.badge && !isUnavailable && (
+          {/* Chef Recommendation Icon - Top Left */}
+          {isChefRecommended && !isUnavailable && (
+            <div className="absolute top-2 left-2 z-10">
+              <ChefRecommendationIndicator enabled={true} />
+            </div>
+          )}
+
+          {/* Popular Badge - Top Left (adjusted if no chef icon) */}
+          {item.badge === 'Popular' && !isUnavailable && (
             <div 
               className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md"
               style={{

@@ -80,22 +80,34 @@ export const MenuService = {
    * Get public menu (session-based, no token needed)
    * Cookie automatically sent by axios (withCredentials: true)
    */
-  async getPublicMenu(tenantId?: string): Promise<ApiResponse<{
+  async getPublicMenu(
+    tenantId?: string,
+    options?: {
+      chefRecommended?: boolean;
+      sortBy?: 'displayOrder' | 'popularity' | 'price' | 'name';
+      sortOrder?: 'asc' | 'desc';
+      search?: string;
+      categoryId?: string;
+    }
+  ): Promise<ApiResponse<{
     items: MenuItem[];
     categories: string[];
   }>> {
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[MenuService.getPublicMenu] calling /menu/public')
+        console.log('[MenuService.getPublicMenu] calling /menu/public', options)
       }
       // Swagger documents tenantId as query param; send it in params alongside pagination/sort
       const response = await apiClient.get<{ success: boolean; data: PublicMenuResponseDto }>('/menu/public', {
         params: {
           tenantId,
           page: 1,
-          limit: 20,
-          sortBy: 'displayOrder',
-          sortOrder: 'asc',
+          limit: 100,
+          sortBy: options?.sortBy || 'displayOrder',
+          sortOrder: options?.sortOrder || 'asc',
+          ...(options?.chefRecommended !== undefined && { chefRecommended: options.chefRecommended }),
+          ...(options?.search && { search: options.search }),
+          ...(options?.categoryId && { categoryId: options.categoryId }),
         },
       });
     
@@ -105,12 +117,12 @@ export const MenuService = {
     // Transform backend response to frontend format
     const items: MenuItem[] = menuData.categories.flatMap(cat =>
       cat.items.map(item => {
-        const rawPrice: any = (item as any).price;
+        const rawPrice = item.price as number | string | undefined;
         const numericPrice =
           typeof rawPrice === 'number'
             ? rawPrice
             : rawPrice != null
-              ? parseFloat(rawPrice)
+              ? parseFloat(String(rawPrice))
               : 0;
 
         // Map availability: available=false -> Unavailable, otherwise Available
@@ -124,6 +136,19 @@ export const MenuService = {
           badge = 'Popular';
         }
 
+        // Normalize modifier groups to ensure priceDelta is numeric
+        const normalizedModifierGroups = item.modifierGroups?.map(g => ({
+          ...g,
+          options: g.options.map(o => ({
+            ...o,
+            priceDelta: typeof o.priceDelta === 'number' ? o.priceDelta : parseFloat(String(o.priceDelta)) || 0,
+          })),
+        }));
+
+        // Filter dietary tags to supported set
+        const allowedDietary = ['Vegan', 'Vegetarian', 'Spicy', 'Gluten-Free'] as const;
+        const dietary = ((item.tags || []).filter(t => (allowedDietary as readonly string[]).includes(t)) as MenuItem['dietary']);
+
         return {
           id: item.id,
           name: item.name,
@@ -133,11 +158,11 @@ export const MenuService = {
           imageUrl: item.primaryPhoto?.url || item.imageUrl || '',
           primaryPhoto: item.primaryPhoto || undefined,
           photos: item.photos,
-          modifierGroups: item.modifierGroups,
+          modifierGroups: normalizedModifierGroups,
           preparationTime: item.preparationTime,
           chefRecommended: item.chefRecommended,
           popularity: item.popularity,
-          dietary: item.tags as any,
+          dietary,
           badge,
           availability,
         };
@@ -150,9 +175,10 @@ export const MenuService = {
         success: true,
         data: { items, categories },
       };
-    } catch (err: any) {
-      if (err?.response) {
-        console.error('[MenuService.getPublicMenu] failed response', err.response.data);
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const e = err as { response?: { data?: unknown } };
+        console.error('[MenuService.getPublicMenu] failed response', e.response?.data);
       } else {
         console.error('[MenuService.getPublicMenu] failed', err);
       }
