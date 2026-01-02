@@ -57,6 +57,20 @@ enum OrderStatus {
   CANCELLED       // Order cancelled
 }
 
+enum PaymentMethod {
+  BILL_TO_TABLE   // Pay at table after eating (default for Vietnam)
+  CARD_ONLINE     // Pay online via Stripe
+  CASH            // Cash payment (recorded by staff)
+}
+
+enum PaymentStatus {
+  PENDING         // Waiting for payment
+  PROCESSING      // Payment being processed
+  COMPLETED       // Payment successful
+  FAILED          // Payment failed
+  REFUNDED        // Payment refunded
+}
+
 // 3. Model TENANT
 model Tenant {
   id     String       @id @default(uuid()) // PK là UUID
@@ -366,10 +380,10 @@ model Order {
   tax             Decimal       @default(0) @db.Decimal(10, 2)
   total           Decimal       @db.Decimal(10, 2)
   
-  // // Payment
-  // paymentMethod   PaymentMethod @default(BILL_TO_TABLE) @map("payment_method")
-  // paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
-  // paidAt          DateTime?     @map("paid_at")
+  // Payment
+  paymentMethod   PaymentMethod @default(BILL_TO_TABLE) @map("payment_method")
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
+  paidAt          DateTime?     @map("paid_at")
   
   // // Stripe payment (if applicable)
   // stripePaymentIntentId String? @map("stripe_payment_intent_id")

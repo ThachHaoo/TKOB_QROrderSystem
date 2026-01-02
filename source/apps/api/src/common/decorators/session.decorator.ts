@@ -1,9 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
-export interface SessionData {
-  sessionId: string;
-}
-
 /**
  * @Session() decorator - Extract session data from request
  * Used by SessionGuard to attach table session info to request
