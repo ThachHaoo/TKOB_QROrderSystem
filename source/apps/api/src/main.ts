@@ -1,4 +1,4 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -88,6 +88,7 @@ async function bootstrap() {
       .setDescription('API Documentation for QR Ordering Platform')
       .setVersion('1.0')
       .addBearerAuth()
+      .addCookieAuth('table_session_id')
       .addTag('Authentication', 'User authentication & registration')
       .addTag('Tenants', 'Restaurant/tenant management')
       .addTag('Menu - Categories', 'Menu categories management')

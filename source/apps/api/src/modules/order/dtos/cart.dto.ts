@@ -1,5 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class CartModifierDto {
   @ApiProperty({ example: 'mod_123' })
@@ -19,7 +28,44 @@ export class CartModifierDto {
   optionName: string;
 
   @ApiProperty({ example: 10000 })
+  @IsOptional()
+  @IsNumber()
   priceDelta: number;
+}
+
+export class AddToCartDto {
+  @ApiProperty({ example: 'item_123' })
+  @IsString()
+  menuItemId: string;
+
+  @ApiProperty({ example: 1, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  quantity: number;
+
+  @ApiPropertyOptional({ type: [CartModifierDto] })
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CartModifierDto)
+  modifiers?: CartModifierDto[];
+
+  @ApiPropertyOptional({ example: 'No ice please' })
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class UpdateCartItemDto {
+  @ApiProperty({ example: 1, minimum: 0 })
+  @IsInt()
+  @Min(0)
+  quantity: number;
+
+  @ApiPropertyOptional({ example: 'No ice please' })
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }
 
 export class CartItemResponseDto {
