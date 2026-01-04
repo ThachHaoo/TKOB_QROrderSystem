@@ -36,31 +36,30 @@ export function MenuItemsGrid({
   onAddItem,
 }: MenuItemsGridProps) {
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-5">
-        {items.length === 0 ? (
-          <Card className="p-12 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ImageIcon className="w-10 h-10 text-gray-400" />
-            </div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">
-              {searchQuery ? 'No items found' : 'No items yet'}
-            </h4>
-            <p className="text-sm text-gray-600 mb-6">
-              {searchQuery ? 'Try adjusting your search or filters' : 'Add your first menu item'}
-            </p>
-            {!searchQuery && (
-              <button
-                onClick={onAddItem}
-                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold"
-              >
-                <Plus className="w-5 h-5 inline-block mr-2" />
-                Add Item
-              </button>
-            )}
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="p-5">
+      {items.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ImageIcon className="w-10 h-10 text-gray-400" />
+          </div>
+          <h4 className="text-lg font-semibold text-gray-900 mb-2">
+            {searchQuery ? 'No items found' : 'No items yet'}
+          </h4>
+          <p className="text-sm text-gray-600 mb-6">
+            {searchQuery ? 'Try adjusting your search or filters' : 'Add your first menu item'}
+          </p>
+          {!searchQuery && (
+            <button
+              onClick={onAddItem}
+              className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold"
+            >
+              <Plus className="w-5 h-5 inline-block mr-2" />
+              Add Item
+            </button>
+          )}
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((item: any) => (
               <Card key={item.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full rounded-xl">
                 {/* Hero Image - Full width, fixed height */}
@@ -203,6 +202,5 @@ export function MenuItemsGrid({
           </div>
         )}
       </div>
-    </div>
   );
 }

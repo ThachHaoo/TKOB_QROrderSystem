@@ -77,6 +77,8 @@ export function useMenuManagementPage() {
   const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [sortOption, setSortOption] = useState('Sort by: Newest');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
   const [categorySortBy, setCategorySortBy] = useState<'displayOrder' | 'name' | 'createdAt'>('displayOrder');
   const [showActiveOnlyCategories, setShowActiveOnlyCategories] = useState(false);
   const [_selectedArchiveStatus, setSelectedArchiveStatus] = useState<'all' | 'archived'>('all');
@@ -139,6 +141,12 @@ export function useMenuManagementPage() {
     },
   });
 
+  // ============ EFFECTS ============
+  // Reset to page 1 when filters/search/category change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedStatus, selectedAvailability, searchQuery, selectedChefRecommended, sortOption]);
+
   // ============ REFS ============
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -175,10 +183,23 @@ export function useMenuManagementPage() {
     sortOrder: sortOption === 'Sort by: Price (High)' || sortOption === 'Sort by: Name (Z-A)'
       ? 'desc'
       : 'asc',
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
   };
 
   const { data: itemsResponse } = useMenuItems(itemsQueryParams);
   const menuItems = Array.isArray(itemsResponse?.data) ? itemsResponse.data : [];
+  const totalItems = itemsResponse?.meta?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+
+  // Debug logging for pagination
+  console.log('📊 [Pagination Debug]', { 
+    totalItems, 
+    totalPages, 
+    currentPage, 
+    menuItemsLength: menuItems.length,
+    ITEMS_PER_PAGE 
+  });
 
   const { data: modifierGroupsResponse } = useModifierGroups({ activeOnly: false });
   const modifierGroups = Array.isArray(modifierGroupsResponse) ? modifierGroupsResponse : [];
@@ -1023,6 +1044,8 @@ export function useMenuManagementPage() {
       setCurrentEditItemId,
       itemFormData,
       setItemFormData,
+      currentPage,
+      setCurrentPage,
       // Photo management (TWO-ROUNDTRIP flow)
       photoManager,
       isSaving,
@@ -1033,6 +1056,9 @@ export function useMenuManagementPage() {
       categories,
       menuItems,
       modifierGroups,
+      totalItems,
+      totalPages,
+      ITEMS_PER_PAGE,
     },
 
     derived: {
@@ -1072,6 +1098,25 @@ export function useMenuManagementPage() {
       removePhoto,
       setPhotoPrimary,
       cleanupPhotoUrls,
+      // Pagination handlers
+      handleNextPage: () => {
+        if (currentPage < totalPages) {
+          setCurrentPage(currentPage + 1);
+          console.log('📄 Next page:', currentPage + 1);
+        }
+      },
+      handlePreviousPage: () => {
+        if (currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+          console.log('📄 Previous page:', currentPage - 1);
+        }
+      },
+      handleGoToPage: (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+          setCurrentPage(page);
+          console.log('📄 Go to page:', page);
+        }
+      },
       // Form utilities
       toggleDietary: (tag: string) => {
         if (itemFormData.dietary.includes(tag)) {
