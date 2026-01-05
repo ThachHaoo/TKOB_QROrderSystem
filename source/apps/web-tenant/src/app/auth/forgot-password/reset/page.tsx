@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import ResetPassword from '@/features/auth/ResetPassword';
+import { ResetPassword } from '@/features/auth';
 
 /**
  * Reset Password Page
@@ -26,8 +26,6 @@ export default function ResetPasswordPage() {
   return (
     <ResetPassword 
       onNavigate={(path) => router.push(path)}
-      token={token}
-      email={email}
     />
   );
 }

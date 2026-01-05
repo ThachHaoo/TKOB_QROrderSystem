@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { ReactQueryProvider } from '@/lib/providers/ReactQueryProvider';
+import { ReactQueryProvider } from '@/shared/providers';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { Toaster } from 'sonner';
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import EmailVerification from '@/features/auth/EmailVerification';
+import { EmailVerification } from '@/features/auth';
 
 export default function EmailVerificationPage() {
   const router = useRouter();

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Signup from '@/features/auth/Signup';
+import { Signup } from '@/features/auth';
 
 export default function SignupPage() {
   const router = useRouter();

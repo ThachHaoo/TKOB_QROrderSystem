@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
-import { RoleGuard } from '@/shared/components/auth';
-import { MenuItemModifiersPage } from '@/features/menu-management';
+import { RoleGuard } from '@/shared/guards';
+import { MenuItemModifiersPage } from '@/features/menu';
 
 export const metadata: Metadata = {
   title: 'Item Modifiers | TKQR Admin',
