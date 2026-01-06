@@ -155,6 +155,9 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
       }
 
       return true;
+    }).sort((a: any, b: any) => {
+      // ✅ Sort by displayOrder
+      return (a.displayOrder || 999) - (b.displayOrder || 999);
     });
   };
 
@@ -221,10 +224,11 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
       minChoices: group.minChoices || DEFAULT_CHOICES[displayType].min,
       maxChoices: group.maxChoices || DEFAULT_CHOICES[displayType].max,
       displayOrder: group.displayOrder,
-      options: group.options?.map((opt: any, idx: number) => ({
+      options: group.options?.map((opt: any) => ({
+        id: opt.id, // ✅ Preserve ID
         name: opt.name,
         priceDelta: opt.priceDelta || 0,
-        displayOrder: idx + 1,
+        displayOrder: opt.displayOrder, // ✅ Preserve original order
       })) || [],
     });
     setShowEditModal(true);
@@ -247,6 +251,7 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
     }
 
     const newOption = {
+      id: `temp-${Date.now()}-${formData.options.length}`, // ✅ Temp ID for tracking
       name: optionName,
       priceDelta: parseFloat(optionPrice) || 0,
       displayOrder: formData.options.length + 1,
@@ -313,15 +318,25 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
       required: formData.required,
       minChoices: formData.minChoices,
       maxChoices: formData.maxChoices,
-      options: formData.options,
+      displayOrder: formData.displayOrder, // ✅ Include displayOrder
+      options: formData.options.map((opt: any, idx: number) => ({
+        id: opt.id, // Backend ignores for create, uses for update
+        name: opt.name,
+        priceDelta: opt.priceDelta,
+        displayOrder: opt.displayOrder || idx + 1,
+      })),
     };
 
     if (modalMode === 'create') {
-      createGroupMutation.mutate({ data: payload as any });
+      createGroupMutation.mutate(payload as any);
     } else if (editingGroup) {
+      const updatePayload = {
+        ...payload,
+        active: editingGroup.active, // ✅ Preserve active status
+      };
       updateGroupMutation.mutate({ 
         id: editingGroup.id, 
-        data: payload as any 
+        data: updatePayload as any 
       });
     }
   };

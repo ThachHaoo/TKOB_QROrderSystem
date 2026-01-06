@@ -407,7 +407,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 1,
     active: true,
-    linkedItems: 8,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -444,7 +444,7 @@ export const mockModifierGroups = [
     maxChoices: 5,
     displayOrder: 2,
     active: true,
-    linkedItems: 5,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -488,7 +488,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 3,
     active: true,
-    linkedItems: 12,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -525,7 +525,7 @@ export const mockModifierGroups = [
     maxChoices: 5,
     displayOrder: 4,
     active: false,
-    linkedItems: 6,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -569,7 +569,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 5,
     active: true,
-    linkedItems: 15,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -613,7 +613,7 @@ export const mockModifierGroups = [
     maxChoices: 10,
     displayOrder: 6,
     active: true,
-    linkedItems: 10,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -664,7 +664,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 7,
     active: true,
-    linkedItems: 7,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -708,7 +708,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 8,
     active: true,
-    linkedItems: 20,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -745,7 +745,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 9,
     active: true,
-    linkedItems: 18,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -789,7 +789,7 @@ export const mockModifierGroups = [
     maxChoices: 10,
     displayOrder: 10,
     active: true,
-    linkedItems: 14,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -847,7 +847,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 11,
     active: true,
-    linkedItems: 9,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -898,7 +898,7 @@ export const mockModifierGroups = [
     maxChoices: 10,
     displayOrder: 12,
     active: true,
-    linkedItems: 11,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -956,7 +956,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 13,
     active: true,
-    linkedItems: 8,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -1007,7 +1007,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 14,
     active: true,
-    linkedItems: 6,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [
@@ -1051,7 +1051,7 @@ export const mockModifierGroups = [
     maxChoices: 1,
     displayOrder: 15,
     active: false,
-    linkedItems: 4,
+
     createdAt: new Date('2024-01-10').toISOString(),
     updatedAt: new Date('2024-01-10').toISOString(),
     options: [

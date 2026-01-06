@@ -315,14 +315,7 @@ export function ModifierGroupCard({ group, onEdit, onDelete }: ModifierGroupCard
         )}
       </div>
 
-      {/* Footer - linked items */}
-      {group.linkedItems !== undefined && (
-        <div className="px-5 py-3 bg-elevated border-t border-default">
-          <span className="text-xs text-text-secondary">
-            Used in {group.linkedItems} {group.linkedItems === 1 ? 'item' : 'items'}
-          </span>
-        </div>
-      )}
+      {/* Footer - linked items - REMOVED: Backend API doesn't return linkedItems */}
     </Card>
   );
 }

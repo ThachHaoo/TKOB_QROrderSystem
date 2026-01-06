@@ -106,33 +106,45 @@ export const useModifiers = (params?: { activeOnly?: boolean }) => {
   });
 };
 
-export const useCreateModifier = () => {
+export const useCreateModifier = (options?: { mutation?: any }) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: CreateModifierGroupDto) => menuAdapter.modifiers.create(data),
-    onSuccess: () => {
+    mutationFn: (data: any) => menuAdapter.modifiers.create(data),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'modifiers'] });
+      options?.mutation?.onSuccess?.(data);
+    },
+    onError: (error) => {
+      options?.mutation?.onError?.(error);
     },
   });
 };
 
-export const useUpdateModifier = () => {
+export const useUpdateModifier = (options?: { mutation?: any }) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateModifierGroupDto }) => 
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
       menuAdapter.modifiers.update(id, data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'modifiers'] });
+      options?.mutation?.onSuccess?.(data);
+    },
+    onError: (error) => {
+      options?.mutation?.onError?.(error);
     },
   });
 };
 
-export const useDeleteModifier = () => {
+export const useDeleteModifier = (options?: { mutation?: any }) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => menuAdapter.modifiers.delete(id),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['menu', 'modifiers'] });
+      options?.mutation?.onSuccess?.(data);
+    },
+    onError: (error) => {
+      options?.mutation?.onError?.(error);
     },
   });
 };

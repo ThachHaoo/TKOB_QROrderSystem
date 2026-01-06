@@ -105,27 +105,67 @@ export const modifiersMock = {
   },
   async create(data: any) {
     await new Promise(resolve => setTimeout(resolve, 400));
+    
     const newModifier = {
-      id: Date.now().toString(), 
-      ...data,
+      id: `mod-${Date.now()}`,
+      name: data.name,
+      description: data.description,
+      type: data.type,
+      required: data.required,
+      minChoices: data.minChoices || 0,
+      maxChoices: data.maxChoices || 0,
+      displayOrder: data.displayOrder || mockModifierGroups.length + 1,
+      active: true, // ✅ Always active on create
+      options: data.options.map((opt: any, idx: number) => {
+        // If ID starts with 'temp-', generate new ID; otherwise keep existing
+        const optId = opt.id?.startsWith('temp-') 
+          ? `opt-${Date.now()}-${idx}` 
+          : opt.id;
+        return {
+          id: optId,
+          name: opt.name,
+          priceDelta: opt.priceDelta,
+          displayOrder: opt.displayOrder,
+          active: true, // ✅ Always active on create
+        };
+      }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    
     mockModifierGroups.push(newModifier);
+    console.log('🎭 [ModifiersMock] Created:', newModifier);
     return newModifier;
   },
   async update(id: string, data: any) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    
     const index = mockModifierGroups.findIndex(m => m.id === id);
     if (index !== -1) {
-      mockModifierGroups[index] = { 
-        ...mockModifierGroups[index], 
+      // Process options: keep existing if no temp-* ID, generate new for temp-*
+      const updatedOptions = data.options?.map((opt: any, idx: number) => {
+        const optId = opt.id?.startsWith('temp-') 
+          ? `opt-${Date.now()}-${idx}` 
+          : opt.id;
+        return {
+          id: optId,
+          name: opt.name,
+          priceDelta: opt.priceDelta,
+          displayOrder: opt.displayOrder,
+          active: opt.active !== false, // Preserve or default to true
+        };
+      }) || mockModifierGroups[index].options;
+      
+      mockModifierGroups[index] = {
+        ...mockModifierGroups[index],
         ...data,
+        options: updatedOptions,
         updatedAt: new Date().toISOString(),
       };
+      console.log('🎭 [ModifiersMock] Updated:', mockModifierGroups[index]);
       return mockModifierGroups[index];
     }
-    return { id, ...data };
+    return null;
   },
   async delete(id: string) {
     await new Promise(resolve => setTimeout(resolve, 300));
