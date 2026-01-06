@@ -220,6 +220,7 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
       required: group.required || false,
       minChoices: group.minChoices || DEFAULT_CHOICES[displayType].min,
       maxChoices: group.maxChoices || DEFAULT_CHOICES[displayType].max,
+      displayOrder: group.displayOrder,
       options: group.options?.map((opt: any, idx: number) => ({
         name: opt.name,
         priceDelta: opt.priceDelta || 0,

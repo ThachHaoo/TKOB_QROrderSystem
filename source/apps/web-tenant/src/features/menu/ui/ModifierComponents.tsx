@@ -229,17 +229,13 @@ export function ModifierGroupCard({ group, onEdit, onDelete }: ModifierGroupCard
   const typeConfig = MODIFIER_TYPE_CONFIG[displayType];
 
   return (
-    <Card className="p-0 overflow-hidden hover:shadow-lg transition-all">
+    <Card className="p-0 overflow-hidden hover:shadow-lg transition-all flex flex-col h-full">
       {/* Header with actions */}
       <div className="p-5 bg-gradient-to-br from-elevated to-primary border-b border-default">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h4 className="text-lg font-semibold text-text-primary mb-1">{group.name}</h4>
-            {group.description && (
-              <p className="text-sm text-text-secondary line-clamp-2">{group.description}</p>
-            )}
-          </div>
-          <div className="flex gap-2 ml-4">
+        {/* Name and buttons row */}
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-lg font-semibold text-text-primary">{group.name}</h4>
+          <div className="flex gap-2 flex-shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -261,6 +257,11 @@ export function ModifierGroupCard({ group, onEdit, onDelete }: ModifierGroupCard
           </div>
         </div>
 
+        {/* Description - full width */}
+        {group.description && (
+          <p className="text-sm text-text-secondary line-clamp-2 mb-3">{group.description}</p>
+        )}
+
         {/* Badges */}
         <div className="flex flex-wrap gap-2">
           <Badge variant={typeConfig.badgeColor}>
@@ -269,14 +270,19 @@ export function ModifierGroupCard({ group, onEdit, onDelete }: ModifierGroupCard
           {group.required && (
             <Badge variant="error">Required</Badge>
           )}
+          {group.displayOrder !== undefined && (
+            <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap bg-purple-50 text-purple-600 border border-purple-200">
+              Order #{group.displayOrder}
+            </span>
+          )}
           {!group.active && (
-            <Badge variant="neutral">Archived</Badge>
+            <Badge variant="default">Archived</Badge>
           )}
         </div>
       </div>
 
-      {/* Options list */}
-      <div className="p-5">
+      {/* Options list - flex-1 to push footer down */}
+      <div className="p-5 flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <h5 className="text-sm font-semibold text-text-secondary">Options ({group.options?.length || 0})</h5>
           {displayType === 'multiple' && (

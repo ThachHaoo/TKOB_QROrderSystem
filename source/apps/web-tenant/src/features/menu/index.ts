@@ -7,7 +7,6 @@
 // Main pages
 export { MenuHubPage } from './ui/MenuHubPage';
 export { MenuManagementPage } from './ui/MenuManagementPage';
-export { MenuItemModifiersPage } from './ui/MenuItemModifiersPage';
 export { MenuModifiersPage } from './ui/MenuModifiersPage';
 
 // Components

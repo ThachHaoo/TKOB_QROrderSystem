@@ -53,6 +53,7 @@ export interface ModifierGroupFormData {
   required: boolean;
   minChoices: number;
   maxChoices: number;
+  displayOrder?: number;
   options: { name: string; priceDelta: number; displayOrder: number }[];
 }
 

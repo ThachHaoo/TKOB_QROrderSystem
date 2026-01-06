@@ -8,76 +8,7 @@ import type {
   MenuItemResponseDto,
   ModifierGroupResponseDto,
 } from '@/services/generated/models';
-
-// Mock categories
-const mockCategories: MenuCategoryResponseDto[] = [
-  { 
-    id: '1', 
-    name: 'Starters', 
-    displayOrder: 1,
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  { 
-    id: '2', 
-    name: 'Main Courses', 
-    displayOrder: 2,
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  { 
-    id: '3', 
-    name: 'Desserts', 
-    displayOrder: 3,
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  { 
-    id: '4', 
-    name: 'Beverages', 
-    displayOrder: 4,
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-// Mock items
-const mockItems: MenuItemResponseDto[] = [
-  {
-    id: '1',
-    name: 'Caesar Salad',
-    price: 12.5,
-    description: 'Fresh romaine with parmesan',
-    categoryId: '1',
-    isAvailable: true,
-  },
-  {
-    id: '2',
-    name: 'Bruschetta',
-    price: 9.0,
-    description: 'Toasted bread with tomatoes',
-    categoryId: '1',
-    isAvailable: true,
-  },
-];
-
-// Mock modifiers
-const mockModifiers: ModifierGroupResponseDto[] = [
-  {
-    id: '1',
-    name: 'Size',
-    isRequired: true,
-    modifiers: [
-      { id: 'm1', name: 'Small', price: 0 },
-      { id: 'm2', name: 'Medium', price: 2 },
-      { id: 'm3', name: 'Large', price: 4 },
-    ],
-  },
-];
+import { mockCategories, mockMenuItems, mockModifierGroups } from '@/services/mocks/menu-data';
 
 /**
  * Menu Categories Mock
@@ -89,14 +20,34 @@ export const menuCategoriesMock = {
   },
   async create(data: any) {
     await new Promise(resolve => setTimeout(resolve, 400));
-    return { id: Date.now().toString(), ...data };
+    const newCategory = { 
+      id: Date.now().toString(), 
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockCategories.push(newCategory);
+    return newCategory;
   },
   async update(id: string, data: any) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    const index = mockCategories.findIndex(c => c.id === id);
+    if (index !== -1) {
+      mockCategories[index] = { 
+        ...mockCategories[index], 
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      return mockCategories[index];
+    }
     return { id, ...data };
   },
   async delete(id: string) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    const index = mockCategories.findIndex(c => c.id === id);
+    if (index !== -1) {
+      mockCategories.splice(index, 1);
+    }
     return { success: true };
   },
 };
@@ -107,18 +58,38 @@ export const menuCategoriesMock = {
 export const menuItemsMock = {
   async findAll() {
     await new Promise(resolve => setTimeout(resolve, 300));
-    return mockItems;
+    return mockMenuItems;
   },
   async create(data: any) {
     await new Promise(resolve => setTimeout(resolve, 400));
-    return { id: Date.now().toString(), ...data };
+    const newItem = {
+      id: Date.now().toString(), 
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockMenuItems.push(newItem);
+    return newItem;
   },
   async update(id: string, data: any) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    const index = mockMenuItems.findIndex(i => i.id === id);
+    if (index !== -1) {
+      mockMenuItems[index] = { 
+        ...mockMenuItems[index], 
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      return mockMenuItems[index];
+    }
     return { id, ...data };
   },
   async delete(id: string) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    const index = mockMenuItems.findIndex(i => i.id === id);
+    if (index !== -1) {
+      mockMenuItems.splice(index, 1);
+    }
     return { success: true };
   },
 };
@@ -129,18 +100,39 @@ export const menuItemsMock = {
 export const modifiersMock = {
   async findAll() {
     await new Promise(resolve => setTimeout(resolve, 300));
-    return mockModifiers;
+    console.log('🎭 [ModifiersMock] Returning mock modifier groups:', mockModifierGroups.length);
+    return mockModifierGroups;
   },
   async create(data: any) {
     await new Promise(resolve => setTimeout(resolve, 400));
-    return { id: Date.now().toString(), ...data };
+    const newModifier = {
+      id: Date.now().toString(), 
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockModifierGroups.push(newModifier);
+    return newModifier;
   },
   async update(id: string, data: any) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    const index = mockModifierGroups.findIndex(m => m.id === id);
+    if (index !== -1) {
+      mockModifierGroups[index] = { 
+        ...mockModifierGroups[index], 
+        ...data,
+        updatedAt: new Date().toISOString(),
+      };
+      return mockModifierGroups[index];
+    }
     return { id, ...data };
   },
   async delete(id: string) {
     await new Promise(resolve => setTimeout(resolve, 300));
+    const index = mockModifierGroups.findIndex(m => m.id === id);
+    if (index !== -1) {
+      mockModifierGroups.splice(index, 1);
+    }
     return { success: true };
   },
 };

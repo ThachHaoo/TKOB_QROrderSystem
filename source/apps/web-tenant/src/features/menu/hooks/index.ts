@@ -99,9 +99,9 @@ export const useDeleteMenuItem = () => {
 /**
  * Modifiers Hooks
  */
-export const useModifiers = () => {
+export const useModifiers = (params?: { activeOnly?: boolean }) => {
   return useQuery({
-    queryKey: ['menu', 'modifiers'],
+    queryKey: ['menu', 'modifiers', params],
     queryFn: () => menuAdapter.modifiers.findAll(),
   });
 };
