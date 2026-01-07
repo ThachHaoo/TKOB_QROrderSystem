@@ -163,7 +163,7 @@ export function sortPhotos(photos: MenuItemPhoto[] | undefined): MenuItemPhoto[]
  * @param item - Menu item to extract photo from
  * @returns Photo URL or undefined
  */
-export function getPrimaryPhotoUrl(item: MenuItem): string | undefined {
+export function getPrimaryPhotoUrl(item: MenuItem & { photos?: MenuItemPhoto[] }): string | undefined {
   // First try to get primary photo from photos array
   if (item.photos && item.photos.length > 0) {
     const sortedPhotos = sortPhotos(item.photos);

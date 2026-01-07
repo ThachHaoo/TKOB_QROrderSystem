@@ -41,9 +41,9 @@ export const STATUS_FILTER_OPTIONS = [
  */
 export const SORT_OPTIONS: SortOption[] = [
   'Sort by: Newest',
-  'Sort by: Popularity',
-  'Sort by: Price (Low)',
-  'Sort by: Price (High)',
+  'Popularity',
+  'Price (Low)',
+  'Price (High)',
 ];
 
 /**

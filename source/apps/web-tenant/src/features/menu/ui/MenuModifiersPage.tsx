@@ -13,12 +13,12 @@ import {
 import { getModifierGroupControllerFindAllQueryKey } from '@/services/generated/menu-modifiers/menu-modifiers';
 
 // Import extracted components
-import { ModifierToolbar, ModifierGroupGrid } from './ModifierComponents';
-import { ModifierGroupModal, DeleteConfirmModal } from './ModifierModals';
+import { ModifiersToolbar, ModifiersGrid } from './components/modifiers';
+import { ModifierGroupModal, ModifierDeleteConfirmModal } from './modals';
 
 // Import types and constants
-import type { ModifierGroupFormData, ModifierFilters, ModalMode } from '../types';
-import { INITIAL_MODIFIER_FORM, BACKEND_TYPE_MAP, DEFAULT_CHOICES } from '../constants';
+import type { ModifierGroupFormData, ModifierFilters, ModalMode } from '../model/modifiers';
+import { INITIAL_MODIFIER_FORM, DEFAULT_CHOICES } from '../model/modifiers';
 
 // Import shared components
 // MenuTabs removed - handled by parent MenuHubPage
@@ -343,7 +343,7 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
 
   const handleConfirmDelete = () => {
     if (!deletingGroup) return;
-    deleteGroupMutation.mutate({ id: deletingGroup.id });
+    deleteGroupMutation.mutate(deletingGroup.id);
   };
 
   // ========== RENDER ==========
@@ -368,10 +368,10 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
       {/* Content area - scrollable */}
       <div className="flex-1 px-6 pt-6 overflow-y-auto bg-gray-50">
         {/* Toolbar */}
-        <ModifierToolbar
+        <ModifiersToolbar
           searchQuery={searchInputValue}
           selectedType={filters.type}
-          selectedStatus={filters.status}
+          _selectedStatus={filters.status}
           tempSelectedType={tempSelectedType}
           tempSelectedStatus={tempSelectedStatus}
           showFilterDropdown={showFilterDropdown}
@@ -393,7 +393,7 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
         />
 
         {/* Group Grid */}
-        <ModifierGroupGrid
+        <ModifiersGrid
           groups={visibleGroups}
           onEdit={handleEditGroup}
           onDelete={handleDeleteGroup}
@@ -426,7 +426,7 @@ export function MenuModifiersPage({ showHeader = true }: MenuModifiersPageProps)
         onOptionPriceChange={setOptionPrice}
       />
 
-      <DeleteConfirmModal
+      <ModifierDeleteConfirmModal
         isOpen={showDeleteDialog}
         groupName={deletingGroup?.name || ''}
         linkedItems={deletingGroup?.linkedItems}

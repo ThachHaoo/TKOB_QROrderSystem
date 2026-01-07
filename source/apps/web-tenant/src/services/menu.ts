@@ -4,7 +4,7 @@
  * Uses adapter pattern to switch between Mock and Real API
  */
 
-import { menuAdapter } from '@/features/menu-management/adapters';
+import { menuAdapter } from '@/features/menu/data';
 import type {
   CreateMenuCategoryDto,
   UpdateMenuCategoryDto,
@@ -17,69 +17,79 @@ import type {
 class MenuService {
   // Categories
   async listCategories(params?: { activeOnly?: boolean }) {
-    return menuAdapter.listCategories(params);
+    // params.activeOnly currently unused in adapter; filtering can be added at callsite
+    return menuAdapter.categories.findAll();
   }
 
   async getCategoryById(id: string) {
-    return menuAdapter.getCategoryById(id);
+    return menuAdapter.categories.findOne(id);
   }
 
   async createCategory(data: CreateMenuCategoryDto) {
-    return menuAdapter.createCategory(data);
+    return menuAdapter.categories.create(data);
   }
 
   async updateCategory(id: string, data: UpdateMenuCategoryDto) {
-    return menuAdapter.updateCategory(id, data);
+    return menuAdapter.categories.update(id, data);
   }
 
   async deleteCategory(id: string) {
-    return menuAdapter.deleteCategory(id);
+    return menuAdapter.categories.delete(id);
   }
 
   // Menu Items
   async listMenuItems(params?: { categoryId?: string; status?: string; available?: boolean; search?: string; chefRecommended?: boolean; sortBy?: string; sortOrder?: string }) {
-    return menuAdapter.listMenuItems(params);
+    return menuAdapter.items.findAll({
+      categoryId: params?.categoryId,
+      status: params?.status,
+      availability: params?.available === undefined ? undefined : params.available ? 'available' : 'unavailable',
+      chefRecommended: params?.chefRecommended,
+      searchQuery: params?.search,
+      sortBy: params?.sortBy,
+    });
   }
 
   async getMenuItemById(id: string) {
-    return menuAdapter.getMenuItemById(id);
+    return menuAdapter.items.findOne(id);
   }
 
   async createMenuItem(data: CreateMenuItemDto) {
-    return menuAdapter.createMenuItem(data);
+    return menuAdapter.items.create(data);
   }
 
   async updateMenuItem(id: string, data: UpdateMenuItemDto) {
-    return menuAdapter.updateMenuItem(id, data);
+    return menuAdapter.items.update(id, data);
   }
 
   async deleteMenuItem(id: string) {
-    return menuAdapter.deleteMenuItem(id);
+    return menuAdapter.items.delete(id);
   }
 
   async publishMenuItem(id: string, status: 'DRAFT' | 'PUBLISHED') {
-    return menuAdapter.publishMenuItem(id, status);
+    // Map to update call
+    return menuAdapter.items.update(id, { status } as any);
   }
 
   // Modifier Groups
   async listModifierGroups(params?: { activeOnly?: boolean }) {
-    return menuAdapter.listModifierGroups(params);
+    return menuAdapter.modifiers.findAll();
   }
 
   async getModifierGroupById(id: string) {
-    return menuAdapter.getModifierGroupById(id);
+    const list = await menuAdapter.modifiers.findAll();
+    return list.find((g: any) => g.id === id);
   }
 
   async createModifierGroup(data: CreateModifierGroupDto) {
-    return menuAdapter.createModifierGroup(data);
+    return menuAdapter.modifiers.create(data as any);
   }
 
   async updateModifierGroup(id: string, data: UpdateModifierGroupDto) {
-    return menuAdapter.updateModifierGroup(id, data);
+    return menuAdapter.modifiers.update(id, data as any);
   }
 
   async deleteModifierGroup(id: string) {
-    return menuAdapter.deleteModifierGroup(id);
+    return menuAdapter.modifiers.delete(id);
   }
 }
 
