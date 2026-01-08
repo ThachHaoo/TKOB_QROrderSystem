@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Staff Controller Hook
  * Orchestrates staff feature state, queries, and actions

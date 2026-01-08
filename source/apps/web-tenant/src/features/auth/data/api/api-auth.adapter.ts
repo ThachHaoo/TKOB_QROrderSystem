@@ -1,7 +1,7 @@
 // API Auth Adapter - Calls real backend API
 
 import axios from 'axios';
-import type { IAuthAdapter } from './auth-adapter.interface';
+import type { IAuthAdapter } from '../adapter.interface';
 import type {
   LoginCredentials,
   SignupData,
@@ -13,7 +13,7 @@ import type {
   AuthResponse,
   OtpVerificationResponse,
   SlugAvailabilityResponse,
-} from '@/features/auth/model/auth.types';
+} from '@/features/auth/model';
 import { AuthUserResponseDtoRole, RegisterSubmitResponseDto } from '@/services/generated/models';
 
 export class ApiAuthAdapter implements IAuthAdapter {

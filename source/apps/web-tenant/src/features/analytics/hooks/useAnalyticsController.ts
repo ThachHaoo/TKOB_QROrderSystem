@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Analytics Controller Hook
  * Owns UI state and orchestrates analytics queries

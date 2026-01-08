@@ -1,6 +1,6 @@
 // Mock Auth Adapter - Returns mock data for development
 
-import type { IAuthAdapter } from './auth-adapter.interface';
+import type { IAuthAdapter } from '../adapter.interface';
 import type {
   LoginDto,
   AuthResponseDto,
@@ -11,7 +11,7 @@ import type {
   AuthUserResponseDto,
   AuthUserResponseDtoRole,
 } from '@/services/generated/models';
-import type { SlugAvailabilityResponse } from '../model/auth.types';
+import type { SlugAvailabilityResponse } from '../../model';
 
 export class MockAuthAdapter implements IAuthAdapter {
   private readonly MOCK_DELAY = 1000; // Simulate network delay
@@ -82,16 +82,9 @@ export class MockAuthAdapter implements IAuthAdapter {
     };
   }
 
-  async resetPassword(data: { token: string; newPassword: string; confirmPassword: string }): Promise<{ success: boolean; message: string }> {
+  async resetPassword(data: { token: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
     console.log('[MockAuthAdapter] Reset password called');
     await this.delay();
-
-    if (data.newPassword !== data.confirmPassword) {
-      return {
-        success: false,
-        message: 'Passwords do not match',
-      };
-    }
 
     if (data.token === 'expired') {
       return {

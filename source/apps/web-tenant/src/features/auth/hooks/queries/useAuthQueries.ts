@@ -3,7 +3,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { authAdapter } from '@/features/auth/data';
+import { authAdapter } from '@/features/auth/data/factory';
 import type {
   LoginDto,
   RegisterSubmitDto,

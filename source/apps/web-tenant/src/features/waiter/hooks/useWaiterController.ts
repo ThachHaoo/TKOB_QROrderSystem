@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Waiter Controller Hook - Public API
  * Manages all state and actions for Service Board

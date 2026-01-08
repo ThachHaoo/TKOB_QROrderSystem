@@ -9,7 +9,7 @@ import type {
   RefreshTokenDto,
   AuthUserResponseDto,
 } from '@/services/generated/models';
-import type { SlugAvailabilityResponse } from '../model/auth.types';
+import type { SlugAvailabilityResponse } from '../model';
 
 export interface IAuthAdapter {
   /**

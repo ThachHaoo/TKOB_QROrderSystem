@@ -6,21 +6,21 @@ import { Input } from '@/shared/components/Input';
 import { Card, CardContent } from '@/shared/components/Card';
 import { UtensilsCrossed, Mail, CheckCircle } from 'lucide-react';
 import { ROUTES } from '@/shared/config';
-import { authService } from '../data/factory';
 import { toast } from 'sonner';
 import { fadeInUp, scaleIn } from '@/shared/utils/animations';
-import { AuthPageHeader } from './AuthPageHeader';
-import "../../../styles/globals.css";
+import { AuthPageHeader } from '../components/AuthPageHeader';
+import { useAuthController } from '../../hooks';
 
 interface ForgotPasswordProps {
   onNavigate?: (path: string) => void;
 }
 
 export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
+  const controller = useAuthController();
+  
   const [email, setEmail] = useState('');
   const [language, setLanguage] = useState('EN');
   const [isLinkSent, setIsLinkSent] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Refs for animations
   const logoRef = useRef<HTMLDivElement>(null);
@@ -53,22 +53,13 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
       return;
     }
 
-    setIsLoading(true);
+    const result = await controller.sendForgotPasswordLink(email);
 
-    try {
-      const result = await authService.forgotPassword({ email });
-
-      if (result.success) {
-        setIsLinkSent(true);
-        toast.success(result.message || 'Reset link sent');
-      } else {
-        toast.error(result.message || 'Failed to send reset link');
-      }
-    } catch (error) {
-      console.error('[ForgotPassword] Error:', error);
-      toast.error('Failed to send reset link. Please try again.');
-    } finally {
-      setIsLoading(false);
+    if (result.success) {
+      setIsLinkSent(true);
+      toast.success(result.message || 'Reset link sent');
+    } else {
+      toast.error(result.message || 'Failed to send reset link');
     }
   };
 
@@ -114,7 +105,7 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
                     placeholder="admin@restaurant.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading}
+                    disabled={controller.isSendingResetLink}
                   />
                 </div>
 
@@ -129,9 +120,9 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
                   <Button 
                     onClick={handleSendLink} 
                     fullWidth
-                    disabled={isLoading || !email}
+                    disabled={controller.isSendingResetLink || !email}
                   >
-                    {isLoading ? 'Sending...' : 'Send reset link'}
+                    {controller.isSendingResetLink ? 'Sending...' : 'Send reset link'}
                   </Button>
                   
                   <div className="text-center">
