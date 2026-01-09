@@ -1,3 +1,5 @@
+"use client"
+
 import { useRouter } from 'next/navigation'
 import { AuthService } from '@/api/services/auth.service'
 import { useCurrentUser } from './queries/useCurrentUser'

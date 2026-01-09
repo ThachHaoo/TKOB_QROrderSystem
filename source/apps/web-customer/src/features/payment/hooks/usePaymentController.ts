@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Order } from '@/types'

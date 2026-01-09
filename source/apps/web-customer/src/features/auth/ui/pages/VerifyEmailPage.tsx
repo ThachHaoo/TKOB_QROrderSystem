@@ -6,7 +6,7 @@ export function VerifyEmailPage() {
       <div className="w-full max-w-md text-center">
         <h1 className="text-2xl mb-4">Check your email</h1>
         <p className="text-gray-600">
-          We've sent a verification link to your email address. 
+          We&apos;ve sent a verification link to your email address. 
           Please check your inbox and click the link to verify your account.
         </p>
       </div>

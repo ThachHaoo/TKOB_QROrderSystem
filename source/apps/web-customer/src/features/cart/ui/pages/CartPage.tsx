@@ -6,11 +6,14 @@ import { useState } from 'react'
 import { CartItemCard } from '@/components/cards/CartItemCard'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useCartController } from '../../hooks'
+import { CartConfirmModal } from '../components/modals/CartConfirmModal'
 
 export function CartPage() {
   const router = useRouter()
   const { items: cartItems, updateQuantity, removeItem, totals } = useCartController()
   const [summaryExpanded, setSummaryExpanded] = useState(false)
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
   const handleBack = () => {
     router.back()
@@ -18,6 +21,24 @@ export function CartPage() {
 
   const handleEditItem = (item: any) => {
     router.push(`/menu/${item.menuItem.id}`)
+  }
+
+  const handleRequestRemove = (itemId: string) => {
+    setPendingRemoveId(itemId)
+    setIsConfirmOpen(true)
+  }
+
+  const handleConfirmRemove = () => {
+    if (pendingRemoveId) {
+      removeItem(pendingRemoveId)
+    }
+    setIsConfirmOpen(false)
+    setPendingRemoveId(null)
+  }
+
+  const handleCancelRemove = () => {
+    setIsConfirmOpen(false)
+    setPendingRemoveId(null)
   }
 
   const handleCheckout = () => {
@@ -62,7 +83,7 @@ export function CartPage() {
                   key={item.id}
                   cartItem={item}
                   onUpdateQuantity={updateQuantity}
-                  onRemove={removeItem}
+                  onRemove={() => handleRequestRemove(item.id)}
                   onEdit={handleEditItem}
                 />
               ))}
@@ -120,6 +141,8 @@ export function CartPage() {
           </div>
         </>
       )}
+
+      <CartConfirmModal open={isConfirmOpen} onConfirm={handleConfirmRemove} onCancel={handleCancelRemove} />
     </div>
   )
 }

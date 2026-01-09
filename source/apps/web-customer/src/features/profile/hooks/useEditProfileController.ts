@@ -1,4 +1,6 @@
-import { useState, useRef } from 'react'
+"use client"
+
+import { ChangeEvent, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useCurrentUser } from './queries/useCurrentUser'
@@ -16,7 +18,7 @@ export function useEditProfileController() {
   const [avatar, setAvatar] = useState(user?.avatar || '')
   const [nameError, setNameError] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
-  const [showAvatarMenu, setShowAvatarMenu] = useState(false)
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Update name when user data loads
@@ -46,7 +48,7 @@ export function useEditProfileController() {
   }
 
   const handleAvatarClick = () => {
-    setShowAvatarMenu(true)
+    setIsAvatarModalOpen(true)
   }
 
   const handleFileSelect = (file: File) => {
@@ -57,10 +59,10 @@ export function useEditProfileController() {
       }
       reader.readAsDataURL(file)
     }
-    setShowAvatarMenu(false)
+    setIsAvatarModalOpen(false)
   }
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       handleFileSelect(file)
@@ -69,12 +71,12 @@ export function useEditProfileController() {
 
   const handleChangePhoto = () => {
     fileInputRef.current?.click()
-    setShowAvatarMenu(false)
+    setIsAvatarModalOpen(true)
   }
 
   const handleRemovePhoto = () => {
     setAvatar('')
-    setShowAvatarMenu(false)
+    setIsAvatarModalOpen(false)
   }
 
   const handleSave = () => {
@@ -116,7 +118,7 @@ export function useEditProfileController() {
     avatar,
     nameError,
     nameTouched,
-    showAvatarMenu,
+    isAvatarModalOpen,
     fileInputRef,
     isSaveDisabled,
     isSaving: saveMutation.isPending,
@@ -130,6 +132,6 @@ export function useEditProfileController() {
     handleRemovePhoto,
     handleSave,
     handleBack,
-    setShowAvatarMenu,
+    setIsAvatarModalOpen,
   }
 }

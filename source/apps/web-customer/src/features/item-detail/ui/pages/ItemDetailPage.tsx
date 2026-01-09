@@ -1,7 +1,7 @@
 'use client'
 
-import { PeopleUsuallyAdd } from '@/components/sections/PeopleUsuallyAdd'
 import { useItemDetailController } from '../../hooks'
+import { PeopleUsuallyAdd } from '../components/sections/PeopleUsuallyAdd'
 import {
   ExtrasSection,
   ItemHeroSection,

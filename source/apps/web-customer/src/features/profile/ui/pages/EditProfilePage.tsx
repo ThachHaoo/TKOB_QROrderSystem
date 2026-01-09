@@ -1,8 +1,9 @@
 'use client'
 
-import { ArrowLeft, User, Camera, Upload, Trash2 } from 'lucide-react'
+import { ArrowLeft, User, Camera } from 'lucide-react'
 import { useEditProfileController } from '../../hooks'
 import { PROFILE_TEXT } from '../../model'
+import { AvatarUploadModal } from '../components/modals/AvatarUploadModal'
 
 export function EditProfilePage() {
   const controller = useEditProfileController()
@@ -124,97 +125,15 @@ export function EditProfilePage() {
         </div>
       </div>
 
-      {/* Hidden File Input */}
-      <input
-        ref={controller.fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/jpg"
-        onChange={controller.handleFileInputChange}
-        className="hidden"
+      <AvatarUploadModal
+        open={controller.isAvatarModalOpen}
+        hasAvatar={Boolean(controller.avatar)}
+        fileInputRef={controller.fileInputRef}
+        onRequestUpload={controller.handleChangePhoto}
+        onFileChange={controller.handleFileInputChange}
+        onRemoveAvatar={controller.handleRemovePhoto}
+        onClose={() => controller.setIsAvatarModalOpen(false)}
       />
-
-      {/* Avatar Action Menu */}
-      {controller.showAvatarMenu && (
-        <>
-          <div 
-            className="fixed inset-0 z-40 transition-opacity"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.06)' }}
-            onClick={() => controller.setShowAvatarMenu(false)}
-          />
-
-          <div 
-            className="fixed bottom-0 left-0 right-0 z-50 shadow-2xl animate-slide-up"
-            style={{ 
-              backgroundColor: '#FFFFFF',
-              borderTopLeftRadius: '20px',
-              borderTopRightRadius: '20px',
-            }}
-          >
-            <div className="p-6">
-              <h3 
-                className="mb-4"
-                style={{ 
-                  color: 'var(--gray-900)',
-                  fontSize: '18px',
-                  textAlign: 'left',
-                }}
-              >
-                Change photo
-              </h3>
-
-              <button
-                onClick={controller.handleChangePhoto}
-                className="w-full p-4 rounded-xl flex items-center gap-3 transition-colors hover:bg-[var(--gray-50)] active:bg-[var(--gray-100)] mb-2"
-                style={{ border: '1px solid var(--gray-200)' }}
-              >
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: 'var(--orange-100)' }}
-                >
-                  <Upload className="w-5 h-5" style={{ color: 'var(--orange-500)' }} />
-                </div>
-                <div className="text-left flex-1">
-                  <p style={{ color: 'var(--gray-900)', fontSize: '15px' }}>Upload from device</p>
-                  <p style={{ color: 'var(--gray-500)', fontSize: '13px' }}>Choose a photo from your gallery</p>
-                </div>
-              </button>
-
-              {controller.avatar && (
-                <button
-                  onClick={controller.handleRemovePhoto}
-                  className="w-full p-4 rounded-xl flex items-center gap-3 transition-colors hover:bg-[var(--gray-50)] active:bg-[var(--gray-100)] mb-4"
-                  style={{ border: '1px solid var(--gray-200)' }}
-                >
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: 'var(--red-100)' }}
-                  >
-                    <Trash2 className="w-5 h-5" style={{ color: 'var(--red-500)' }} />
-                  </div>
-                  <div className="text-left flex-1">
-                    <p style={{ color: 'var(--red-600)', fontSize: '15px' }}>Remove photo</p>
-                    <p style={{ color: 'var(--gray-500)', fontSize: '13px' }}>Use default avatar</p>
-                  </div>
-                </button>
-              )}
-
-              <button
-                onClick={() => controller.setShowAvatarMenu(false)}
-                className="w-full py-3 px-4 rounded-full transition-all hover:bg-[var(--gray-50)] active:scale-98"
-                style={{
-                  border: '1px solid var(--gray-300)',
-                  color: 'var(--gray-700)',
-                  minHeight: '48px',
-                  fontSize: '15px',
-                  marginTop: controller.avatar ? '0' : '16px',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   )
 }
