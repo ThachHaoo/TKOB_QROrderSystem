@@ -121,7 +121,7 @@ export function useMenuManagementController() {
 
   useEffect(() => {
     selectionState.setCurrentPage(1);
-  }, [filtersController.appliedFilters, selectionState]);
+  }, [filtersController.appliedFilters]);
 
   const handleSelectCategory = (categoryId: string) => {
     selectionState.setSelectedCategory(categoryId);

@@ -168,6 +168,7 @@ export const modifiersMock = {
       updatedAt: new Date().toISOString(),
     };
     (mockModifierGroups as any).push(newGroup);
+    console.log('[ModifiersMock] Created. Total groups:', mockModifierGroups.length);
     return newGroup;
   },
   async update(id: string, data: any) {

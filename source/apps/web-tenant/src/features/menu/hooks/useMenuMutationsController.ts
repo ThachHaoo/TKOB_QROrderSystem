@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateMenuCategoryDto,
   CreateMenuItemDto,
@@ -9,14 +7,14 @@ import type {
   UpdateMenuItemDto,
 } from '@/services/generated/models';
 import type { Category, MenuItem, MenuItemFormData } from '../model/types';
-import { menuAdapter } from '../data';
 import { useCategoryModalState } from './useCategoryModalState';
 import { useItemModalState } from './useItemModalState';
 import { usePhotoManager } from './usePhotoManager';
 import { useToasts } from './useToasts';
+import { useMenuCrudMutations } from './useMenuCrudMutations';
+import { useMenuDeleteState } from './useMenuDeleteState';
 
 export function useMenuMutationsController(selectedCategory: string) {
-  const queryClient = useQueryClient();
 
   const {
     isCategoryModalOpen,
@@ -46,8 +44,12 @@ export function useMenuMutationsController(selectedCategory: string) {
     closeItemModal,
   } = useItemModalState();
 
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
+  const {
+    isDeleteModalOpen,
+    itemToDelete,
+    handleDeleteClick: _handleDeleteClick,
+    closeDeleteModal,
+  } = useMenuDeleteState();
 
   const { showSuccessToast, setShowSuccessToast, toastMessage, setToastMessage } = useToasts(3000);
   const { getOperations: getPhotoOps, executeAll: executePhotoOps } = usePhotoManager();
@@ -62,107 +64,7 @@ export function useMenuMutationsController(selectedCategory: string) {
     setShowSuccessToast(true);
   };
 
-  // Categories
-  const createCategory = useMutation({
-    mutationFn: (data: any) => menuAdapter.categories.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
-      notify('Danh mục đã được tạo');
-    },
-    onError: () => notifyError('Có lỗi khi tạo danh mục'),
-  });
-
-  const updateCategory = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => menuAdapter.categories.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
-      notify('Danh mục đã được cập nhật');
-    },
-    onError: () => notifyError('Có lỗi khi cập nhật danh mục'),
-  });
-
-  const deleteCategory = useMutation({
-    mutationFn: (id: string) => menuAdapter.categories.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'categories'] });
-      notify('Danh mục đã được xóa');
-    },
-    onError: () => notifyError('Có lỗi khi xóa danh mục'),
-  });
-
-  // Items
-  const createItem = useMutation({
-    mutationFn: (data: any) => menuAdapter.items.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
-      notify('Món ăn đã được tạo');
-    },
-    onError: () => notifyError('Có lỗi khi tạo món ăn'),
-  });
-
-  const updateItem = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => menuAdapter.items.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
-      notify('Món ăn đã được cập nhật');
-    },
-    onError: () => notifyError('Có lỗi khi cập nhật món ăn'),
-  });
-
-  const deleteItem = useMutation({
-    mutationFn: (id: string) => menuAdapter.items.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'items'] });
-      notify('Món ăn đã được xóa');
-    },
-    onError: () => notifyError('Có lỗi khi xóa món ăn'),
-  });
-
-  // Modifiers
-  const createModifier = useMutation({
-    mutationFn: (data: any) => menuAdapter.modifiers.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'modifiers'] });
-      notify('Modifier group created');
-    },
-    onError: () => notifyError('Failed to create modifier group'),
-  });
-
-  const updateModifier = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => menuAdapter.modifiers.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'modifiers'] });
-      notify('Modifier group updated');
-    },
-    onError: () => notifyError('Failed to update modifier group'),
-  });
-
-  const deleteModifier = useMutation({
-    mutationFn: (id: string) => menuAdapter.modifiers.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', 'modifiers'] });
-      notify('Modifier group deleted');
-    },
-    onError: () => notifyError('Failed to delete modifier group'),
-  });
-
-  const menuMutations = {
-    categories: {
-      create: (data: any) => createCategory.mutateAsync(data),
-      update: (payload: { id: string; data: any }) => updateCategory.mutateAsync(payload),
-      delete: (id: string) => deleteCategory.mutateAsync(id),
-    },
-    items: {
-      create: (data: any) => createItem.mutateAsync(data),
-      update: (payload: { id: string; data: any }) => updateItem.mutateAsync(payload),
-      delete: (id: string) => deleteItem.mutateAsync(id),
-    },
-    modifiers: {
-      create: (data: any) => createModifier.mutateAsync(data),
-      update: (payload: { id: string; data: any }) => updateModifier.mutateAsync(payload),
-      delete: (id: string) => deleteModifier.mutateAsync(id),
-    },
-  };
+  const { menuMutations } = useMenuCrudMutations({ notify, notifyError });
 
   const handleOpenAddCategoryModal = () => openAddCategory();
   const handleEditCategory = (category: Category) => openEditCategory(category);
@@ -295,8 +197,7 @@ export function useMenuMutationsController(selectedCategory: string) {
   };
 
   const handleDeleteClick = (item: MenuItem) => {
-    setItemToDelete({ id: item.id, name: item.name });
-    setIsDeleteModalOpen(true);
+    _handleDeleteClick(item);
   };
 
   const handleConfirmDelete = async () => {
@@ -304,16 +205,10 @@ export function useMenuMutationsController(selectedCategory: string) {
 
     try {
       await menuMutations.items.delete(itemToDelete.id);
-      setIsDeleteModalOpen(false);
-      setItemToDelete(null);
+      closeDeleteModal();
     } catch (error) {
       console.error('Error in handleConfirmDelete:', error);
     }
-  };
-
-  const closeDeleteModal = () => {
-    setIsDeleteModalOpen(false);
-    setItemToDelete(null);
   };
 
   const handleToggleAvailability = async (item: MenuItem) => {
