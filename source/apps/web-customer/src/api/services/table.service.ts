@@ -1,37 +1,42 @@
-// Table service - handles table session and QR validation
-// Refactored to use Strategy Pattern
+/**
+ * @deprecated Legacy shim - prefer features/tables/data
+ * 
+ * This service delegates to the feature-owned table data layer.
+ * Use TableDataFactory directly from @/features/tables/data for new code.
+ */
 
-import { StrategyFactory, SessionInfo } from '@/api/strategies';
+import { TableDataFactory } from '@/features/tables/data';
+import type { SessionInfo } from '@/features/tables/data';
 import { ApiResponse, Table, Restaurant } from '@/types';
 
-// Create strategy instance (mock or real based on API_MODE)
-const tableStrategy = StrategyFactory.createTableStrategy();
-
+// Re-export SessionInfo for backward compatibility
 export type { SessionInfo };
 
 export const TableService = {
   /**
-   * Validate QR token and get table session
+   * @deprecated Use TableDataFactory.getStrategy().validateQRToken() instead
    */
   async validateQRToken(token: string): Promise<ApiResponse<{
     table: Table;
     restaurant: Restaurant;
   }>> {
-    return tableStrategy.validateQRToken(token);
+    const strategy = TableDataFactory.getStrategy();
+    return strategy.validateQRToken(token);
   },
   
   /**
-   * Get current session information (session-based)
-   * Cookie automatically sent by axios
+   * @deprecated Use TableDataFactory.getStrategy().getCurrentSession() instead
    */
   async getCurrentSession(): Promise<SessionInfo> {
-    return tableStrategy.getCurrentSession();
+    const strategy = TableDataFactory.getStrategy();
+    return strategy.getCurrentSession();
   },
   
   /**
-   * Get table information
+   * @deprecated Use TableDataFactory.getStrategy().getTableInfo() instead
    */
   async getTableInfo(tableId: string): Promise<ApiResponse<Table>> {
-    return tableStrategy.getTableInfo(tableId);
+    const strategy = TableDataFactory.getStrategy();
+    return strategy.getTableInfo(tableId);
   },
 };

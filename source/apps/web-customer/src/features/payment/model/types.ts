@@ -15,6 +15,7 @@ export interface PaymentActions {
   handlePaymentSuccess: () => void
   handlePaymentFailure: () => void
   handleViewOrderStatus: () => void
+  startPayment: () => void
   retryPayment: () => void
 }
 

@@ -1,88 +1,21 @@
-// Menu service - handles menu-related API calls
-// Refactored to use Strategy Pattern
+/**
+ * LEGACY SHIM - DO NOT USE IN NEW CODE
+ * 
+ * This service now delegates to features/menu/data for backward compatibility
+ * during the refactor phase. All menu data access should go through the feature.
+ * 
+ * Will be removed after Batch 2 migration is complete.
+ * 
+ * @deprecated Use `features/menu/data/factory.ts` or `features/menu/hooks` instead
+ */
 
-import { StrategyFactory } from '@/api/strategies';
 import { ApiResponse, MenuItem } from '@/types';
-
-// Create strategy instance (mock or real based on API_MODE)
-const menuStrategy = StrategyFactory.createMenuStrategy();
-
-interface MenuCategoryDto {
-  id: string;
-  name: string;
-  description?: string;
-  displayOrder: number;
-}
-
-interface PhotoDto {
-  id: string;
-  url: string;
-  filename: string;
-  mimeType: string;
-  size: number;
-  displayOrder: number;
-  isPrimary: boolean;
-  createdAt: string;
-}
-
-interface ModifierOptionDto {
-  id: string;
-  name: string;
-  priceDelta: number | string;
-  displayOrder: number;
-  active: boolean;
-}
-
-interface ModifierGroupDto {
-  id: string;
-  name: string;
-  description?: string;
-  type: string;
-  required: boolean;
-  minChoices: number;
-  maxChoices: number;
-  displayOrder: number;
-  active: boolean;
-  options: ModifierOptionDto[];
-}
-
-interface MenuItemDto {
-  id: string;
-  name: string;
-  description?: string;
-  price: number | string;
-  imageUrl?: string;
-  primaryPhoto?: PhotoDto | null;
-  photos?: PhotoDto[];
-  available?: boolean;
-  tags?: string[];
-  allergens?: string[];
-  modifierGroups?: ModifierGroupDto[];
-  preparationTime?: number;
-  chefRecommended?: boolean;
-  popularity?: number;
-  displayOrder: number;
-}
-
-interface PublicMenuResponseDto {
-  categories: Array<MenuCategoryDto & {
-    items: MenuItemDto[];
-  }>;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrevious: boolean;
-  };
-  publishedAt: string;
-}
+import { MenuDataFactory } from '@/features/menu/data';
 
 export const MenuService = {
   /**
    * Get public menu (session-based, no token needed)
-   * Uses strategy pattern for mock/real API
+   * @deprecated Use `features/menu/hooks/useMenu()` instead
    */
   async getPublicMenu(
     tenantId?: string,
@@ -97,48 +30,25 @@ export const MenuService = {
     items: MenuItem[];
     categories: string[];
   }>> {
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[MenuService.getPublicMenu] using strategy pattern', options)
-      }
-      
-      // Use strategy to get menu data
-      const response = await menuStrategy.getPublicMenu();
-      
-      if (!response.success || !response.data) {
-        return response;
-      }
-
-      // Data from strategy is already in MenuItem format (from mock)
-      const items = response.data.items;
-      const categories = response.data.categories;
-    
-      return {
-        success: true,
-        data: { items, categories },
-      };
-    } catch (err: unknown) {
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const e = err as { response?: { data?: unknown } };
-        console.error('[MenuService.getPublicMenu] failed response', e.response?.data);
-      } else {
-        console.error('[MenuService.getPublicMenu] failed', err);
-      }
-      throw err;
-    }
+    const strategy = MenuDataFactory.getStrategy();
+    return strategy.getPublicMenu();
   },
-  
+
   /**
    * Get single menu item by ID
+   * @deprecated Use `features/menu/hooks/useMenuItem()` instead
    */
   async getMenuItem(id: string): Promise<ApiResponse<MenuItem>> {
-    return menuStrategy.getMenuItem(id);
+    const strategy = MenuDataFactory.getStrategy();
+    return strategy.getMenuItem(id);
   },
-  
+
   /**
    * Search menu items
+   * @deprecated Use feature data layer directly
    */
   async searchMenuItems(query: string): Promise<ApiResponse<MenuItem[]>> {
-    return menuStrategy.searchMenuItems(query);
+    const strategy = MenuDataFactory.getStrategy();
+    return strategy.searchMenuItems(query);
   },
 };

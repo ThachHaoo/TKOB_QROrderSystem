@@ -1,11 +1,16 @@
-// Payment service - handles payment processing
+/**
+ * @deprecated Legacy shim - prefer features/payment/data
+ * 
+ * This service delegates to the feature-owned payment data layer.
+ * Use PaymentDataFactory directly from @/features/payment/data for new code.
+ */
 
-import apiClient from '@/api/client';
+import { PaymentDataFactory } from '@/features/payment/data';
 import { ApiResponse } from '@/types';
 
 export const PaymentService = {
   /**
-   * Process card payment
+   * @deprecated Use PaymentDataFactory.getStrategy().processCardPayment() instead
    */
   async processCardPayment(data: {
     orderId: string;
@@ -14,17 +19,17 @@ export const PaymentService = {
     transactionId: string;
     status: 'completed' | 'failed';
   }>> {
-    const response = await apiClient.post('/api/payment/process', data);
-    return response.data;
+    const strategy = PaymentDataFactory.getStrategy();
+    return strategy.processCardPayment(data);
   },
   
   /**
-   * Verify payment status
+   * @deprecated Use PaymentDataFactory.getStrategy().verifyPayment() instead
    */
   async verifyPayment(transactionId: string): Promise<ApiResponse<{
     status: 'completed' | 'pending' | 'failed';
   }>> {
-    const response = await apiClient.get(`/api/payment/verify/${transactionId}`);
-    return response.data;
+    const strategy = PaymentDataFactory.getStrategy();
+    return strategy.verifyPayment(transactionId);
   },
 };

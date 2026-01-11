@@ -3,9 +3,10 @@ import type { PaymentStatus } from '../../../model'
 
 interface QRPaymentSectionProps {
   paymentStatus: PaymentStatus
+  onStartPayment?: () => void
 }
 
-export function QRPaymentSection({ paymentStatus }: QRPaymentSectionProps) {
+export function QRPaymentSection({ paymentStatus, onStartPayment }: QRPaymentSectionProps) {
   return (
     <div className="bg-white rounded-xl p-6 border text-center" style={{ borderColor: 'var(--gray-200)' }}>
       {/* Status Badge */}
@@ -55,9 +56,28 @@ export function QRPaymentSection({ paymentStatus }: QRPaymentSectionProps) {
 
       {/* Status Message below QR */}
       {paymentStatus === 'waiting' && (
-        <p style={{ color: 'var(--gray-600)', fontSize: '14px', lineHeight: '1.5', marginBottom: '24px' }}>
-          Payment not completed yet. Please scan the QR code.
-        </p>
+        <>
+          <p style={{ color: 'var(--gray-600)', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>
+            {process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' 
+              ? 'In demo mode: Click the button below to simulate payment.'
+              : 'Payment not completed yet. Please scan the QR code.'}
+          </p>
+          {/* MOCK-only: Allow simulating payment success explicitly */}
+          {process.env.NEXT_PUBLIC_USE_MOCK_API === 'true' && onStartPayment && (
+            <button
+              onClick={() => {
+                if (process.env.NEXT_PUBLIC_MOCK_DEBUG) {
+                  console.log('[QR Payment] Simulating payment success');
+                }
+                onStartPayment();
+              }}
+              className="px-6 py-2 rounded-full transition-all hover:shadow-sm active:scale-95"
+              style={{ backgroundColor: 'var(--orange-500)', color: 'white', fontSize: '14px' }}
+            >
+              I&apos;ve Paid (Simulate Success)
+            </button>
+          )}
+        </>
       )}
       {paymentStatus === 'success' && (
         <p style={{ color: 'var(--emerald-700)', fontSize: '14px', lineHeight: '1.5', marginBottom: '24px' }}>

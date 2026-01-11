@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Home, ShoppingCart, ClipboardList, User } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useCart } from '@/hooks/useCart'
@@ -10,6 +11,21 @@ export function BottomNav() {
   const router = useRouter()
   const pathname = usePathname()
   const { itemCount } = useCart()
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  
+  // Hide BottomNav on menu item details page (Fix 01)
+  const hideOnItemDetails = pathname.includes('/menu/') && pathname !== '/menu'
+  
+  // Hide BottomNav on checkout/payment flow routes (Fix 04)
+  const hideOnCheckoutFlow = pathname === '/checkout' || pathname.startsWith('/payment')
+  
+  if (hideOnItemDetails || hideOnCheckoutFlow) {
+    return null
+  }
   
   // Determine active tab from pathname
   const getActiveTab = (): Tab => {
@@ -76,7 +92,7 @@ export function BottomNav() {
                       strokeWidth: isActive ? 2.5 : 2,
                     }} 
                   />
-                  {tab.badge !== undefined && tab.badge > 0 && (
+                  {mounted && tab.badge !== undefined && tab.badge > 0 && (
                     <span
                       className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-white"
                       style={{ 

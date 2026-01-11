@@ -14,6 +14,7 @@ import {
 interface CardPaymentProps {
   total: number
   itemCount: number
+  orderId?: string
   existingOrder?: Order | null
   onBack?: () => void
   onPaymentSuccess?: () => void
@@ -23,6 +24,7 @@ interface CardPaymentProps {
 export function CardPaymentPage({
   total,
   itemCount,
+  orderId,
   existingOrder,
   onBack,
   onPaymentSuccess,
@@ -31,6 +33,7 @@ export function CardPaymentPage({
   const { state, actions } = usePaymentController({
     total,
     itemCount,
+    orderId,
     existingOrder,
     onPaymentSuccess,
     onPaymentFailure,
@@ -55,7 +58,7 @@ export function CardPaymentPage({
           {state.error && <ErrorMessageSection error={state.error} />}
 
           {/* QR Payment Section */}
-          <QRPaymentSection paymentStatus={state.paymentStatus} />
+          <QRPaymentSection paymentStatus={state.paymentStatus} onStartPayment={actions.startPayment} />
         </div>
       </div>
 

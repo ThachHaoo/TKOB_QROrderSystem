@@ -1,10 +1,31 @@
 // Mock handlers for order-related API calls
 
 import { ApiResponse, Order, CartItem } from '@/types';
-import { mockOrders, setMockCurrentOrder } from '../data';
+import { mockOrders, setMockCurrentOrder, loadOrdersFromStorage, saveOrdersToStorage } from '../data';
 import { delay, createSuccessResponse, createErrorResponse } from '../utils';
 
 let orderIdCounter = 1;
+
+/**
+ * Initialize orders from storage or get from in-memory array
+ */
+function getOrInitializeOrders(sessionId?: string): Order[] {
+  // If no sessionId, use in-memory orders (for session persistence)
+  if (!sessionId) {
+    return mockOrders;
+  }
+
+  // Otherwise, load from localStorage with session key
+  const stored = loadOrdersFromStorage(sessionId);
+  if (stored.length > 0) {
+    // Update in-memory array to match stored data
+    mockOrders.length = 0;
+    mockOrders.push(...stored);
+    return mockOrders;
+  }
+
+  return mockOrders;
+}
 
 export const orderHandlers = {
   /**
@@ -22,6 +43,10 @@ export const orderHandlers = {
     // Validate items
     if (!data.items || data.items.length === 0) {
       return createErrorResponse('Order must contain at least one item');
+    }
+    
+    if (process.env.NEXT_PUBLIC_MOCK_DEBUG) {
+      console.log('[Order Handler] Creating order with', data.items.length, 'items for table:', data.tableId);
     }
     
     // Calculate totals
@@ -71,9 +96,14 @@ export const orderHandlers = {
       estimatedReadyMinutes: 20,
     };
     
-    // Store order
+    // Store order in both memory and storage
     mockOrders.push(order);
+    saveOrdersToStorage(mockOrders, data.tableId);
     setMockCurrentOrder(order);
+    
+    if (process.env.NEXT_PUBLIC_MOCK_DEBUG) {
+      console.log('[Order Handler] Order created:', order.id, '- Items:', order.items.length);
+    }
     
     return createSuccessResponse(order, 'Order placed successfully');
   },
@@ -96,11 +126,18 @@ export const orderHandlers = {
   /**
    * Get order history for user
    */
-  async getOrderHistory(userId: string): Promise<ApiResponse<Order[]>> {
+  async getOrderHistory(userId: string, sessionId?: string): Promise<ApiResponse<Order[]>> {
     await delay(400);
     
+    // Load orders from storage with session ID
+    getOrInitializeOrders(sessionId);
+    
+    if (process.env.NEXT_PUBLIC_MOCK_DEBUG) {
+      console.log('[Order Handler] Getting order history for', userId, '- Found', mockOrders.length, 'orders');
+    }
+    
     // In real app, filter by userId
-    // For mock, return all orders
+    // For mock, return all orders for the session
     return createSuccessResponse(mockOrders);
   },
   

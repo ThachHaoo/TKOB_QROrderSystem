@@ -1,5 +1,16 @@
+/**
+ * LEGACY SHIM - DO NOT USE IN NEW CODE
+ * 
+ * This hook now delegates to features/orders/hooks for backward compatibility
+ * during the refactor phase. All order data access should use the feature hooks.
+ * 
+ * Will be removed after Batch 2 migration is complete.
+ * 
+ * @deprecated Use `features/orders/hooks` instead
+ */
+
 import { useState, useEffect } from 'react'
-import { OrderService } from '@/api/services'
+import { useOrders as useOrdersFeature, useOrder as useOrderFeature } from '@/features/orders/hooks/queries';
 import type { Order } from '@/types/order'
 
 interface UseOrdersResult {
@@ -10,43 +21,10 @@ interface UseOrdersResult {
 }
 
 /**
- * Hook to fetch order history for a customer
+ * @deprecated Use `features/orders/hooks/queries/useOrders` instead
  */
 export function useOrders(customerId?: string): UseOrdersResult {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchOrders = async () => {
-    if (!customerId) {
-      setOrders([])
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      setIsLoading(true)
-      setError(null)
-      const response = await OrderService.getOrderHistory(customerId)
-      setOrders(response.data || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch orders')
-      setOrders([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchOrders()
-  }, [customerId])
-
-  return {
-    orders,
-    isLoading,
-    error,
-    refetch: fetchOrders,
-  }
+  return useOrdersFeature(customerId);
 }
 
 interface UseOrderResult {
@@ -57,39 +35,10 @@ interface UseOrderResult {
 }
 
 /**
- * Hook to fetch a single order by ID
+ * @deprecated Use `features/orders/hooks/queries/useOrder` instead
  */
 export function useOrder(orderId: string): UseOrderResult {
-  const [order, setOrder] = useState<Order | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchOrder = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const response = await OrderService.getOrder(orderId)
-      setOrder(response.data || null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch order')
-      setOrder(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (orderId) {
-      fetchOrder()
-    }
-  }, [orderId])
-
-  return {
-    order,
-    isLoading,
-    error,
-    refetch: fetchOrder,
-  }
+  return useOrderFeature(orderId);
 }
 
 interface UseCurrentSessionResult {
@@ -97,6 +46,20 @@ interface UseCurrentSessionResult {
   isLoading: boolean
   error: string | null
   refetch: () => void
+}
+
+/**
+ * Hook to fetch current session's order
+ * @deprecated Legacy hook - to be refactored
+ */
+export function useCurrentSessionOrder(): UseCurrentSessionResult {
+  // This hook was incomplete in original; maintaining signature only
+  return {
+    currentOrder: null,
+    isLoading: false,
+    error: null,
+    refetch: async () => {},
+  }
 }
 
 /**

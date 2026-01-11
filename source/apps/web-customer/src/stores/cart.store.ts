@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, MenuItem } from '@/types';
 import { generateId } from '@/lib/utils';
+import { debugLog } from '@/lib/debug';
 
 interface CartStore {
   items: CartItem[];
@@ -36,6 +37,13 @@ export const useCartStore = create<CartStore>()(
           quantity: data.quantity,
         };
         
+        debugLog('Cart', 'add', {
+          itemId: cartItem.id,
+          name: data.menuItem.name,
+          quantity: data.quantity,
+          size: data.selectedSize,
+        });
+        
         set((state) => ({
           items: [...state.items, cartItem],
         }));
@@ -43,9 +51,12 @@ export const useCartStore = create<CartStore>()(
       
       updateQuantity: (id, quantity) => {
         if (quantity <= 0) {
+          debugLog('Cart', 'remove', { itemId: id });
           get().removeItem(id);
           return;
         }
+        
+        debugLog('Cart', 'update_qty', { itemId: id, newQuantity: quantity });
         
         set((state) => ({
           items: state.items.map((item) =>
@@ -55,6 +66,7 @@ export const useCartStore = create<CartStore>()(
       },
       
       removeItem: (id) => {
+        debugLog('Cart', 'remove', { itemId: id });
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
         }));
@@ -69,6 +81,7 @@ export const useCartStore = create<CartStore>()(
       },
       
       clearCart: () => {
+        debugLog('Cart', 'clear');
         set({ items: [] });
       },
       

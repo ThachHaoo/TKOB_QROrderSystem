@@ -1,59 +1,65 @@
-// Auth service - handles authentication and user profile
+/**
+ * LEGACY SHIM - DO NOT USE IN NEW CODE
+ * 
+ * This service now delegates to features/auth/data for backward compatibility
+ * during the refactor phase. All auth data access should go through the feature.
+ * 
+ * Will be removed after Batch 2 migration is complete.
+ * 
+ * @deprecated Use `features/auth/data/factory.ts` instead
+ */
 
-import apiClient from '@/api/client';
-import { ApiResponse } from '@/types';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-}
+import { AuthDataFactory } from '@/features/auth/data';
 
 export const AuthService = {
   /**
    * Get current user profile
+   * @deprecated Use feature data layer directly
    */
-  async getCurrentUser(): Promise<ApiResponse<User>> {
-    const response = await apiClient.get('/api/auth/me');
-    return response.data;
+  async getCurrentUser() {
+    const strategy = AuthDataFactory.getStrategy();
+    return strategy.getCurrentUser();
   },
-  
+
   /**
    * Update user profile
+   * @deprecated Use feature data layer directly
    */
-  async updateProfile(data: { name: string }): Promise<ApiResponse<User>> {
-    const response = await apiClient.put('/api/auth/profile', data);
-    return response.data;
+  async updateProfile(data: { name: string }) {
+    const strategy = AuthDataFactory.getStrategy();
+    return strategy.updateProfile(data);
   },
-  
+
   /**
    * Change password
+   * @deprecated Use feature data layer directly
    */
   async changePassword(data: {
     currentPassword: string;
     newPassword: string;
-  }): Promise<ApiResponse<{ message: string }>> {
-    const response = await apiClient.post('/api/auth/change-password', data);
-    return response.data;
+  }) {
+    const strategy = AuthDataFactory.getStrategy();
+    return strategy.changePassword(data);
   },
-  
+
   /**
    * Login
+   * @deprecated Use feature data layer directly
    */
-  async login(data: { 
-    email: string; 
-    password: string; 
-  }): Promise<ApiResponse<User>> {
-    const response = await apiClient.post('/api/auth/login', data);
-    return response.data;
+  async login(data: {
+    email: string;
+    password: string;
+  }) {
+    const strategy = AuthDataFactory.getStrategy();
+    return strategy.login(data);
   },
-  
+
   /**
    * Logout
+   * @deprecated Use feature data layer directly
    */
-  async logout(): Promise<ApiResponse<{ message: string }>> {
-    const response = await apiClient.post('/api/auth/logout');
-    return response.data;
+  async logout() {
+    const strategy = AuthDataFactory.getStrategy();
+    return strategy.logout();
   },
 };

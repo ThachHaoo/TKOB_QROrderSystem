@@ -11,7 +11,7 @@ import { CartConfirmModal } from '../components/modals/CartConfirmModal'
 export function CartPage() {
   const router = useRouter()
   const { items: cartItems, updateQuantity, removeItem, totals } = useCartController()
-  const [summaryExpanded, setSummaryExpanded] = useState(false)
+  const [summaryExpanded, setSummaryExpanded] = useState(true)
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 

@@ -7,7 +7,7 @@ import { LanguageSwitcher, FoodCard, EmptyState, MenuPageSkeleton } from '@/comp
 import { useLanguage } from '@/hooks/useLanguage'
 import { useCart } from '@/hooks/useCart'
 import { usePagination } from '@/hooks/usePagination'
-import { useMenu } from '@/hooks/useMenu'
+import { useMenu } from '../../hooks'
 import { useSession } from '@/hooks/useSession'
 import { FeatureErrorBoundary } from '@/components/error'
 import { ITEMS_PER_PAGE, MENU_TEXT, type SortOption } from '../../model'
