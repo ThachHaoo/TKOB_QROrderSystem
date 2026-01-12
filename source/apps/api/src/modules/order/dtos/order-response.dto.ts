@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CartModifierDto } from './cart.dto';
-import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 
 export class OrderItemResponseDto {
   @ApiProperty()
@@ -71,7 +70,17 @@ export class OrderResponseDto {
   @ApiProperty()
   createdAt: Date;
 
-  // @ApiProperty()
+  @ApiProperty({ required: false })
+  preparingAt?: Date;
+
+  @ApiProperty({ required: false })
+  readyAt?: Date;
+
+  @ApiProperty({ required: false })
+  servedAt?: Date;
+
+  @ApiProperty({ required: false })
+  completedAt?: Date;
   // stripePaymentIntentId?: string;
 
   // @ApiProperty()

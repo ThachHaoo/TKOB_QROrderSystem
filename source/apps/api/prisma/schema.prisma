@@ -388,9 +388,11 @@ model Order {
   // // Stripe payment (if applicable)
   // stripePaymentIntentId String? @map("stripe_payment_intent_id")
   
-  // Metadata
+  // Metadata & Timestamps for KDS
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
+  preparingAt     DateTime?     @map("preparing_at")  // When status changed to PREPARING
+  readyAt         DateTime?     @map("ready_at")      // When status changed to READY
   servedAt        DateTime?     @map("served_at")
   completedAt     DateTime?     @map("completed_at")
   

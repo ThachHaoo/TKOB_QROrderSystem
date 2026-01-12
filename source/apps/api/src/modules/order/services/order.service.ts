@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -17,6 +19,7 @@ import type { PaymentStatus, Prisma } from '@prisma/client';
 import { OrderFiltersDto } from '../dtos/order-filters.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto';
+import { OrderGateway } from '../gateways/order.gateway';
 const PaymentStatusEnum = {
   PENDING: 'PENDING',
   PAID: 'PAID',
@@ -31,6 +34,8 @@ export class OrderService {
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
     private readonly menuItemsService: MenuItemsService,
+    @Inject(forwardRef(() => OrderGateway))
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async checkout(
@@ -119,8 +124,11 @@ export class OrderService {
 
     this.logger.log(`Order created: ${orderNumber} for table ${tableId}`);
 
-    // 7. Return order details
-    return this.getOrderById(order.id);
+    // 7. Emit WebSocket event for new order (KDS notification)
+    const orderResponse = await this.getOrderById(order.id);
+    this.orderGateway.emitNewOrder(tenantId, orderResponse);
+
+    return orderResponse;
   }
 
   /**
@@ -229,12 +237,14 @@ export class OrderService {
     // Validate status transition
     this.validateStatusTransition(order.status, dto.status as OrderStatus);
 
-    // Update order
+    // Update order with timestamps for KDS timer
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: orderId },
         data: {
           status: dto.status as OrderStatus,
+          ...(dto.status === 'PREPARING' && { preparingAt: new Date() }),
+          ...(dto.status === 'READY' && { readyAt: new Date() }),
           ...(dto.status === 'SERVED' && { servedAt: new Date() }),
           ...(dto.status === 'COMPLETED' && { completedAt: new Date() }),
         },
@@ -253,7 +263,11 @@ export class OrderService {
 
     this.logger.log(`Order ${order.orderNumber} status updated to ${dto.status} by ${staffId}`);
 
-    return this.getOrderById(orderId);
+    // Emit WebSocket event for real-time updates
+    const updatedOrder = await this.getOrderById(orderId);
+    this.orderGateway.emitOrderStatusChanged(order.tenantId, updatedOrder);
+
+    return updatedOrder;
   }
 
   /**
@@ -430,7 +444,10 @@ export class OrderService {
         prepared: item.prepared,
       })),
       createdAt: order.createdAt,
-      // stripePaymentIntentId: order.stripePaymentIntentId,
+      preparingAt: order.preparingAt,
+      readyAt: order.readyAt,
+      servedAt: order.servedAt,
+      completedAt: order.completedAt,
     };
   }
 }

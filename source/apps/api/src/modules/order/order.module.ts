@@ -5,6 +5,7 @@ import { CartService } from './services/cart.service';
 import { TableModule } from '../table/table.module';
 import { OrderService } from './services/order.service';
 import { OrderController } from './controllers/order.controller';
+import { OrderGateway } from './gateways/order.gateway';
 
 @Module({
   imports: [MenuModule, TableModule],
@@ -13,7 +14,9 @@ import { OrderController } from './controllers/order.controller';
     // Services
     CartService,
     OrderService,
+    // WebSocket Gateway
+    OrderGateway,
   ],
-  exports: [CartService, OrderService],
+  exports: [CartService, OrderService, OrderGateway],
 })
 export class OrderModule {}
