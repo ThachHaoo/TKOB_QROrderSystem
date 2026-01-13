@@ -90,14 +90,14 @@ export function useMenu(tenantId?: string): UseMenuReturn {
       
       setIsLoading(true)
       setError(null)
-      log('data', 'Menu fetch attempt', { tenantId: maskId(tenantId || '') }, { feature: 'menu', dedupe: true, dedupeTtlMs: 10000 });
+      log('data', 'Fetching menu', { tenantId: maskId(tenantId || '') }, { feature: 'menu', dedupe: true, dedupeTtlMs: 10000 });
       const strategy = MenuDataFactory.getStrategy()
       const response = await strategy.getPublicMenu()
 
       if (response.success && response.data) {
         setItems(response.data.items)
         setCategories(response.data.categories)
-        log('data', 'Menu fetch success', { itemCount: response.data.items.length, categoryCount: response.data.categories.length, durationMs: Date.now() - startTime }, { feature: 'menu' });
+        log('data', 'Menu loaded', { itemCount: response.data.items.length, categoryCount: response.data.categories.length, durationMs: Date.now() - startTime }, { feature: 'menu' });
       } else {
         setError(response.message || 'Failed to fetch menu')
         logError('data', 'Menu fetch failed', { message: response.message }, { feature: 'menu' });

@@ -11,6 +11,7 @@ import type { Order } from '@/types'
 import { debugLog, debugError } from '@/lib/debug'
 import type { PaymentController, PaymentStatus } from '../model'
 import { PaymentDataFactory } from '../data'
+import { useOrderStore } from '@/stores/order.store'
 
 interface UsePaymentControllerProps {
   orderId?: string
@@ -28,7 +29,8 @@ export function usePaymentController({
   const router = useRouter()
   const queryClient = useQueryClient()
   const { session } = useSession()
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('waiting')
+  const setPaymentStatus = useOrderStore((state) => state.setPaymentStatus)
+  const [paymentStatus, setLocalPaymentStatus] = useState<PaymentStatus>('waiting')
   const [error, setError] = useState<string | null>(null)
   const didStartRef = useRef(false)
   const timerRef = useRef<number | null>(null)
@@ -48,7 +50,7 @@ export function usePaymentController({
     if (!finalOrderId || !order || !amount) {
       logError('ui', 'Cannot start payment: missing order data', { hasOrderId: !!finalOrderId, hasOrder: !!order, hasAmount: !!amount }, { feature: 'payment' });
       debugError('Payment', 'start_missing_order_data')
-      setPaymentStatus('failed');
+      setLocalPaymentStatus('failed');
       setError('Invalid order data. Cannot process payment.');
       return;
     }
@@ -57,7 +59,7 @@ export function usePaymentController({
     log('data', 'Payment process start', { orderId: maskId(finalOrderId), amount, itemCount: order.items?.length || 0, paymentMethod: order.paymentMethod }, { feature: 'payment' });
 
     debugLog('Payment', 'start', {
-      orderId: finalOrderId,
+      orderId: maskId(finalOrderId),
       amount: amount,
       itemCount: order.items?.length,
     })
@@ -74,8 +76,9 @@ export function usePaymentController({
 
       if (response.success && response.data?.status === 'completed') {
         log('data', 'Payment completed successfully', { orderId: maskId(finalOrderId), durationMs: Date.now() - startTime }, { feature: 'payment' });
-        debugLog('Payment', 'success', { orderId: finalOrderId })
-        setPaymentStatus('success');
+        debugLog('Payment', 'success', { orderId: maskId(finalOrderId) })
+        setLocalPaymentStatus('success');
+        setPaymentStatus('SUCCESS', finalOrderId);
         
         // Invalidate all relevant query keys to refresh order data from storage
         if (session?.tableId) {
@@ -121,10 +124,11 @@ export function usePaymentController({
       } else {
         logError('data', 'Payment failed', { orderId: maskId(finalOrderId), reason: response.message }, { feature: 'payment' });
         debugLog('Payment', 'failure', {
-          orderId: finalOrderId,
+          orderId: maskId(finalOrderId),
           reason: response.message,
         })
-        setPaymentStatus('failed');
+        setLocalPaymentStatus('failed');
+        setPaymentStatus('FAILED', finalOrderId);
         setError(response.message || 'Payment processing failed');
         if (onPaymentFailure) {
           onPaymentFailure();
@@ -133,7 +137,8 @@ export function usePaymentController({
     } catch (err) {
       logError('data', 'Payment error', err, { feature: 'payment' });
       debugError('Payment', 'error', err)
-      setPaymentStatus('failed');
+      setLocalPaymentStatus('failed');
+      setPaymentStatus('FAILED', finalOrderId);
       setError(err instanceof Error ? err.message : 'Payment processing error');
       if (onPaymentFailure) {
         onPaymentFailure();
@@ -178,7 +183,7 @@ export function usePaymentController({
   }
 
   const retryPayment = () => {
-    setPaymentStatus('waiting')
+    setLocalPaymentStatus('waiting')
     setError(null)
     didStartRef.current = false
   }

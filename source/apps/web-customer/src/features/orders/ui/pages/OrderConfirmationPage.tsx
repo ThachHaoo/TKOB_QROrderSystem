@@ -11,19 +11,33 @@ import { Order } from '@/types/order'
 import { useOrder } from '../../hooks/queries'
 import { ORDERS_TEXT } from '../../model'
 import { OrderStatusTimeline } from '../components/OrderStatusTimeline'
+import { useOrderStore } from '@/stores/order.store'
 
 interface OrderConfirmationPageProps {
   orderId?: string
 }
 
-export function OrderConfirmationPage({ orderId }: OrderConfirmationPageProps) {
+export function OrderConfirmationPage({ orderId: propOrderId }: OrderConfirmationPageProps) {
   const router = useRouter()
   const { language } = useLanguage()
   const { clearCart } = useCart()
   const t = ORDERS_TEXT[language]
+  
+  // Fallback: use active order from store if no orderId provided
+  const activeOrderId = useOrderStore((state) => state.activeOrderId)
+  const updateLastSeen = useOrderStore((state) => state.updateLastSeen)
+  const resetOrderStore = useOrderStore((state) => state.reset)
+  const orderId = propOrderId || activeOrderId || ''
 
   // Fetch order details
-  const { order, isLoading, error } = useOrder(orderId || '')
+  const { order, isLoading, error } = useOrder(orderId)
+
+  // Update last seen timestamp when viewing confirmation
+  useEffect(() => {
+    if (orderId) {
+      updateLastSeen()
+    }
+  }, [orderId, updateLastSeen])
 
   // Clear cart when order is confirmed (for both card and counter payments)
   useEffect(() => {
@@ -55,7 +69,10 @@ export function OrderConfirmationPage({ orderId }: OrderConfirmationPageProps) {
             {error || 'The order you are looking for could not be found.'}
           </p>
           <button
-            onClick={() => router.push('/menu')}
+            onClick={() => {
+              resetOrderStore()
+              router.push('/menu')
+            }}
             className="w-full py-3 px-4 rounded-full transition-all hover:shadow-md active:scale-95"
             style={{
               backgroundColor: 'var(--orange-500)',
@@ -212,7 +229,10 @@ export function OrderConfirmationPage({ orderId }: OrderConfirmationPageProps) {
             Track order
           </button>
           <button
-            onClick={() => router.push('/menu')}
+            onClick={() => {
+              resetOrderStore()
+              router.push('/menu')
+            }}
             className="w-full py-3 px-6 rounded-full transition-all hover:bg-[var(--gray-100)] active:scale-95"
             style={{
               backgroundColor: 'white',

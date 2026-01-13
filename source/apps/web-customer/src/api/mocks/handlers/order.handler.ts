@@ -131,8 +131,8 @@ export const orderHandlers = {
         'mock',
         'Order created',
         {
-          orderId: order.id,
-          tableId: data.tableId,
+          orderId: maskId(order.id),
+          tableId: maskId(data.tableId),
           paymentMethod: order.paymentMethod,
           paymentStatus: order.paymentStatus,
           orderStatus: order.status,
@@ -162,7 +162,12 @@ export const orderHandlers = {
       setMockCurrentOrder(order);
       
       if (process.env.NEXT_PUBLIC_MOCK_DEBUG) {
-        console.log('[Order Handler] Order created via canonical storage:', order.id, '- Items:', order.items.length);
+        log(
+          'mock',
+          'Order created via canonical storage',
+          { orderId: maskId(order.id), itemCount: order.items.length },
+          { feature: 'orders' },
+        );
       }
       
       return createSuccessResponse(order, 'Order placed successfully');
@@ -197,7 +202,12 @@ export const orderHandlers = {
     getOrInitializeOrders(sessionId);
     
     if (process.env.NEXT_PUBLIC_MOCK_DEBUG) {
-      console.log('[Order Handler] Getting order history for', userId, '- Found', mockOrders.length, 'orders');
+      log(
+        'mock',
+        'Getting order history',
+        { userId: maskId(userId), orderCount: mockOrders.length },
+        { feature: 'orders' },
+      );
     }
     
     // In real app, filter by userId

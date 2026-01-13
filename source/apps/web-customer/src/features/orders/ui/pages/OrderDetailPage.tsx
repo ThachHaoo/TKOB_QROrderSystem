@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { useLanguage } from '@/shared/hooks/useLanguage'
 import { log } from '@/shared/logging/logger'
 import { maskId } from '@/shared/logging/helpers'
@@ -14,16 +15,31 @@ import { usePaymentVerification } from '../../hooks/usePaymentVerification'
 import { OrderHeader } from '../components/sections/OrderHeader'
 import { PaymentBanner } from '../components/sections/PaymentBanner'
 import { OrderSummary } from '../components/sections/OrderSummary'
+import { useOrderStore } from '@/stores/order.store'
 
 interface OrderDetailPageProps {
   orderId: string
 }
 
-export function OrderDetailPage({ orderId }: OrderDetailPageProps) {
+export function OrderDetailPage({ orderId: propOrderId }: OrderDetailPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { language } = useLanguage()
   const t = ORDERS_TEXT[language]
+  
+  // Fallback: use active order from store if no orderId provided
+  const activeOrderId = useOrderStore((state) => state.activeOrderId)
+  const setActiveOrder = useOrderStore((state) => state.setActiveOrder)
+  const updateLastSeen = useOrderStore((state) => state.updateLastSeen)
+  const orderId = propOrderId || activeOrderId || ''
+  
+  // Track this as active order when viewing
+  useEffect(() => {
+    if (orderId) {
+      setActiveOrder(orderId, 'order-detail')
+      updateLastSeen()
+    }
+  }, [orderId, setActiveOrder, updateLastSeen])
 
   const { data: order, isLoading, error, refetch } = useQuery({
     queryKey: orderQueryKeys.order(orderId),
