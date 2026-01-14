@@ -3,7 +3,7 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { EnvConfig } from '../../../config/env.validation';
 import {
-  JwtPayload,
+  JwtPayload as CustomJwtPayload,
   RefreshTokenPayload,
   TokenPair,
 } from '../interfaces/registration-data.interface';
@@ -34,7 +34,7 @@ export class TokenService {
    * @returns JWT access token
    */
   generateAccessToken(userId: string, email: string, role: string, tenantId: string): string {
-    const payload: JwtPayload = {
+    const payload: CustomJwtPayload = {
       sub: userId,
       email,
       role,
@@ -43,9 +43,9 @@ export class TokenService {
 
     const expiresIn = this.config.get('JWT_ACCESS_TOKEN_EXPIRES_IN', {
       infer: true,
-    });
+    }) as string;
 
-    const token = this.jwt.sign(payload, { expiresIn });
+    const token = this.jwt.sign(payload as any, { expiresIn } as JwtSignOptions);
 
     this.logger.debug(`Access token generated for user: ${userId}`);
     return token;
@@ -63,9 +63,9 @@ export class TokenService {
 
     const expiresIn = this.config.get('JWT_REFRESH_TOKEN_EXPIRES_IN', {
       infer: true,
-    });
+    }) as string;
 
-    const token = this.jwt.sign(payload, { expiresIn });
+    const token = this.jwt.sign(payload as any, { expiresIn } as JwtSignOptions);
 
     this.logger.debug(`Refresh token generated for user: ${userId}`);
     return token;
