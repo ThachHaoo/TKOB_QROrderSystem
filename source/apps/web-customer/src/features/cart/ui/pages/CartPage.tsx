@@ -1,17 +1,17 @@
 'use client'
 
-import { ArrowLeft, ShoppingBag, ChevronDown, Loader2 } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { CartItemCard } from '@/components/cards/CartItemCard'
-import { EmptyState } from '@/components/common/EmptyState'
-import { useCart } from '@/hooks/useCart'
+import { CartItemCard } from '@/shared/components/cards/CartItemCard'
+import { EmptyState } from '@/shared/components/common/EmptyState'
+import { useCartController } from '../../hooks'
 import { CartConfirmModal } from '../components/modals/CartConfirmModal'
 
 export function CartPage() {
   const router = useRouter()
-  const { items: cartItems, isLoading, error, updateQuantity, removeItem, subtotal, tax, serviceCharge, total } = useCart()
-  const [summaryExpanded, setSummaryExpanded] = useState(false)
+  const { items: cartItems, updateQuantity, removeItem, totals } = useCartController()
+  const [summaryExpanded, setSummaryExpanded] = useState(true)
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
@@ -63,21 +63,7 @@ export function CartPage() {
       </div>
 
       {/* Content */}
-      {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--orange-500)' }} />
-        </div>
-      ) : error ? (
-        <div className="flex-1">
-          <EmptyState
-            icon={<ShoppingBag className="w-16 h-16" />}
-            title="Failed to load cart"
-            message={error instanceof Error ? error.message : 'Please try again later'}
-            actionLabel="Retry"
-            onAction={() => window.location.reload()}
-          />
-        </div>
-      ) : cartItems.length === 0 ? (
+      {cartItems.length === 0 ? (
         <div className="flex-1">
           <EmptyState
             icon={<ShoppingBag className="w-16 h-16" />}
@@ -120,19 +106,19 @@ export function CartPage() {
                 <div className="px-4 pb-4 space-y-2" style={{ fontSize: '14px' }}>
                   <div className="flex justify-between" style={{ color: 'var(--gray-700)' }}>
                     <span>Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>${totals.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between" style={{ color: 'var(--gray-700)' }}>
                     <span>Tax (10%)</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>${totals.tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between" style={{ color: 'var(--gray-700)' }}>
                     <span>Service charge (5%)</span>
-                    <span>${serviceCharge.toFixed(2)}</span>
+                    <span>${totals.serviceCharge.toFixed(2)}</span>
                   </div>
                   <div className="border-t pt-2 mt-2 flex justify-between" style={{ borderColor: 'var(--gray-200)', color: 'var(--gray-900)' }}>
                     <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>${totals.total.toFixed(2)}</span>
                   </div>
                 </div>
               )}
