@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { TenantOwnershipGuard } from 'src/modules/tenant/guards/tenant-ownership.guard';
+import { SubscriptionLimitsGuard, CheckLimit } from 'src/modules/subscription/guards/subscription-limits.guard';
 import { MenuItemsService } from '../services/menu-item.service';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from 'src/common/interfaces/auth.interface';
@@ -31,7 +32,7 @@ import { MenuItemResponseDto } from '../dto/menu-response.dto';
 
 @ApiTags('Menu - Items')
 @Controller('menu/item')
-@UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard, SubscriptionLimitsGuard)
 @ApiBearerAuth()
 export class MenuItemsController {
   constructor(private readonly menuItemsService: MenuItemsService) {}
@@ -40,8 +41,10 @@ export class MenuItemsController {
   // CREATE
   @Post()
   @Roles(UserRole.OWNER, UserRole.STAFF)
+  @CheckLimit('createMenuItem')
   @ApiOperation({ summary: 'Create new menu item' })
   @ApiResponse({ status: 201, type: MenuItemResponseDto })
+  @ApiResponse({ status: 403, description: 'Subscription limit exceeded' })
   async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateMenuItemDto) {
     return this.menuItemsService.create(user.tenantId, dto);
   }
