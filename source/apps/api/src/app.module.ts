@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, OnModuleInit, RequestMethod, Logger } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -15,7 +15,15 @@ import { MenuModule } from './modules/menu/menu.module';
 import { TableModule } from './modules/table/table.module';
 import { OrderModule } from './modules/order/order.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { ReviewModule } from './modules/review/review.module';
+import { PaymentConfigModule } from './modules/payment-config/payment-config.module';
+import { PromotionModule } from './modules/promotion/promotion.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
+import { SeedModule } from './database/seed/seed.module';
+import { SeedService } from './database/seed/seed.service';
 
 @Module({
   imports: [
@@ -53,6 +61,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
 
     // MainModule
     PrismaModule,
+    WebsocketModule,
     RedisModule,
     EmailModule,
     AuthModule,
@@ -61,7 +70,13 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
     TableModule,
     OrderModule,
     PaymentModule,
-    WebsocketModule,
+    AnalyticsModule,
+    StaffModule,
+    ReviewModule,
+    PaymentConfigModule,
+    PromotionModule,
+    SubscriptionModule,
+    SeedModule,
   ],
   controllers: [AppController],
   providers: [
@@ -73,7 +88,21 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
     // },
   ],
 })
-export class AppModule implements NestModule {
+export class AppModule implements NestModule, OnModuleInit {
+  private readonly logger = new Logger(AppModule.name);
+
+  constructor(private readonly seedService: SeedService) {}
+
+  async onModuleInit() {
+    // Seed subscription plans on startup (idempotent - uses upsert)
+    try {
+      await this.seedService.seedSubscriptionPlans();
+      this.logger.log('✅ Subscription plans seeded successfully');
+    } catch (error) {
+      this.logger.error('Failed to seed subscription plans:', error);
+    }
+  }
+
   configure(consumer: MiddlewareConsumer) {
     // Apply RequestIdMiddleware globally
     consumer.apply(RequestIdMiddleware).forRoutes({ path: '*path', method: RequestMethod.ALL });
