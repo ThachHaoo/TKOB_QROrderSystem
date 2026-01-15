@@ -1,10 +1,10 @@
 // Production-safe logger with env gates and PII controls.
-// Categories: [nav] [data] [mock] [ui]
+// Categories: [nav] [data] [mock] [ui] [realtime]
 
 import { globalDeduper, makeDedupeKey } from './dedupe';
 import { redactPayload, summarizeIds } from './redact';
 
-type Category = 'nav' | 'data' | 'mock' | 'ui';
+type Category = 'nav' | 'data' | 'mock' | 'ui' | 'realtime';
 
 const USE_LOGGING = process.env.NEXT_PUBLIC_USE_LOGGING === 'true';
 const LOG_DATA = process.env.NEXT_PUBLIC_LOG_DATA === 'true';
