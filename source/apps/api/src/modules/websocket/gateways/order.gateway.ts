@@ -1,237 +1,358 @@
+import { Logger } from '@nestjs/common';
 import {
-  WebSocketGateway,
-  WebSocketServer,
-  SubscribeMessage,
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  MessageBody,
-  ConnectedSocket,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Socket, Server } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
+import { OrderResponseDto } from '@/modules/order/dtos/order-response.dto';
+import { OrderEvents } from '@/modules/order/constants/events.constant';
+
+interface ClientInfo {
+  tenantId: string;
+  role: 'staff' | 'customer';
+  userId?: string;
+  tableId?: string;
+  connectedAt: Date;
+}
 
 /**
- * OrderGateway - Real-time WebSocket Gateway for Order Updates
+ * Unified Order WebSocket Gateway
  *
- * Handles WebSocket connections for real-time order notifications.
- * Uses JWT authentication and tenant-based room isolation.
+ * Provides real-time updates for:
+ * - New orders (notify staff/kitchen)
+ * - Order status changes (notify customers & staff)
+ * - Order preparation timer updates
+ * - Payment completion notifications
+ *
+ * Authentication Methods:
+ * - JWT token (for authenticated staff via handshake.auth.token)
+ * - Query params (for customers via tenantId, role, tableId)
+ *
+ * Rooms:
+ * - `tenant:{tenantId}:staff` - Staff/Kitchen dashboard (authenticated)
+ * - `tenant:{tenantId}:customer:{tableId}` - Customer order tracking
  */
 @WebSocketGateway({
+  namespace: '/orders',
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: [
+      process.env.CUSTOMER_APP_URL || 'http://localhost:3001',
+      process.env.TENANT_APP_URL || 'http://localhost:3000',
+    ],
     credentials: true,
   },
-  namespace: '/orders',
 })
-export class OrderGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class OrderGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(OrderGateway.name);
-  private connectedClients = new Map<
-    string,
-    { tenantId: string; userId: string; connectedAt: Date }
-  >();
+
+  // Track connected clients with extended info
+  private clients = new Map<string, ClientInfo>();
 
   constructor(private readonly jwtService: JwtService) {}
 
   /**
-   * Handle new client connection
+   * Handle client connection
    *
-   * Flow:
-   * 1. Extract JWT token from handshake (auth or header)
-   * 2. Verify token and extract tenantId, userId
-   * 3. Store client info in memory
-   * 4. Join tenant-specific room
-   * 5. Send connection confirmation
+   * Supports two authentication methods:
+   * 1. JWT token in handshake.auth.token (for staff dashboard)
+   * 2. Query params: tenantId, role, tableId (for customer app)
    */
   async handleConnection(client: Socket) {
     try {
-      // Extract token from handshake
+      // Try JWT authentication first (for staff)
       const token =
-        client.handshake.auth.token ||
-        client.handshake.headers.authorization?.split(' ')[1];
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.split(' ')[1];
 
-      if (!token) {
-        this.logger.warn(
-          `Client ${client.id} attempted connection without token`,
-        );
-        client.emit('error', { message: 'Authentication required' });
-        client.disconnect();
+      if (token) {
+        await this.handleJwtConnection(client, token);
         return;
       }
 
-      // Verify JWT token
+      // Fall back to query params (for customers)
+      await this.handleQueryParamsConnection(client);
+    } catch (error) {
+      this.logger.error(`Connection error for ${client.id}: ${error.message}`);
+      client.emit('error', { message: 'Connection failed' });
+      client.disconnect();
+    }
+  }
+
+  /**
+   * Handle JWT-based connection (staff)
+   */
+  private async handleJwtConnection(client: Socket, token: string) {
+    try {
       const payload = await this.jwtService.verifyAsync(token);
       const { tenantId, userId } = payload;
 
       if (!tenantId || !userId) {
-        this.logger.warn(
-          `Client ${client.id} has invalid token payload - missing tenantId or userId`,
-        );
-        client.emit('error', { message: 'Invalid token payload' });
-        client.disconnect();
-        return;
+        throw new Error('Invalid token payload - missing tenantId or userId');
       }
 
       // Store client info
-      this.connectedClients.set(client.id, {
+      this.clients.set(client.id, {
         tenantId,
+        role: 'staff',
         userId,
         connectedAt: new Date(),
       });
 
-      // Join tenant-specific room for isolation
-      await client.join(`tenant:${tenantId}`);
+      // Join staff room
+      const staffRoom = `tenant:${tenantId}:staff`;
+      await client.join(staffRoom);
 
       this.logger.log(
-        `Client connected: ${client.id} (User: ${userId}, Tenant: ${tenantId}) - Total clients: ${this.connectedClients.size}`,
+        `Staff connected via JWT: ${client.id} (User: ${userId}, Tenant: ${tenantId})`,
       );
 
-      // Send connection confirmation
       client.emit('connected', {
         message: 'Connected to order updates',
         tenantId,
         userId,
+        role: 'staff',
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      this.logger.error(
-        `Authentication failed for client ${client.id}: ${error.message}`,
-      );
-      client.emit('error', { message: 'Authentication failed' });
-      client.disconnect();
+      this.logger.warn(`JWT auth failed for ${client.id}: ${error.message}`);
+      throw error;
     }
+  }
+
+  /**
+   * Handle query params connection (customers)
+   */
+  private async handleQueryParamsConnection(client: Socket) {
+    const tenantId = client.handshake.query.tenantId as string;
+    const role = client.handshake.query.role as 'staff' | 'customer';
+    const tableId = client.handshake.query.tableId as string;
+
+    if (!tenantId || !role) {
+      this.logger.warn(`Client ${client.id} missing auth info, disconnecting`);
+      client.disconnect();
+      return;
+    }
+
+    // Store client info
+    this.clients.set(client.id, {
+      tenantId,
+      role,
+      tableId,
+      connectedAt: new Date(),
+    });
+
+    // Join appropriate room
+    if (role === 'staff') {
+      const staffRoom = `tenant:${tenantId}:staff`;
+      await client.join(staffRoom);
+      this.logger.log(`Staff client ${client.id} joined room: ${staffRoom}`);
+    } else if (role === 'customer' && tableId) {
+      const customerRoom = `tenant:${tenantId}:customer:${tableId}`;
+      await client.join(customerRoom);
+      this.logger.log(
+        `Customer client ${client.id} joined room: ${customerRoom}`,
+      );
+    }
+
+    client.emit('connected', {
+      message: 'Connected to order updates',
+      tenantId,
+      role,
+      tableId,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**
    * Handle client disconnection
    */
   handleDisconnect(client: Socket) {
-    const clientInfo = this.connectedClients.get(client.id);
+    const clientInfo = this.clients.get(client.id);
 
     if (clientInfo) {
       const sessionDuration = Date.now() - clientInfo.connectedAt.getTime();
       this.logger.log(
-        `Client disconnected: ${client.id} (Tenant: ${clientInfo.tenantId}) - Session duration: ${Math.round(sessionDuration / 1000)}s - Remaining clients: ${this.connectedClients.size - 1}`,
+        `Client disconnected: ${client.id} (Tenant: ${clientInfo.tenantId}, Role: ${clientInfo.role}) - Session: ${Math.round(sessionDuration / 1000)}s`,
       );
-      this.connectedClients.delete(client.id);
+      this.clients.delete(client.id);
     } else {
       this.logger.warn(`Unknown client disconnected: ${client.id}`);
     }
   }
 
-  /**
-   * Emit order created event to all clients in tenant
-   *
-   * @param tenantId - Tenant identifier
-   * @param order - Order data
-   */
-  emitOrderCreated(tenantId: string, order: any) {
-    this.server.to(`tenant:${tenantId}`).emit('order:created', {
-      event: 'order:created',
-      data: order,
-      timestamp: new Date().toISOString(),
-    });
+  // ==================== SUBSCRIPTION HANDLERS ====================
 
-    this.logger.debug(
-      `Emitted order:created to tenant:${tenantId} - Order: ${order.id}`,
+  @SubscribeMessage('subscribe:staff')
+  handleStaffSubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { tenantId: string },
+  ) {
+    const room = `tenant:${data.tenantId}:staff`;
+    void client.join(room);
+    this.logger.log(`Client ${client.id} subscribed to staff room: ${room}`);
+    return { success: true, room };
+  }
+
+  @SubscribeMessage('subscribe:customer')
+  handleCustomerSubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { tenantId: string; tableId: string },
+  ) {
+    const room = `tenant:${data.tenantId}:customer:${data.tableId}`;
+    void client.join(room);
+    this.logger.log(
+      `Client ${client.id} subscribed to customer room: ${room}`,
+    );
+    return { success: true, room };
+  }
+
+  @SubscribeMessage('ping')
+  handlePing(@ConnectedSocket() client: Socket): string {
+    const clientInfo = this.clients.get(client.id);
+    if (clientInfo) {
+      this.logger.debug(
+        `Heartbeat from ${client.id} (Tenant: ${clientInfo.tenantId})`,
+      );
+    }
+    return 'pong';
+  }
+
+  // ==================== SERVER-SIDE EMITTERS ====================
+
+  /**
+   * Emit new order notification to staff/kitchen
+   * Triggered when customer checks out
+   */
+  emitNewOrder(tenantId: string, order: OrderResponseDto) {
+    const room = `tenant:${tenantId}:staff`;
+    this.server.to(room).emit(OrderEvents.NEW_ORDER, {
+      order,
+      timestamp: new Date(),
+    });
+    this.logger.log(
+      `New order notification sent to room: ${room} - Order #${order.orderNumber}`,
     );
   }
 
   /**
-   * Emit order status changed event
-   *
-   * @param tenantId - Tenant identifier
-   * @param orderId - Order identifier
-   * @param status - New order status
-   * @param order - Full order data
+   * Emit order status change to staff & customers
+   * Triggered when staff updates order status
    */
-  emitOrderStatusChanged(
-    tenantId: string,
-    orderId: string,
-    status: string,
-    order: any,
-  ) {
-    this.server.to(`tenant:${tenantId}`).emit('order:status_changed', {
-      event: 'order:status_changed',
-      data: {
-        orderId,
-        status,
-        order,
-      },
-      timestamp: new Date().toISOString(),
+  emitOrderStatusChanged(tenantId: string, order: OrderResponseDto) {
+    // Notify staff
+    const staffRoom = `tenant:${tenantId}:staff`;
+    this.server.to(staffRoom).emit(OrderEvents.STATUS_CHANGED, {
+      order,
+      timestamp: new Date(),
     });
 
-    this.logger.debug(
-      `Emitted order:status_changed to tenant:${tenantId} - Order: ${orderId} - Status: ${status}`,
+    // Notify customer at table
+    if (order.tableId) {
+      const customerRoom = `tenant:${tenantId}:customer:${order.tableId}`;
+      this.server.to(customerRoom).emit(OrderEvents.STATUS_CHANGED, {
+        order,
+        timestamp: new Date(),
+      });
+    }
+
+    this.logger.log(
+      `Order status change emitted - Order #${order.orderNumber} → ${order.status}`,
     );
   }
 
   /**
    * Emit payment completed event
+   * Triggered when payment is confirmed (via webhook or polling)
    *
    * @param tenantId - Tenant identifier
    * @param orderId - Order identifier
    * @param payment - Payment data
    */
   emitPaymentCompleted(tenantId: string, orderId: string, payment: any) {
-    this.server.to(`tenant:${tenantId}`).emit('order:payment_completed', {
+    // Notify staff room
+    const staffRoom = `tenant:${tenantId}:staff`;
+    this.server.to(staffRoom).emit('order:payment_completed', {
       event: 'order:payment_completed',
-      data: {
-        orderId,
-        payment,
-      },
+      data: { orderId, payment },
       timestamp: new Date().toISOString(),
     });
 
     this.logger.debug(
-      `Emitted order:payment_completed to tenant:${tenantId} - Order: ${orderId} - Payment: ${payment.id}`,
+      `Emitted order:payment_completed to tenant:${tenantId} - Order: ${orderId}`,
     );
   }
 
   /**
-   * Ping/Pong heartbeat handler
+   * Emit order timer update (for KDS)
+   * Called periodically for orders in PREPARING status
    */
-  @SubscribeMessage('ping')
-  handlePing(@ConnectedSocket() client: Socket): string {
-    const clientInfo = this.connectedClients.get(client.id);
-
-    if (clientInfo) {
-      this.logger.debug(
-        `Heartbeat from client ${client.id} (Tenant: ${clientInfo.tenantId})`,
-      );
-    }
-
-    return 'pong';
+  emitOrderTimerUpdate(
+    tenantId: string,
+    orderId: string,
+    elapsedMinutes: number,
+    priority: 'NORMAL' | 'HIGH' | 'URGENT',
+  ) {
+    const staffRoom = `tenant:${tenantId}:staff`;
+    this.server.to(staffRoom).emit('order:timer_update', {
+      orderId,
+      elapsedMinutes,
+      priority,
+      timestamp: new Date(),
+    });
   }
 
   /**
-   * Get connected clients count
+   * Broadcast order list update to staff (for dashboard refresh)
+   */
+  emitOrderListUpdate(tenantId: string, orders: OrderResponseDto[]) {
+    const staffRoom = `tenant:${tenantId}:staff`;
+    this.server.to(staffRoom).emit('order:list_update', {
+      orders,
+      timestamp: new Date(),
+    });
+  }
+
+  // ==================== UTILITY METHODS ====================
+
+  /**
+   * Get connected clients count for monitoring
    */
   getConnectedClientsCount(): number {
-    return this.connectedClients.size;
+    return this.clients.size;
   }
 
   /**
    * Get connected clients by tenant
    */
   getConnectedClientsByTenant(tenantId: string): number {
-    return Array.from(this.connectedClients.values()).filter(
+    return Array.from(this.clients.values()).filter(
       (client) => client.tenantId === tenantId,
     ).length;
+  }
+
+  /**
+   * Get clients in a specific room
+   */
+  async getClientsInRoom(room: string): Promise<string[]> {
+    const sockets = await this.server.in(room).fetchSockets();
+    return sockets.map((s) => s.id);
   }
 
   /**
    * Disconnect all clients for a specific tenant (admin feature)
    */
   async disconnectTenant(tenantId: string) {
-    const socketsInRoom = await this.server
-      .in(`tenant:${tenantId}`)
-      .fetchSockets();
+    const staffRoom = `tenant:${tenantId}:staff`;
+    const socketsInRoom = await this.server.in(staffRoom).fetchSockets();
 
     socketsInRoom.forEach((socket) => {
       socket.emit('disconnected', {
