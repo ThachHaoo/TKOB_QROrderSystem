@@ -74,8 +74,13 @@ enum PaymentStatus {
 
 enum OrderPriority {
   NORMAL
-  HIGH    // Đã quá thời gian chuẩn
-  URGENT  // Đã quá thời gian ngưỡng
+  HIGH // Đã quá thời gian chuẩn
+  URGENT // Đã quá thời gian ngưỡng
+}
+
+enum PromotionType {
+  PERCENTAGE // Giảm theo % (e.g., 20%)
+  FIXED // Giảm số tiền cố định (e.g., 50,000 VND)
 }
 
 // 3. Model TENANT
@@ -96,15 +101,18 @@ model Tenant {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations (Quan hệ ngược)
-  users          User[]
-  paymentConfig  TenantPaymentConfig?
-  menuItems      MenuItem[]
-  modifierGroups ModifierGroup[]
-  menuCategories MenuCategory[]
-  tables         Table[] // Relation to Table model
-  orders         Order[]
-  carts          Cart[] // Cart relation
-  payments       Payment[] // Payment relation
+  users            User[]
+  paymentConfig    TenantPaymentConfig?
+  menuItems        MenuItem[]
+  modifierGroups   ModifierGroup[]
+  menuCategories   MenuCategory[]
+  tables           Table[] // Relation to Table model
+  orders           Order[]
+  carts            Cart[] // Cart relation
+  payments         Payment[] // Payment relation
+  staffInvitations StaffInvitation[] // Staff invitations
+  promotions       Promotion[] // Promotion codes
+  subscription     TenantSubscription? // Subscription relation
 
   @@map("tenants") // Tên bảng trong DB là số nhiều 'tenants'
 }
@@ -153,12 +161,48 @@ model UserSession {
   @@map("user_sessions")
 }
 
+// Staff Invitation (Lời mời nhân viên)
+model StaffInvitation {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  email     String // Email người được mời
+  role      UserRole  @default(STAFF) // Role được assign
+  token     String    @unique // Token để accept invite
+  expiresAt DateTime  @map("expires_at") // Hết hạn sau 7 ngày
+  usedAt    DateTime? @map("used_at") // Đánh dấu đã sử dụng
+  invitedBy String    @map("invited_by") // User ID người mời
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, email])
+  @@index([token])
+  @@map("staff_invitations")
+}
+
 // 6. Model TENANT_PAYMENT_CONFIG
 model TenantPaymentConfig {
-  id                String @id @default(uuid())
-  stripe_account_id String
-  tenant_id         String @unique
-  tenant            Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  tenantId String @unique @map("tenant_id")
+
+  // SePay Config
+  sepayEnabled     Boolean @default(false) @map("sepay_enabled")
+  sepayApiKey      String? @map("sepay_api_key") // Encrypted
+  sepayAccountNo   String? @map("sepay_account_no")
+  sepayAccountName String? @map("sepay_account_name")
+  sepayBankCode    String? @map("sepay_bank_code") // e.g., "MB", "VCB", "ACB"
+
+  // Webhook (optional)
+  webhookSecret  String? @map("webhook_secret")
+  webhookEnabled Boolean @default(false) @map("webhook_enabled")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_payment_configs")
 }
@@ -386,15 +430,17 @@ model Order {
   customerNotes String? @map("customer_notes") @db.Text
 
   // Order details
-  status          OrderStatus   @default(PENDING)
-  priority        OrderPriority @default(NORMAL)
-  subtotal        Decimal       @db.Decimal(10, 2)
-  tax             Decimal       @default(0) @db.Decimal(10, 2)
-  total           Decimal       @db.Decimal(10, 2)
+  status        OrderStatus   @default(PENDING)
+  priority      OrderPriority @default(NORMAL)
+  subtotal      Decimal       @db.Decimal(10, 2)
+  tax           Decimal       @default(0) @db.Decimal(10, 2)
+  serviceCharge Decimal       @default(0) @map("service_charge") @db.Decimal(10, 2) // Service charge amount
+  tip           Decimal       @default(0) @db.Decimal(10, 2) // Tip amount
+  total         Decimal       @db.Decimal(10, 2)
 
   estimatedPrepTime Int? @map("estimated_prep_time") // Estimated time in minutes
-  actualPrepTime    Int? @map("actual_prep_time")    // Actual time taken in minutes
-  
+  actualPrepTime    Int? @map("actual_prep_time") // Actual time taken in minutes
+
   // Payment
   paymentMethod PaymentMethod @default(BILL_TO_TABLE) @map("payment_method")
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
@@ -402,17 +448,17 @@ model Order {
 
   // // Stripe payment (if applicable)
   // stripePaymentIntentId String? @map("stripe_payment_intent_id")
-  
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Metadata & Timestamps for KDS
-  receivedAt      DateTime?     @map("received_at")    // When status changed to RECEIVED
-  preparingAt     DateTime?     @map("preparing_at")  // When status changed to PREPARING
-  readyAt         DateTime?     @map("ready_at")      // When status changed to READY
-  servedAt        DateTime?     @map("served_at")
-  completedAt     DateTime?     @map("completed_at")
-  
+  receivedAt  DateTime? @map("received_at") // When status changed to RECEIVED
+  preparingAt DateTime? @map("preparing_at") // When status changed to PREPARING
+  readyAt     DateTime? @map("ready_at") // When status changed to READY
+  servedAt    DateTime? @map("served_at")
+  completedAt DateTime? @map("completed_at")
+
   // Relations
   tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   table         Table                @relation(fields: [tableId], references: [id], onDelete: Restrict)
@@ -446,18 +492,19 @@ model OrderItem {
   itemTotal Decimal @map("item_total") @db.Decimal(10, 2) // (price + modifiers) * quantity
 
   // Special instructions
-  notes           String?  @db.Text
-  
+  notes String? @db.Text
+
   // Kitchen status
-  prepared        Boolean  @default(false) // Đã chế biến xong chưa (for KDS)
-  preparedAt      DateTime? @map("prepared_at") // Thời điểm hoàn thành món này
-  
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
+  prepared   Boolean   @default(false) // Đã chế biến xong chưa (for KDS)
+  preparedAt DateTime? @map("prepared_at") // Thời điểm hoàn thành món này
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  order    Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  review   ItemReview? // One review per order item
 
   @@index([orderId])
   @@index([menuItemId])
@@ -565,4 +612,139 @@ model Payment {
   @@index([transactionId])
   @@index([expiresAt])
   @@map("payments")
+}
+
+// Item Review (Customer ratings for order items)
+model ItemReview {
+  id          String  @id @default(uuid())
+  orderItemId String  @map("order_item_id")
+  sessionId   String  @map("session_id")
+  tenantId    String  @map("tenant_id")
+  rating      Int // 1-5 stars
+  comment     String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@unique([orderItemId]) // One review per order item
+  @@index([sessionId])
+  @@index([tenantId, createdAt])
+  @@map("item_reviews")
+}
+
+// Promotion/Voucher (Mã giảm giá)
+model Promotion {
+  id          String        @id @default(uuid())
+  tenantId    String        @map("tenant_id")
+  code        String // "SUMMER20", "WELCOME10"
+  description String?
+  type        PromotionType // PERCENTAGE or FIXED
+
+  value         Decimal  @db.Decimal(10, 2) // 20 for 20%, 50000 for 50k VND
+  minOrderValue Decimal? @map("min_order_value") @db.Decimal(10, 2) // Minimum order to apply
+  maxDiscount   Decimal? @map("max_discount") @db.Decimal(10, 2) // Cap for percentage discounts
+
+  usageLimit Int? @map("usage_limit") // Max total uses (null = unlimited)
+  usageCount Int  @default(0) @map("usage_count") // Current usage count
+
+  startsAt  DateTime @map("starts_at")
+  expiresAt DateTime @map("expires_at")
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code]) // Code unique per tenant
+  @@index([tenantId, active])
+  @@index([code])
+  @@map("promotions")
+}
+
+// ================================================
+// SUBSCRIPTION SYSTEM
+// ================================================
+
+enum SubscriptionTier {
+  FREE // Free forever with limits
+  BASIC // Paid tier with higher limits
+  PREMIUM // Unlimited tier
+}
+
+enum SubscriptionStatus {
+  ACTIVE // Currently active
+  EXPIRED // Payment not renewed
+  CANCELLED // User cancelled
+}
+
+// Subscription Plans - DB-driven pricing (can change without deploy)
+model SubscriptionPlan {
+  id   String           @id @default(uuid())
+  tier SubscriptionTier @unique // FREE, BASIC, PREMIUM
+
+  // Pricing (DB-driven, can be updated)
+  priceUSD Decimal @default(0) @map("price_usd") @db.Decimal(10, 2) // Monthly price in USD
+  priceVND Decimal @default(0) @map("price_vnd") @db.Decimal(12, 0) // Monthly price in VND
+
+  // Limits (-1 = unlimited)
+  maxTables      Int @default(1) @map("max_tables") // Max tables allowed
+  maxMenuItems   Int @default(10) @map("max_menu_items") // Max menu items
+  maxOrdersMonth Int @default(100) @map("max_orders_month") // Max orders per month
+  maxStaff       Int @default(1) @map("max_staff") // Max staff members
+
+  // Features (JSON for flexibility)
+  features Json @default("{}") // { "analytics": false, "promotions": false, "customBranding": false }
+
+  // Display
+  name        String // "Free", "Basic", "Premium"
+  description String? // "Perfect for small restaurants"
+
+  // Metadata
+  isActive  Boolean  @default(true) @map("is_active") // Can disable a plan
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  subscriptions TenantSubscription[]
+
+  @@map("subscription_plans")
+}
+
+// Tenant's active subscription
+model TenantSubscription {
+  id       String @id @default(uuid())
+  tenantId String @unique @map("tenant_id")
+  planId   String @map("plan_id")
+
+  // Status
+  status SubscriptionStatus @default(ACTIVE)
+
+  // Billing cycle
+  currentPeriodStart DateTime  @map("current_period_start")
+  currentPeriodEnd   DateTime? @map("current_period_end") // null for FREE (never expires)
+
+  // Usage tracking (reset monthly)
+  ordersThisMonth Int      @default(0) @map("orders_this_month")
+  usageResetAt    DateTime @default(now()) @map("usage_reset_at") // Last reset date
+
+  // Payment history reference
+  lastPaymentId String? @map("last_payment_id") // Reference to payment for upgrade
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([tenantId])
+  @@index([planId])
+  @@index([status])
+  @@map("tenant_subscriptions")
 }
