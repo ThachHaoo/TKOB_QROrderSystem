@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TableController } from './controllers/table.controller';
 import { PublicTableController } from './controllers/public-table.controller';
 import { TableService } from './services/table.service';
@@ -9,9 +9,10 @@ import { TableRepository } from './repositories/table.repository';
 import { TableSessionRepository } from './repositories/table-session.repository';
 import { SessionGuard } from './guards/session.guard';
 import { MenuModule } from '../menu/menu.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
-  imports: [MenuModule],
+  imports: [forwardRef(() => MenuModule), forwardRef(() => SubscriptionModule)],
   controllers: [TableController, PublicTableController],
   providers: [
     // Services
