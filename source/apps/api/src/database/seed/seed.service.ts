@@ -577,8 +577,8 @@ export class SeedService {
         tier: SubscriptionTier.BASIC,
         name: 'Basic',
         description: 'Great for small restaurants. More tables and menu items.',
-        priceUSD: 2,
-        priceVND: 50000, // 2 * 25000
+        priceUSD: 1,
+        priceVND: 25000,
         maxTables: 10,
         maxMenuItems: 50,
         maxOrdersMonth: 500,
@@ -594,8 +594,8 @@ export class SeedService {
         tier: SubscriptionTier.PREMIUM,
         name: 'Premium',
         description: 'Unlimited everything for growing businesses.',
-        priceUSD: 9,
-        priceVND: 225000, // 9 * 25000
+        priceUSD: 2,
+        priceVND: 50000, // 2 * 50000
         maxTables: -1, // Unlimited
         maxMenuItems: -1,
         maxOrdersMonth: -1,

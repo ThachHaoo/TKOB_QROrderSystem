@@ -50,6 +50,14 @@ export class RedisService implements OnModuleDestroy {
     return this.client.ttl(key);
   }
 
+  /**
+   * Get the underlying Redis client for advanced operations
+   * Use sparingly - prefer the wrapped methods above
+   */
+  getClient(): Redis {
+    return this.client;
+  }
+
   onModuleDestroy() {
     this.client.disconnect();
   }

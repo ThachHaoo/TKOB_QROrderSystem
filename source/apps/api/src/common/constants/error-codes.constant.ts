@@ -60,6 +60,43 @@ export enum ErrorCode {
   PAYMENT_AMOUNT_MISMATCH = 'PAYMENT_AMOUNT_MISMATCH',
   PAYMENT_STRIPE_ERROR = 'PAYMENT_STRIPE_ERROR',
   PAYMENT_REFUND_FAILED = 'PAYMENT_REFUND_FAILED',
+  PAYMENT_NOT_FOUND = 'PAYMENT_NOT_FOUND',
+  PAYMENT_EXPIRED = 'PAYMENT_EXPIRED',
+  PAYMENT_ALREADY_COMPLETED = 'PAYMENT_ALREADY_COMPLETED',
+
+  // ==================== SUBSCRIPTION ERRORS (7500-7999) ====================
+  SUBSCRIPTION_PLAN_NOT_FOUND = 'SUBSCRIPTION_PLAN_NOT_FOUND',
+  SUBSCRIPTION_NOT_FOUND = 'SUBSCRIPTION_NOT_FOUND',
+  SUBSCRIPTION_LIMIT_EXCEEDED = 'SUBSCRIPTION_LIMIT_EXCEEDED',
+  SUBSCRIPTION_FEATURE_NOT_AVAILABLE = 'SUBSCRIPTION_FEATURE_NOT_AVAILABLE',
+  SUBSCRIPTION_UPGRADE_FAILED = 'SUBSCRIPTION_UPGRADE_FAILED',
+  SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED = 'SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED',
+  SUBSCRIPTION_PAYMENT_PENDING = 'SUBSCRIPTION_PAYMENT_PENDING',
+
+  // ==================== CART ERRORS (7600-7699) ====================
+  CART_NOT_FOUND = 'CART_NOT_FOUND',
+  CART_ITEM_NOT_FOUND = 'CART_ITEM_NOT_FOUND',
+  CART_EMPTY = 'CART_EMPTY',
+  CART_EXPIRED = 'CART_EXPIRED',
+
+  // ==================== SESSION ERRORS (7700-7799) ====================
+  SESSION_NOT_FOUND = 'SESSION_NOT_FOUND',
+  SESSION_EXPIRED = 'SESSION_EXPIRED',
+  SESSION_INVALID = 'SESSION_INVALID',
+
+  // ==================== STAFF ERRORS (7800-7899) ====================
+  STAFF_INVITATION_NOT_FOUND = 'STAFF_INVITATION_NOT_FOUND',
+  STAFF_INVITATION_EXPIRED = 'STAFF_INVITATION_EXPIRED',
+  STAFF_INVITATION_ALREADY_USED = 'STAFF_INVITATION_ALREADY_USED',
+  STAFF_ALREADY_EXISTS = 'STAFF_ALREADY_EXISTS',
+  STAFF_CANNOT_REMOVE_OWNER = 'STAFF_CANNOT_REMOVE_OWNER',
+
+  // ==================== PROMOTION ERRORS (7900-7999) ====================
+  PROMOTION_NOT_FOUND = 'PROMOTION_NOT_FOUND',
+  PROMOTION_EXPIRED = 'PROMOTION_EXPIRED',
+  PROMOTION_INACTIVE = 'PROMOTION_INACTIVE',
+  PROMOTION_USAGE_LIMIT_REACHED = 'PROMOTION_USAGE_LIMIT_REACHED',
+  PROMOTION_MIN_ORDER_NOT_MET = 'PROMOTION_MIN_ORDER_NOT_MET',
 
   // ==================== VALIDATION ERRORS (8000-8999) ====================
   VALIDATION_FAILED = 'VALIDATION_FAILED',
@@ -137,6 +174,43 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.PAYMENT_AMOUNT_MISMATCH]: 'Payment amount does not match order total',
   [ErrorCode.PAYMENT_STRIPE_ERROR]: 'Stripe payment error',
   [ErrorCode.PAYMENT_REFUND_FAILED]: 'Refund failed',
+  [ErrorCode.PAYMENT_NOT_FOUND]: 'Payment not found',
+  [ErrorCode.PAYMENT_EXPIRED]: 'Payment has expired',
+  [ErrorCode.PAYMENT_ALREADY_COMPLETED]: 'Payment has already been completed',
+
+  // Subscription
+  [ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND]: 'Subscription plan not found',
+  [ErrorCode.SUBSCRIPTION_NOT_FOUND]: 'Subscription not found',
+  [ErrorCode.SUBSCRIPTION_LIMIT_EXCEEDED]: 'You have reached the limit for your current subscription plan. Please upgrade to continue.',
+  [ErrorCode.SUBSCRIPTION_FEATURE_NOT_AVAILABLE]: 'This feature is not available in your current plan. Please upgrade to access this feature.',
+  [ErrorCode.SUBSCRIPTION_UPGRADE_FAILED]: 'Failed to upgrade subscription',
+  [ErrorCode.SUBSCRIPTION_DOWNGRADE_NOT_ALLOWED]: 'Subscription downgrade is not allowed through this method',
+  [ErrorCode.SUBSCRIPTION_PAYMENT_PENDING]: 'There is already a pending payment for subscription upgrade',
+
+  // Cart
+  [ErrorCode.CART_NOT_FOUND]: 'Cart not found',
+  [ErrorCode.CART_ITEM_NOT_FOUND]: 'Cart item not found',
+  [ErrorCode.CART_EMPTY]: 'Cart is empty',
+  [ErrorCode.CART_EXPIRED]: 'Cart has expired. Please add items again.',
+
+  // Session
+  [ErrorCode.SESSION_NOT_FOUND]: 'Session not found',
+  [ErrorCode.SESSION_EXPIRED]: 'Session has expired. Please scan the QR code again.',
+  [ErrorCode.SESSION_INVALID]: 'Invalid session',
+
+  // Staff
+  [ErrorCode.STAFF_INVITATION_NOT_FOUND]: 'Staff invitation not found',
+  [ErrorCode.STAFF_INVITATION_EXPIRED]: 'Staff invitation has expired',
+  [ErrorCode.STAFF_INVITATION_ALREADY_USED]: 'Staff invitation has already been used',
+  [ErrorCode.STAFF_ALREADY_EXISTS]: 'A staff member with this email already exists',
+  [ErrorCode.STAFF_CANNOT_REMOVE_OWNER]: 'Cannot remove the restaurant owner',
+
+  // Promotion
+  [ErrorCode.PROMOTION_NOT_FOUND]: 'Promotion code not found',
+  [ErrorCode.PROMOTION_EXPIRED]: 'Promotion code has expired',
+  [ErrorCode.PROMOTION_INACTIVE]: 'Promotion code is not active',
+  [ErrorCode.PROMOTION_USAGE_LIMIT_REACHED]: 'Promotion code usage limit has been reached',
+  [ErrorCode.PROMOTION_MIN_ORDER_NOT_MET]: 'Minimum order value not met for this promotion',
 
   // Validation
   [ErrorCode.VALIDATION_FAILED]: 'Validation failed',
