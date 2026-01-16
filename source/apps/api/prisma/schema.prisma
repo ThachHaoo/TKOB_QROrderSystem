@@ -575,7 +575,7 @@ model CartItem {
 // Payment (Online payment transactions)
 model Payment {
   id       String        @id @default(uuid())
-  orderId  String        @unique @map("order_id")
+  orderId  String?       @unique @map("order_id") // Optional for subscription payments
   tenantId String        @map("tenant_id")
   method   PaymentMethod
   status   PaymentStatus @default(PENDING)
@@ -605,7 +605,7 @@ model Payment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order  Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
