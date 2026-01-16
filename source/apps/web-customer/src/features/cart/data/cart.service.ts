@@ -14,8 +14,8 @@
 import {
   cartControllerGetCart,
   cartControllerAddToCart,
-  cartControllerUpdateItem,
-  cartControllerRemoveItem,
+  cartControllerUpdateCartItem,
+  cartControllerRemoveCartItem,
   cartControllerClearCart,
 } from '@/services/generated/cart/cart';
 
@@ -84,7 +84,7 @@ export class CartApiService {
   async updateItem(itemId: string, request: UpdateCartItemRequest): Promise<CartResponse> {
     log('data', 'Updating cart item', { itemId, quantity: request.quantity }, { feature: 'cart' });
     
-    const cart = await cartControllerUpdateItem(itemId, request);
+    const cart = await cartControllerUpdateCartItem(itemId, request);
     
     log('data', 'Cart item updated', { itemCount: cart.itemCount }, { feature: 'cart' });
     return cart;
@@ -96,7 +96,7 @@ export class CartApiService {
   async removeItem(itemId: string): Promise<CartResponse> {
     log('data', 'Removing cart item', { itemId }, { feature: 'cart' });
     
-    const cart = await cartControllerRemoveItem(itemId);
+    const cart = await cartControllerRemoveCartItem(itemId);
     
     log('data', 'Cart item removed', { itemCount: cart.itemCount }, { feature: 'cart' });
     return cart;
