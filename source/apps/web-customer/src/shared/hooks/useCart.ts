@@ -1,67 +1,63 @@
 'use client'
 
 import { useCartStore } from '@/stores/cart.store'
-import { useMemo } from 'react'
+import { useEffect } from 'react'
 
+/**
+ * Cart hook - provides cart data and actions
+ * 
+ * Now fetches cart from server on mount (syncs with backend)
+ * All calculations (subtotal, tax, total) come from server
+ */
 export function useCart() {
   const {
     items,
+    subtotal,
+    tax,
+    total,
+    itemCount,
+    isLoading,
+    isInitialized,
+    error,
+    fetchCart,
     addItem,
     updateQuantity,
     removeItem,
     clearCart,
-    getItemCount,
+    resetError,
   } = useCartStore()
 
-  const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => {
-      // Get base price from menuItem
-      let itemPrice = item.menuItem.basePrice
-
-      // Add size price if selected
-      if (item.selectedSize && item.menuItem.sizes) {
-        const sizeOption = item.menuItem.sizes.find(s => s.size === item.selectedSize)
-        if (sizeOption) {
-          itemPrice = sizeOption.price
-        }
-      }
-
-      // Add toppings price
-      if (item.selectedToppings.length > 0 && item.menuItem.toppings) {
-        const toppingsPrice = item.selectedToppings.reduce((tSum: number, toppingId: string) => {
-          const topping = item.menuItem.toppings?.find(t => t.id === toppingId)
-          return tSum + (topping?.price || 0)
-        }, 0)
-        itemPrice += toppingsPrice
-      }
-
-      const itemTotal = itemPrice * item.quantity
-      return sum + itemTotal
-    }, 0)
-
-    const tax = subtotal * 0.1 // 10% tax
-    const serviceCharge = subtotal * 0.05 // 5% service charge
-    const total = subtotal + tax + serviceCharge
-
-    return {
-      subtotal,
-      tax,
-      serviceCharge,
-      total,
+  // Fetch cart from server on mount
+  useEffect(() => {
+    if (!isInitialized) {
+      fetchCart()
     }
-  }, [items])
+  }, [isInitialized, fetchCart])
 
-  const itemCount = useMemo(() => {
-    return getItemCount()
-  }, [items, getItemCount])
+  // Service charge is calculated on server (included in total)
+  // For display purposes, we can derive it: total - subtotal - tax
+  const serviceCharge = total - subtotal - tax
 
   return {
+    // Cart data (from server)
     items,
     itemCount,
+    subtotal,
+    tax,
+    serviceCharge,
+    total,
+    
+    // UI state
+    isLoading,
+    isInitialized,
+    error,
+    
+    // Actions
     addItem,
     updateQuantity,
     removeItem,
     clearCart,
-    ...totals,
+    resetError,
+    refetch: fetchCart,
   }
 }

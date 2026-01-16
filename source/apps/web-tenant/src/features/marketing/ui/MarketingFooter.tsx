@@ -97,7 +97,7 @@ export function MarketingFooter() {
             <h4 className="font-heading font-semibold text-white mb-4">Legal</h4>
             <ul className="flex flex-col gap-2">
               {footerLinks.legal.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link
                     href={link.href}
                     className="text-sm text-gray-400 hover:text-emerald-400 transition-colors"

@@ -13,6 +13,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { MenuPhotoController } from './controllers/menu-photo.controller';
 import { MenuPhotoService } from './services/menu-photo.service';
 import { StorageModule } from './infrastructure/storage/storage.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StorageModule } from './infrastructure/storage/storage.module';
     }),
 
     StorageModule,
+    SubscriptionModule,
   ],
   controllers: [
     MenuCategoryController,

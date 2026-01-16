@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { log, logError } from '@/shared/logging/logger'
 import { maskId } from '@/shared/logging/helpers'
+import { useOrderControllerRequestBill } from '@/services/generated/orders/orders'
 
 interface RequestBillButtonProps {
   orderId?: string
@@ -41,6 +42,9 @@ export function RequestBillButton({
   const [isLoading, setIsLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  // API mutation for requesting bill
+  const { mutateAsync: requestBill } = useOrderControllerRequestBill()
+
   // Check localStorage on mount
   useEffect(() => {
     if (orderId && isBillRequestedInStorage(orderId)) {
@@ -70,15 +74,11 @@ export function RequestBillButton({
     log('ui', 'Bill request initiated', { orderId: maskId(orderId) }, { feature: 'orders' });
     
     try {
-      // TODO: Hook up to API once available
-      // const response = await requestBillAPI(orderId)
-      
-      // Mock success for now
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const response = await requestBill({ orderId })
       
       setIsRequested(true)
       setBillRequestedInStorage(orderId)
-      toast.success('Bill requested. A server will assist you shortly.')
+      toast.success(response.message || 'Bill requested. A server will assist you shortly.')
       
       log('ui', 'Bill request successful', { orderId: maskId(orderId) }, { feature: 'orders' });
       

@@ -96,6 +96,27 @@ export class EmailService implements OnModuleInit {
   }
 
   /**
+   * Send generic email with custom content
+   */
+  async sendGenericEmail(email: string, subject: string, html: string): Promise<void> {
+    const from = this.configService.get('EMAIL_FROM', { infer: true });
+
+    try {
+      if (this.provider === 'sendgrid') {
+        await this.sendViaSendGrid({ to: email, from, subject, html });
+      } else {
+        await this.sendViaSmtp({ to: email, from, subject, html });
+      }
+
+      this.logger.log(`✅ Generic email sent to ${email} via ${this.provider}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ Failed to send generic email to ${email}: ${errorMessage}`);
+      throw new Error(`Failed to send email: ${errorMessage}`);
+    }
+  }
+
+  /**
    * Send email via SendGrid
    */
   private async sendViaSendGrid(params: {
@@ -265,6 +286,87 @@ export class EmailService implements OnModuleInit {
               
               <p><strong>⏰ This link will expire in 1 hour.</strong></p>
               <p style="font-size: 13px; color: #6b7280;">If you didn't request this, you can safely ignore this email.</p>
+            </div>
+            <div class="footer">
+              <p>&copy; 2025 TKOB QR Ordering. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Send email verification link
+   */
+  async sendEmailVerification(email: string, verificationLink: string): Promise<void> {
+    const from = this.configService.get('EMAIL_FROM', { infer: true });
+    const subject = 'Verify Your Email - QR Ordering Platform';
+    const html = this.getEmailVerificationTemplate(verificationLink);
+
+    try {
+      if (this.provider === 'sendgrid') {
+        await this.sendViaSendGrid({ to: email, from, subject, html });
+      } else {
+        await this.sendViaSmtp({ to: email, from, subject, html });
+      }
+
+      this.logger.log(`✅ Email verification sent to ${email}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`❌ Failed to send email verification to ${email}: ${errorMessage}`);
+      throw new Error(`Failed to send email verification: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Email Verification Template
+   */
+  private getEmailVerificationTemplate(verificationLink: string): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #10B981; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+            .btn { 
+              display: inline-block;
+              background: #10B981; 
+              color: white !important; 
+              padding: 14px 28px; 
+              text-decoration: none; 
+              border-radius: 8px;
+              font-weight: bold;
+              margin: 20px 0;
+            }
+            .footer { text-align: center; color: #6b7280; font-size: 13px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🍽️ QR Ordering Platform</h1>
+            </div>
+            <div class="content">
+              <h2 style="color: #111827; margin-top: 0;">Verify Your Email Address</h2>
+              <p>Thank you for signing up! Please verify your email address by clicking the button below:</p>
+              
+              <div style="text-align: center;">
+                <a href="${verificationLink}" class="btn">Verify Email</a>
+              </div>
+              
+              <p style="font-size: 13px; color: #6b7280;">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="${verificationLink}" style="color: #10B981;">${verificationLink}</a>
+              </p>
+              
+              <p><strong>⏰ This link will expire in 24 hours.</strong></p>
+              <p style="font-size: 13px; color: #6b7280;">If you didn't create an account, you can safely ignore this email.</p>
             </div>
             <div class="footer">
               <p>&copy; 2025 TKOB QR Ordering. All rights reserved.</p>

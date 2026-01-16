@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { RegistrationService } from './registration.service';
 import { SessionService } from './session.service';
@@ -8,7 +8,16 @@ import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { RegisterSubmitDto } from '../dto/register-submit.dto';
 import { RegisterConfirmDto } from '../dto/register-confirm.dto';
 import { AuthResponseDto, RegisterSubmitResponseDto } from '../dto/auth-response.dto';
+import { ForgotPasswordDto, ForgotPasswordResponseDto } from '../dto/forgot-password.dto';
+import { ResetPasswordDto, ResetPasswordResponseDto } from '../dto/reset-password.dto';
+import { VerifyEmailDto, VerifyEmailResponseDto } from '../dto/verify-email.dto';
+import { ResendVerificationDto, ResendVerificationResponseDto } from '../dto/resend-verification.dto';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+import { EmailService } from '../../email/email.service';
+import { RedisService } from '../../redis/redis.service';
+import { ConfigService } from '@nestjs/config';
+import { EnvConfig } from '../../../config/env.validation';
 
 /**
  * Auth Service (Main Orchestrator)
@@ -28,6 +37,9 @@ export class AuthService {
     private readonly registration: RegistrationService,
     private readonly session: SessionService,
     private readonly token: TokenService,
+    private readonly email: EmailService,
+    private readonly redis: RedisService,
+    private readonly config: ConfigService<EnvConfig, true>,
   ) {}
 
   // ==================== REGISTRATION ====================
@@ -267,5 +279,196 @@ export class AuthService {
     await this.logoutAll(userId);
 
     this.logger.log(`Password changed for user: ${userId}`);
+  }
+
+  // ==================== PASSWORD RESET ====================
+
+  /**
+   * Request password reset (send reset link via email)
+   * @param dto - ForgotPasswordDto
+   * @returns Response with status message
+   */
+  async forgotPassword(dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
+    const { email } = dto;
+
+    // Find user by email
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, fullName: true },
+    });
+
+    // Always return success (don't reveal if email exists for security)
+    if (!user) {
+      this.logger.warn(`Password reset requested for non-existent email: ${email}`);
+      return {
+        message: 'If an account exists with this email, you will receive a password reset link shortly.',
+        email,
+      };
+    }
+
+    // Generate reset token (32 bytes = 64 hex chars)
+    const resetToken = randomBytes(32).toString('hex');
+
+    // Store in Redis with 15 min expiry
+    const redisKey = `password-reset:${resetToken}`;
+    const ttl = 15 * 60; // 15 minutes
+    await this.redis.set(redisKey, JSON.stringify({ userId: user.id, email: user.email }), ttl);
+
+    // Generate reset link
+    const frontendUrl = this.config.get('CUSTOMER_APP_URL', { infer: true });
+    const resetLink = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
+
+    // Send email
+    try {
+      await this.email.sendPasswordReset(user.email, resetLink);
+      this.logger.log(`Password reset email sent to: ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to: ${email}`, error);
+      // Clean up Redis token
+      await this.redis.del(redisKey);
+      throw new BadRequestException('Failed to send password reset email. Please try again later.');
+    }
+
+    return {
+      message: 'If an account exists with this email, you will receive a password reset link shortly.',
+      email,
+    };
+  }
+
+  /**
+   * Reset password with token
+   * @param dto - ResetPasswordDto
+   * @returns Response with status message
+   */
+  async resetPassword(dto: ResetPasswordDto): Promise<ResetPasswordResponseDto> {
+    const { token, newPassword } = dto;
+
+    // Retrieve data from Redis
+    const redisKey = `password-reset:${token}`;
+    const data = await this.redis.get(redisKey);
+
+    if (!data) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    const { userId, email } = JSON.parse(data);
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    // Delete token from Redis (one-time use)
+    await this.redis.del(redisKey);
+
+    // Logout from all devices for security
+    await this.session.deleteAllSessions(userId);
+
+    this.logger.log(`Password reset successful for user: ${email}`);
+
+    return {
+      message: 'Password reset successful. You can now log in with your new password.',
+      email,
+    };
+  }
+
+  // ==================== EMAIL VERIFICATION ====================
+
+  /**
+   * Verify email address with token
+   * @param dto - VerifyEmailDto
+   * @returns Response with verification status
+   */
+  async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
+    const { token } = dto;
+
+    // Retrieve data from Redis
+    const redisKey = `email-verification:${token}`;
+    const data = await this.redis.get(redisKey);
+
+    if (!data) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    const { userId, email } = JSON.parse(data);
+
+    // Mark user as ACTIVE (email verified)
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: 'ACTIVE' },
+    });
+
+    // Delete token from Redis (one-time use)
+    await this.redis.del(redisKey);
+
+    this.logger.log(`Email verified for user: ${email}`);
+
+    return {
+      message: 'Email verified successfully!',
+      email,
+      verified: true,
+    };
+  }
+
+  /**
+   * Resend verification email
+   * @param dto - ResendVerificationDto
+   * @returns Response with status message
+   */
+  async resendVerification(dto: ResendVerificationDto): Promise<ResendVerificationResponseDto> {
+    const { email } = dto;
+
+    // Find user by email
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, fullName: true, status: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+
+    if (user.status === 'ACTIVE') {
+      return {
+        message: 'Your email is already verified',
+        email,
+      };
+    }
+
+    // Generate verification token
+    const verificationToken = randomBytes(32).toString('hex');
+
+    // Store in Redis with 24 hour expiry
+    const redisKey = `email-verification:${verificationToken}`;
+    const ttl = 24 * 60 * 60; // 24 hours
+    await this.redis.set(
+      redisKey,
+      JSON.stringify({ userId: user.id, email: user.email }),
+      ttl,
+    );
+
+    // Generate verification link
+    const frontendUrl = this.config.get('CUSTOMER_APP_URL', { infer: true });
+    const verificationLink = `${frontendUrl}/auth/verify-email?token=${verificationToken}`;
+
+    // Send email
+    try {
+      await this.email.sendEmailVerification(user.email, verificationLink);
+      this.logger.log(`Verification email resent to: ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to resend verification email to: ${email}`, error);
+      // Clean up Redis token
+      await this.redis.del(redisKey);
+      throw new BadRequestException('Failed to send verification email. Please try again later.');
+    }
+
+    return {
+      message: 'Verification email sent. Please check your inbox.',
+      email,
+    };
   }
 }

@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { Badge } from '@/shared/components';
-import { Bell, BellOff, RefreshCw, Plus } from 'lucide-react';
+import { Bell, BellOff, RefreshCw, Plus, LogOut } from 'lucide-react';
 
 interface ServiceHeaderProps {
   soundEnabled: boolean;
@@ -18,6 +18,7 @@ interface ServiceHeaderProps {
   onToggleAutoRefresh: () => void;
   onRefresh: () => void;
   onManualOrder?: () => void;
+  onLogout: () => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export function ServiceHeaderMobile({
   onToggleSound,
   onToggleAutoRefresh,
   onRefresh,
+  onLogout,
 }: Omit<ServiceHeaderProps, 'userRole' | 'onManualOrder'>) {
   return (
     <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-default px-3 py-2">
@@ -88,6 +90,15 @@ export function ServiceHeaderMobile({
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+          
+          {/* Logout */}
+          <button
+            onClick={onLogout}
+            className="flex items-center justify-center w-11 h-11 bg-white border border-default text-red-500 rounded-lg active:bg-elevated hover:bg-red-50"
+            aria-label="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -106,6 +117,7 @@ export function ServiceHeaderDesktop({
   onToggleAutoRefresh,
   onRefresh,
   onManualOrder,
+  onLogout,
 }: ServiceHeaderProps) {
   return (
     <div className="hidden lg:block bg-white border-b border-default px-6 py-4">
@@ -182,6 +194,15 @@ export function ServiceHeaderDesktop({
               <span className="hidden sm:inline">Manual Order</span>
             </button>
           )}
+          
+          {/* Logout */}
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-red-50 border-2 border-red-200 text-red-600 rounded-lg transition-all text-sm font-semibold min-h-[40px]"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       </div>
     </div>

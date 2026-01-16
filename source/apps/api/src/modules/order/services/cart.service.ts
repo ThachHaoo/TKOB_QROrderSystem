@@ -5,48 +5,66 @@ import {
   CartResponseDto,
   UpdateCartItemDto,
 } from '../dtos/cart.dto';
-import { RedisService } from '@/modules/redis/redis.service';
 import { PrismaService } from '@/database/prisma.service';
 import { $Enums } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { v4 as uuidv4 } from 'uuid';
-
-interface CartItem {
-  id: string;
-  menuItemId: string;
-  name: string;
-  price: number;
-  quantity: number;
-  modifiers: CartModifierDto[];
-  notes?: string;
-  itemTotal: number;
-}
-
-interface Cart {
-  items: CartItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-}
 
 @Injectable()
 export class CartService {
   private readonly logger = new Logger(CartService.name);
-  // private readonly TAX_RATE = 0.08;
-  private readonly CART_TTL = 86400; // 24 hours
+  private readonly CART_EXPIRY_HOURS = 24;
 
-  constructor(
-    private readonly redis: RedisService,
-    private readonly prima: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async addToCard(
+  /**
+   * Get or create cart for a table session
+   */
+  async getOrCreateCart(
+    tenantId: string,
+    tableId: string,
+    sessionId?: string,
+  ): Promise<string> {
+    // Try to find existing active cart
+    const existingCart = await this.prisma.cart.findFirst({
+      where: {
+        tenantId,
+        tableId,
+        sessionId,
+        expiresAt: { gte: new Date() },
+      },
+    });
+
+    if (existingCart) {
+      return existingCart.id;
+    }
+
+    // Create new cart
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + this.CART_EXPIRY_HOURS);
+
+    const cart = await this.prisma.cart.create({
+      data: {
+        tenantId,
+        tableId,
+        sessionId,
+        expiresAt,
+      },
+    });
+
+    return cart.id;
+  }
+
+  /**
+   * Add item to cart or update quantity if exists with same modifiers
+   */
+  async addToCart(
     sessionId: string,
     tenantId: string,
+    tableId: string,
     dto: AddToCartDto,
   ): Promise<CartResponseDto> {
     // 1. Fetch menu item detail
-    const menuItem = await this.prima.x.menuItem.findUnique({
+    const menuItem = await this.prisma.menuItem.findUnique({
       where: { id: dto.menuItemId, tenantId },
       include: {
         modifierGroups: {
@@ -69,136 +87,281 @@ export class CartService {
       throw new BadRequestException('Menu item is currently unavailable');
     }
 
-    // 2. Validate modifiers and fetch full data from DB
+    // 2. Validate modifiers
     const validatedModifiers = this.validateAndEnrichModifiers(menuItem, dto.modifiers || []);
 
-    // 3. Calculate item price
+    // 3. Calculate unit price
     const modifiersTotal = validatedModifiers.reduce((sum, m) => sum + m.priceDelta, 0);
-    const itemTotal = (Number(menuItem.price) + modifiersTotal) * dto.quantity;
+    const unitPrice = Number(menuItem.price) + modifiersTotal;
 
-    // 4. Get existing cart
-    const cart = await this.getCart(sessionId);
+    // 4. Get or create cart
+    const cartId = await this.getOrCreateCart(tenantId, tableId, sessionId);
 
     // 5. Check if same item with same modifiers exists
-    const existingItemIndex = cart.items.findIndex(
-      (item) =>
-        item.menuItemId === dto.menuItemId &&
-        this.areModifiersEqual(item.modifiers, validatedModifiers) &&
-        item.notes === dto.notes,
-    );
+    const existingItems = await this.prisma.cartItem.findMany({
+      where: { cartId },
+    });
 
-    if (existingItemIndex >= 0) {
+    const normalizedModifiers = this.normalizeModifiers(validatedModifiers);
+    const existingItem = existingItems.find((item) => {
+      if (item.menuItemId !== dto.menuItemId) return false;
+      if (item.notes !== dto.notes) return false;
+
+      const itemModifiers = this.normalizeModifiers((item.modifiers as any) || []);
+      return this.areModifiersEqual(itemModifiers, normalizedModifiers);
+    });
+
+    if (existingItem) {
       // Update quantity
-      cart.items[existingItemIndex].quantity += dto.quantity;
-      cart.items[existingItemIndex].itemTotal =
-        (Number(menuItem.price) + modifiersTotal) * cart.items[existingItemIndex].quantity;
+      await this.prisma.cartItem.update({
+        where: { id: existingItem.id },
+        data: {
+          quantity: existingItem.quantity + dto.quantity,
+          unitPrice,
+        },
+      });
     } else {
       // Add new item
-      const newItem: CartItem = {
-        id: uuidv4(),
-        menuItemId: dto.menuItemId,
-        name: menuItem.name,
-        price: Number(menuItem.price),
-        quantity: dto.quantity,
-        modifiers: validatedModifiers,
-        notes: dto.notes,
-        itemTotal,
-      };
-      cart.items.push(newItem);
+      await this.prisma.cartItem.create({
+        data: {
+          cartId,
+          menuItemId: dto.menuItemId,
+          quantity: dto.quantity,
+          unitPrice,
+          notes: dto.notes,
+          modifiers: validatedModifiers as any,
+        },
+      });
     }
 
-    // 6. Recalculate totals
-    this.recalculateCart(cart);
-
-    // 7. Save to Redis
-    await this.saveCart(sessionId, cart);
-
-    return this.toResponseDto(cart);
+    // 6. Return updated cart
+    return this.getCartResponse(cartId);
   }
 
-  async getCart(sessionId: string): Promise<Cart> {
-    const cartKey = `cart:${sessionId}`;
-    const cartData = await this.redis.get(cartKey);
+  /**
+   * Get cart by table and session
+   */
+  async getCartByTable(
+    tenantId: string,
+    tableId: string,
+    sessionId?: string,
+  ): Promise<CartResponseDto> {
+    const cart = await this.prisma.cart.findFirst({
+      where: {
+        tenantId,
+        tableId,
+        sessionId,
+        expiresAt: { gte: new Date() },
+      },
+      include: {
+        items: {
+          include: {
+            menuItem: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-    if (!cartData) {
+    if (!cart) {
       return {
         items: [],
         subtotal: 0,
         tax: 0,
         total: 0,
+        itemCount: 0,
       };
     }
 
-    return JSON.parse(cartData) as Cart;
+    return this.buildCartResponse(cart);
   }
 
+  /**
+   * Update cart item quantity
+   */
   async updateCartItem(
-    sessionId: string,
+    cartId: string,
     itemId: string,
     dto: UpdateCartItemDto,
   ): Promise<CartResponseDto> {
-    const cart = await this.getCart(sessionId);
+    const item = await this.prisma.cartItem.findFirst({
+      where: { id: itemId, cartId },
+    });
 
-    const itemIndex = cart.items.findIndex((item) => item.id === itemId);
-    if (itemIndex < 0) {
+    if (!item) {
       throw new NotFoundException('Cart item not found');
     }
 
     if (dto.quantity === 0) {
       // Remove item
-      cart.items.splice(itemIndex, 1);
+      await this.prisma.cartItem.delete({
+        where: { id: itemId },
+      });
     } else {
-      // Update quantity
-      const item = cart.items[itemIndex];
-      const pricePerUnit = item.itemTotal / item.quantity;
-      item.quantity = dto.quantity;
-      item.itemTotal = pricePerUnit * dto.quantity;
+      // Update quantity and/or notes
+      await this.prisma.cartItem.update({
+        where: { id: itemId },
+        data: {
+          quantity: dto.quantity,
+          notes: dto.notes ?? item.notes,
+        },
+      });
     }
 
-    if (dto.notes) {
-      cart.items[itemIndex].notes = dto.notes;
+    return this.getCartResponse(cartId);
+  }
+
+  /**
+   * Remove item from cart
+   */
+  async removeCartItem(cartId: string, itemId: string): Promise<CartResponseDto> {
+    const item = await this.prisma.cartItem.findFirst({
+      where: { id: itemId, cartId },
+    });
+
+    if (!item) {
+      throw new NotFoundException('Cart item not found');
     }
 
-    this.recalculateCart(cart);
-    await this.saveCart(sessionId, cart);
+    await this.prisma.cartItem.delete({
+      where: { id: itemId },
+    });
 
-    return this.toResponseDto(cart);
+    return this.getCartResponse(cartId);
   }
 
-  async removeCartItem(sessionId: string, itemId: string): Promise<CartResponseDto> {
-    return this.updateCartItem(sessionId, itemId, { quantity: 0 });
+  /**
+   * Clear all items from cart
+   */
+  async clearCart(cartId: string): Promise<void> {
+    await this.prisma.cartItem.deleteMany({
+      where: { cartId },
+    });
   }
 
-  async clearCart(sessionId: string): Promise<void> {
-    const cartKey = `cart:${sessionId}`;
-    await this.redis.del(cartKey);
+  /**
+   * Get cart total
+   */
+  async getCartTotal(cartId: string): Promise<{ subtotal: number; total: number }> {
+    const cart = await this.prisma.cart.findUnique({
+      where: { id: cartId },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
+    }
+
+    const subtotal = cart.items.reduce(
+      (sum, item) => sum + Number(item.unitPrice) * item.quantity,
+      0,
+    );
+
+    return {
+      subtotal,
+      total: subtotal,
+    };
   }
 
   // ==================== PRIVATE HELPERS ====================
 
-  private async saveCart(sessionId: string, cart: Cart): Promise<void> {
-    const cartKey = `cart:${sessionId}`;
-    await this.redis.set(cartKey, JSON.stringify(cart), this.CART_TTL);
+  /**
+   * Get cart response by cart ID
+   */
+  private async getCartResponse(cartId: string): Promise<CartResponseDto> {
+    const cart = await this.prisma.cart.findUnique({
+      where: { id: cartId },
+      include: {
+        items: {
+          include: {
+            menuItem: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
+    }
+
+    return this.buildCartResponse(cart);
   }
 
-  private recalculateCart(cart: Cart): void {
-    cart.subtotal = cart.items.reduce((sum, item) => sum + item.itemTotal, 0);
-    // cart.tax = cart.subtotal * this.TAX_RATE;
-    cart.total = cart.subtotal + cart.tax;
+  /**
+   * Build cart response DTO from cart data
+   */
+  private buildCartResponse(cart: any): CartResponseDto {
+    const items = cart.items.map((item: any) => {
+      const itemTotal = Number(item.unitPrice) * item.quantity;
+      return {
+        id: item.id,
+        menuItemId: item.menuItemId,
+        name: item.menuItem.name,
+        price: Number(item.menuItem.price),
+        quantity: item.quantity,
+        modifiers: (item.modifiers as any) || [],
+        notes: item.notes,
+        itemTotal,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + item.itemTotal, 0);
+    const tax = 0; // Can add tax calculation later
+    const total = subtotal + tax;
+    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    return {
+      items,
+      subtotal: Math.round(subtotal),
+      tax: Math.round(tax),
+      total: Math.round(total),
+      itemCount,
+    };
   }
 
+  /**
+   * Normalize modifiers for comparison
+   */
+  private normalizeModifiers(modifiers: CartModifierDto[]): CartModifierDto[] {
+    return modifiers
+      .slice()
+      .sort((a, b) => {
+        const groupCompare = a.groupId.localeCompare(b.groupId);
+        if (groupCompare !== 0) return groupCompare;
+        return a.optionId.localeCompare(b.optionId);
+      });
+  }
+
+  /**
+   * Check if two modifier arrays are equal
+   */
   private areModifiersEqual(modifiers1: CartModifierDto[], modifiers2: CartModifierDto[]): boolean {
     if (modifiers1.length !== modifiers2.length) return false;
 
-    const sorted1 = modifiers1.slice().sort((a, b) => a.optionId.localeCompare(b.optionId));
-    const sorted2 = modifiers2.slice().sort((a, b) => a.optionId.localeCompare(b.optionId));
-
-    return sorted1.every(
+    return modifiers1.every(
       (m1, index) =>
-        m1.groupId === sorted2[index].groupId && m1.optionId === sorted2[index].optionId,
+        m1.groupId === modifiers2[index].groupId && m1.optionId === modifiers2[index].optionId,
     );
   }
 
+  /**
+   * Validate modifiers against menu item's modifier groups
+   */
   private validateAndEnrichModifiers(
     menuItem: {
       modifierGroups: ({
@@ -207,7 +370,6 @@ export class CartService {
             id: string;
             name: string;
             priceDelta: Decimal;
-            // ...other fields
           }[];
         } & {
           id: string;
@@ -216,14 +378,12 @@ export class CartService {
           required: boolean;
           minChoices: number;
           maxChoices: number | null;
-          // ...other fields
         };
       } & { menuItemId: string; modifierGroupId: string })[];
     } & {
       id: string;
       name: string;
       price: Decimal;
-      // ...other fields
     },
     modifiers: { groupId: string; optionId: string }[],
   ): CartModifierDto[] {
@@ -270,24 +430,5 @@ export class CartService {
     }
 
     return validated;
-  }
-
-  private toResponseDto(cart: Cart): CartResponseDto {
-    return {
-      items: cart.items.map((item) => ({
-        id: item.id,
-        menuItemId: item.menuItemId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        modifiers: item.modifiers,
-        notes: item.notes,
-        itemTotal: item.itemTotal,
-      })),
-      subtotal: Math.round(cart.subtotal),
-      tax: Math.round(cart.tax),
-      total: Math.round(cart.total),
-      itemCount: cart.items.reduce((sum, item) => sum + item.quantity, 0),
-    };
   }
 }

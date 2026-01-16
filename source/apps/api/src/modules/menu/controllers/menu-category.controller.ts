@@ -22,6 +22,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { MenuCategoryResponseDto } from '../dto/menu-response.dto';
 import type { AuthenticatedUser } from 'src/common/interfaces/auth.interface';
+import { SkipTransform } from 'src/common/interceptors/transform.interceptor';
 
 @ApiTags('Menu - Categories')
 @Controller('menu/categories')
@@ -82,6 +83,7 @@ export class MenuCategoryController {
   @Roles(UserRole.OWNER)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({
     summary: 'Archive menu category',
     description: 'Soft delete: Sets active = false',
@@ -91,5 +93,23 @@ export class MenuCategoryController {
     await this.menuCategoryService.delete(id);
   }
 
-  // todo: create api reorder category
+  @Patch('reorder')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
+  @ApiOperation({
+    summary: 'Reorder menu categories',
+    description: 'Update display order of multiple categories at once',
+  })
+  @ApiResponse({ status: 204, description: 'Categories reordered successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid order data' })
+  async reorder(
+    @Body() dto: { categories: Array<{ id: string; displayOrder: number }> },
+  ) {
+    // Update display order for each category
+    await Promise.all(
+      dto.categories.map((cat) =>
+        this.menuCategoryService.update(cat.id, { displayOrder: cat.displayOrder }),
+      ),
+    );
+  }
 }

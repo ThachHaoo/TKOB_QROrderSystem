@@ -28,6 +28,7 @@ import { OrderFiltersDto } from '../dtos/order-filters.dto';
 import { AuthenticatedUser } from '@/common/interfaces/auth.interface';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto';
+import { SkipTransform } from '@/common/interceptors/transform.interceptor';
 
 @ApiTags('Orders')
 @Controller()
@@ -100,6 +101,59 @@ export class OrderController {
     return this.orderService.getOrderTracking(orderId);
   }
 
+  @Post('orders/:orderId/cancel')
+  @UseGuards(SessionGuard)
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('table_session_id')
+  @ApiOperation({
+    summary: 'Cancel order (customer self-service)',
+    description: 'Customers can cancel their own order within 5 minutes if kitchen has not started',
+  })
+  @ApiResponse({ status: 200, type: OrderResponseDto })
+  @ApiResponse({ status: 400, description: 'Cancellation window expired or order already preparing' })
+  async customerCancelOrder(
+    @Session() session: SessionData,
+    @Param('orderId') orderId: string,
+    @Body() body: { reason?: string },
+  ): Promise<OrderResponseDto> {
+    return this.orderService.customerCancelOrder(
+      orderId,
+      session.tableId,
+      body.reason || 'Customer requested cancellation',
+    );
+  }
+
+  @Post('orders/:orderId/request-bill')
+  @UseGuards(SessionGuard)
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth('table_session_id')
+  @ApiOperation({
+    summary: 'Request bill for order (customer)',
+    description: 'Customer requests bill/check. Notifies staff to bring bill to table.',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+        orderId: { type: 'string' },
+        tableNumber: { type: 'string' },
+        requestedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Order not found or not eligible for bill request' })
+  async requestBill(
+    @Session() session: SessionData,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.orderService.requestBill(orderId, session.tableId);
+  }
+
   // ==================== STAFF ENDPOINTS ====================
   @Get('admin/orders')
   @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
@@ -160,6 +214,7 @@ export class OrderController {
   @Roles(UserRole.KITCHEN, UserRole.STAFF, UserRole.OWNER)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({ summary: 'Mark order item as prepared (KDS)' })
   @ApiResponse({ status: 204 })
   async markItemPrepared(

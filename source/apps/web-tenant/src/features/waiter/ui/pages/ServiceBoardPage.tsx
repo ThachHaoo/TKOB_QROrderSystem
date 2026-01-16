@@ -35,6 +35,7 @@ export function ServiceBoardPage({ userRole = 'waiter' }: ServiceBoardPageProps)
           onToggleSound={actions.toggleSound}
           onToggleAutoRefresh={actions.toggleAutoRefresh}
           onRefresh={actions.refresh}
+          onLogout={actions.handleLogout}
         />
 
         {/* Desktop Header */}
@@ -46,6 +47,7 @@ export function ServiceBoardPage({ userRole = 'waiter' }: ServiceBoardPageProps)
           onToggleAutoRefresh={actions.toggleAutoRefresh}
           onRefresh={actions.refresh}
           onManualOrder={actions.manualOrder}
+          onLogout={actions.handleLogout}
         />
 
         {/* Tab Bar */}

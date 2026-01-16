@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { useAnimeOnMount, useAnimeOnInView } from '../hooks/useAnimeAnimations';
+import { usePublicSubscriptionControllerGetPublicPlans } from '@/services/generated/subscription-public/subscription-public';
 
 // Floating food emojis for hero section
 const floatingFoods = ['🍕', '🍔', '🍜', '🍣', '🥗', '🍰', '☕'];
@@ -96,41 +97,94 @@ const testimonials = [
   },
 ];
 
-// Pricing plans
-const pricingPlans = [
-  {
-    name: 'Starter',
-    price: '$1',
-    period: '/month',
-    description: 'Perfect for small restaurants',
-    features: ['Up to 10 tables', 'Basic QR ordering', 'Standard KDS', 'Email support'],
-    cta: 'Start Free Trial',
-    highlighted: false,
-  },
-  {
-    name: 'Pro',
-    price: '$79',
-    period: '/month',
-    description: 'For growing restaurants',
-    features: ['Unlimited tables', 'Advanced QR + Menu', 'Full KDS + Service Board', 'Analytics Dashboard', 'Staff management', 'Priority support'],
-    cta: 'Start Free Trial',
-    highlighted: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    description: 'Multi-branch solutions',
-    features: ['Multi-location support', 'Custom integrations', 'Dedicated account manager', 'SLA guarantee', 'On-site training'],
-    cta: 'Contact Us',
-    highlighted: false,
-  },
-];
-
 export function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const statsRef = useRef<HTMLDivElement>(null);
   const featuresRef = useRef<HTMLDivElement>(null);
+
+  // Fetch pricing plans from API
+  const { data: apiPlans, isLoading: isLoadingPlans } = usePublicSubscriptionControllerGetPublicPlans();
+
+  // Map API plans to display format
+  const pricingPlans = React.useMemo(() => {
+    if (!apiPlans || apiPlans.length === 0) {
+      // Fallback plans while loading or if API fails
+      return [
+        {
+          name: 'Starter',
+          price: '$29',
+          period: '/month',
+          description: 'Perfect for small restaurants',
+          features: ['Up to 10 tables', 'Basic QR ordering', 'Standard KDS', 'Email support'],
+          cta: 'Start Free Trial',
+          highlighted: false,
+          tier: 'BASIC',
+        },
+        {
+          name: 'Pro',
+          price: '$79',
+          period: '/month',
+          description: 'For growing restaurants',
+          features: ['Unlimited tables', 'Advanced QR + Menu', 'Full KDS + Service Board', 'Analytics Dashboard', 'Staff management', 'Priority support'],
+          cta: 'Start Free Trial',
+          highlighted: true,
+          tier: 'PREMIUM',
+        },
+        {
+          name: 'Enterprise',
+          price: 'Custom',
+          period: '',
+          description: 'Multi-branch solutions',
+          features: ['Multi-location support', 'Custom integrations', 'Dedicated account manager', 'SLA guarantee', 'On-site training'],
+          cta: 'Contact Us',
+          highlighted: false,
+          tier: 'ENTERPRISE',
+        },
+      ];
+    }
+
+    // Transform API plans to display format
+    return (apiPlans as any[]).map((plan: any) => {
+      const isPopular = plan.tier === 'PREMIUM';
+      const isEnterprise = plan.tier === 'ENTERPRISE';
+      
+      // Transform features object to array of strings
+      let featuresArray: string[] = [];
+      if (plan.features && typeof plan.features === 'object') {
+        // Features from API is an object like {analytics: boolean, promotions: boolean, ...}
+        // Convert to readable strings based on plan limits
+        featuresArray = [
+          plan.maxTables === -1 ? 'Unlimited tables' : `Up to ${plan.maxTables} table${plan.maxTables > 1 ? 's' : ''}`,
+          plan.maxMenuItems === -1 ? 'Unlimited menu items' : `Up to ${plan.maxMenuItems} menu items`,
+          plan.maxOrdersMonth === -1 ? 'Unlimited orders/month' : `${plan.maxOrdersMonth} orders/month`,
+          plan.maxStaff === -1 ? 'Unlimited staff' : `Up to ${plan.maxStaff} staff member${plan.maxStaff > 1 ? 's' : ''}`,
+        ];
+        
+        // Add feature-based items
+        if (plan.features.analytics) featuresArray.push('Analytics Dashboard');
+        if (plan.features.promotions) featuresArray.push('Promotions & Discounts');
+        if (plan.features.customBranding) featuresArray.push('Custom Branding');
+        if (plan.features.prioritySupport) featuresArray.push('Priority Support');
+        
+        // Add email support for plans without priority support
+        if (!plan.features.prioritySupport) featuresArray.push('Email Support');
+      } else if (Array.isArray(plan.features)) {
+        // Fallback if features is already an array
+        featuresArray = plan.features;
+      }
+      
+      return {
+        name: plan.name || plan.tier,
+        price: isEnterprise ? 'Custom' : `$${(plan.priceUSD || 0).toFixed(0)}`,
+        period: isEnterprise ? '' : '/month',
+        description: plan.description || '',
+        features: featuresArray,
+        cta: isEnterprise ? 'Contact Us' : 'Start Free Trial',
+        highlighted: isPopular,
+        tier: plan.tier,
+      };
+    });
+  }, [apiPlans]);
 
   // Hero animation on mount
   useAnimeOnMount(heroRef, 'fadeUpStagger');
@@ -383,8 +437,13 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
-            {pricingPlans.map((plan, i) => (
+          {isLoadingPlans ? (
+            <div className="flex justify-center items-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
+              {pricingPlans.map((plan, i) => (
               <div
                 key={i}
                 className={`relative rounded-2xl p-6 md:p-8 ${
@@ -429,6 +488,7 @@ export function LandingPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </section>
 

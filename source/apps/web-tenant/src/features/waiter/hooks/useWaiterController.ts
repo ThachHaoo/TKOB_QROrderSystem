@@ -6,6 +6,8 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/shared/context/AuthContext';
 import { useServiceOrders } from './queries';
 import { sortOrdersByStatus } from '../utils';
 import type { ServiceOrder, OrderStatus, ServiceTabCounts } from '../model/types';
@@ -52,6 +54,7 @@ interface WaiterActions {
   refresh: () => void;
   manualOrder: () => void;
   closeToast: () => void;
+  handleLogout: () => void;
 }
 
 export interface UseWaiterControllerReturn {
@@ -60,6 +63,10 @@ export interface UseWaiterControllerReturn {
 }
 
 export function useWaiterController(): UseWaiterControllerReturn {
+  // Router and Auth
+  const router = useRouter();
+  const { logout } = useAuth();
+  
   // Data from query hook
   const { orders: fetchedOrders, isLoading, error, refetch } = useServiceOrders();
   
@@ -140,6 +147,12 @@ export function useWaiterController(): UseWaiterControllerReturn {
     
     return sorted;
   }, [orders, activeTab]);
+
+  // Logout handler
+  const handleLogout = useCallback(() => {
+    logout();
+    router.push('/auth/login');
+  }, [logout, router]);
 
   // Helper to update order and show toast
   const updateOrderStatus = useCallback((orderId: string, newStatus: OrderStatus, message: string) => {
@@ -273,6 +286,8 @@ export function useWaiterController(): UseWaiterControllerReturn {
     }, []),
     
     closeToast: useCallback(() => setShowSuccessToast(false), []),
+    
+    handleLogout,
   };
 
   // State

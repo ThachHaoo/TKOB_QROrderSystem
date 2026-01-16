@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   UtensilsCrossed,
+  CreditCard,
 } from 'lucide-react';
 import type { AdminNavItem, AdminScreenId } from './AdminShell';
 
@@ -30,6 +31,7 @@ export interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   userRole?: string;
+  isMobileView?: boolean;
 }
 
 // Get time-based greeting
@@ -46,6 +48,7 @@ export function Sidebar({
   collapsed = false,
   onToggleCollapse,
   userRole = 'Owner',
+  isMobileView = false,
 }: SidebarProps) {
   // Memoize greeting to prevent unnecessary recalculations
   const fullGreeting = useMemo(() => getGreeting(), []);
@@ -144,10 +147,12 @@ export function Sidebar({
   return (
     <aside
       className={`
-        hidden md:flex flex-col bg-white border-r border-gray-200 
+        flex flex-col bg-white border-r border-gray-200 
         transition-all duration-500 ease-in-out shrink-0 h-full
+        ${!isMobileView ? 'hidden md:flex' : ''}
         ${collapsed ? 'w-20' : 'w-64'}
       `}
+      style={{ minWidth: collapsed ? '80px' : '256px' }}
     >
       {/* Logo + Greeting Section - AT TOP */}
       {!collapsed && (

@@ -1,46 +1,22 @@
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { CartItem } from '@/types';
+import type { CartItemResponse } from '@/features/cart/data/types';
 import { OptimizedImage } from '@packages/ui';
 
 interface CartItemCardProps {
-  cartItem: CartItem;
+  cartItem: CartItemResponse;
   onUpdateQuantity: (id: string, newQuantity: number) => void;
   onRemove: (id: string) => void;
-  onEdit: (cartItem: CartItem) => void;
+  onEdit?: (cartItem: CartItemResponse) => void;
 }
 
-export function CartItemCard({ cartItem, onUpdateQuantity, onRemove, onEdit }: CartItemCardProps) {
-  const getItemTotal = () => {
-    let total = cartItem.menuItem.basePrice;
-
-    // Add size price
-    if (cartItem.selectedSize && cartItem.menuItem.sizes) {
-      const size = cartItem.menuItem.sizes.find((s) => s.size === cartItem.selectedSize);
-      if (size) {
-        total = size.price;
-      }
-    }
-
-    // Add topping prices
-    if (cartItem.menuItem.toppings) {
-      cartItem.selectedToppings.forEach((toppingId) => {
-        const topping = cartItem.menuItem.toppings!.find((t) => t.id === toppingId);
-        if (topping) {
-          total += topping.price;
-        }
-      });
-    }
-
-    return total * cartItem.quantity;
-  };
-
+export function CartItemCard({ cartItem, onUpdateQuantity, onRemove, onEdit: _onEdit }: CartItemCardProps) {
   return (
     <div className="bg-white rounded-xl p-4 border" style={{ borderColor: 'var(--gray-200)' }}>
       <div className="flex gap-3">
         {/* Image */}
         <OptimizedImage
-          src={cartItem.menuItem.imageUrl}
-          alt={cartItem.menuItem.name}
+          src={cartItem.imageUrl || '/placeholder-food.jpg'}
+          alt={cartItem.name}
           width={80}
           height={80}
           className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
@@ -50,7 +26,7 @@ export function CartItemCard({ cartItem, onUpdateQuantity, onRemove, onEdit }: C
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between mb-1">
             <h4 className="truncate" style={{ color: 'var(--gray-900)' }}>
-              {cartItem.menuItem.name}
+              {cartItem.name}
             </h4>
             <button
               onClick={() => onRemove(cartItem.id)}
@@ -61,28 +37,21 @@ export function CartItemCard({ cartItem, onUpdateQuantity, onRemove, onEdit }: C
           </div>
 
           {/* Modifiers */}
-          {(cartItem.selectedSize || cartItem.selectedToppings.length > 0) && (
+          {cartItem.modifiers && cartItem.modifiers.length > 0 && (
             <div className="mb-2" style={{ fontSize: '13px', color: 'var(--gray-600)' }}>
-              {cartItem.selectedSize && <div>Size: {cartItem.selectedSize}</div>}
-              {cartItem.selectedToppings.length > 0 && (
-                <div>
-                  Extras:{' '}
-                  {cartItem.selectedToppings
-                    .map((id) => {
-                      const topping = cartItem.menuItem.toppings?.find((t) => t.id === id);
-                      return topping?.name;
-                    })
-                    .filter(Boolean)
-                    .join(', ')}
+              {cartItem.modifiers.map((mod, index) => (
+                <div key={index}>
+                  {mod.groupName}: {mod.optionName}
+                  {mod.priceDelta > 0 && ` (+$${mod.priceDelta.toFixed(2)})`}
                 </div>
-              )}
+              ))}
             </div>
           )}
 
           {/* Special Instructions */}
-          {cartItem.specialInstructions && (
+          {cartItem.notes && (
             <div className="mb-2 px-2 py-1 rounded" style={{ backgroundColor: 'var(--orange-50)', fontSize: '12px', color: 'var(--gray-700)' }}>
-              Note: {cartItem.specialInstructions}
+              Note: {cartItem.notes}
             </div>
           )}
 
@@ -108,7 +77,7 @@ export function CartItemCard({ cartItem, onUpdateQuantity, onRemove, onEdit }: C
             </div>
 
             <span style={{ color: 'var(--gray-900)' }}>
-              ${getItemTotal().toFixed(2)}
+              ${cartItem.itemTotal.toFixed(2)}
             </span>
           </div>
         </div>

@@ -11,7 +11,8 @@ import { TenantService } from './tenant.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UpdateOpeningHoursDto } from '../dto/update-opening-hours.dto';
 import { UpdateSettingsDto } from '../dto/update-settings.dto';
-import { UpdatePaymentConfigDto } from '../dto/update-payment-config.dto';
+import { PaymentConfigService } from '../../payment-config/payment-config.service';
+import { UpdatePaymentConfigDto } from '../../payment-config/dto/payment-config.dto';
 
 @Injectable()
 export class OnboardingService {
@@ -20,6 +21,7 @@ export class OnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantService: TenantService,
+    private readonly paymentConfigService: PaymentConfigService,
   ) {}
 
   /**
@@ -100,7 +102,7 @@ export class OnboardingService {
   }
 
   /**
-   * Step 3: Update settings
+   * Step 3: Update settings (includes tax, service charge, tip config)
    */
   async updateSettings(tenantId: string, dto: UpdateSettingsDto) {
     const tenant = await this.tenantService.getTenant(tenantId);
@@ -109,15 +111,45 @@ export class OnboardingService {
       throw new NotFoundException('Tenant not found');
     }
 
+    const currentSettings = (tenant.settings as Record<string, any>) || {};
+
+    // Build updated settings, preserving existing values
+    const updatedSettings: Record<string, any> = {
+      ...currentSettings,
+      ...(dto.language && { language: dto.language }),
+      ...(dto.timezone && { timezone: dto.timezone }),
+      ...(dto.currency && { currency: dto.currency }),
+    };
+
+    // Update tax settings if provided
+    if (dto.tax) {
+      updatedSettings.tax = {
+        ...currentSettings.tax,
+        ...dto.tax,
+      };
+    }
+
+    // Update service charge settings if provided
+    if (dto.serviceCharge) {
+      updatedSettings.serviceCharge = {
+        ...currentSettings.serviceCharge,
+        ...dto.serviceCharge,
+      };
+    }
+
+    // Update tip settings if provided
+    if (dto.tip) {
+      updatedSettings.tip = {
+        ...currentSettings.tip,
+        ...dto.tip,
+      };
+    }
+
     try {
       const updated = await this.prisma.tenant.update({
         where: { id: tenantId },
         data: {
-          settings: {
-            ...(tenant.settings as object),
-            ...(dto.language && { language: dto.language }),
-            ...(dto.timezone && { timezone: dto.timezone }),
-          },
+          settings: updatedSettings,
           onboardingStep: tenant.onboardingStep < 4 ? 4 : tenant.onboardingStep,
         },
       });
@@ -131,8 +163,7 @@ export class OnboardingService {
   }
 
   /**
-   * Step 4: Configure payment (Stripe integration)
-   * Note: Requires TenantPaymentConfig model to be created first
+   * Step 4: Configure payment (SePay integration)
    */
   async updatePaymentConfig(tenantId: string, dto: UpdatePaymentConfigDto) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -143,53 +174,43 @@ export class OnboardingService {
       throw new NotFoundException('Tenant not found');
     }
 
-    // TODO: Implement when TenantPaymentConfig model is added to schema
-    throw new BadRequestException('Payment configuration not yet implemented');
+    try {
+      // Use PaymentConfigService to update (handles encryption)
+      const config = await this.paymentConfigService.updateConfig(tenantId, dto);
 
-    /*
-      try {
-        const config = await this.prisma.tenantPaymentConfig.upsert({
-          where: { tenantId },
-          create: {
-            tenantId,
-            stripeAccountId: dto.stripeAccountId,
-          },
-          update: {
-            stripeAccountId: dto.stripeAccountId,
-          },
-        });
-  
-        // Advance onboarding step
-        await this.prisma.tenant.update({
-          where: { id: tenantId },
-          data: {
-            onboardingStep: Math.max(tenant.onboardingStep, 3),
-          },
-        });
-  
-        this.logger.log(`Payment config updated: ${tenantId}`);
-        return config;
-      } catch (error) {
-        this.logger.error('Failed to update payment config', error);
-        throw new BadRequestException('Failed to update payment config');
-      }
-      */
+      // Advance onboarding step
+      await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          onboardingStep: Math.max(tenant.onboardingStep, 4),
+        },
+      });
+
+      this.logger.log(`Payment config updated: ${tenantId}`);
+      return config;
+    } catch (error) {
+      this.logger.error('Failed to update payment config', error);
+      throw new BadRequestException('Failed to update payment config');
+    }
   }
 
   /**
    * Complete onboarding
+   * Note: Frontend has 3 steps (Profile, Hours, Review)
+   * We allow completion after step 2 (hours set)
    */
   async completeOnboarding(tenantId: string) {
     const tenant = await this.tenantService.getTenant(tenantId);
 
-    if (tenant.onboardingStep < 5) {
+    // Allow completion if at least profile and hours are set (step >= 2)
+    if (tenant.onboardingStep < 2) {
       throw new ForbiddenException('Please complete all onboarding steps first');
     }
 
     const updated = await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        onboardingStep: 5,
+        onboardingStep: 5, // Mark as fully complete
         status: 'ACTIVE',
       },
     });

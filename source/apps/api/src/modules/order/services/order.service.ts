@@ -1,8 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
-  forwardRef,
-  Inject,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,13 +12,16 @@ import { CartService } from './cart.service';
 import { MenuItemsService } from '@/modules/menu/services/menu-item.service';
 import { OrderResponseDto } from '../dtos/order-response.dto';
 import { OrderStatus, PaymentMethod } from '@prisma/client';
+import { TenantService } from '@/modules/tenant/services/tenant.service';
+import { SubscriptionService } from '@/modules/subscription/subscription.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 // Import PaymentStatus type and enum directly from Prisma client
 import type { PaymentStatus, Prisma } from '@prisma/client';
 import { OrderFiltersDto } from '../dtos/order-filters.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto';
-import { OrderGateway } from '../gateways/order.gateway';
+import { OrderGateway } from '@/modules/websocket/gateways/order.gateway';
 const PaymentStatusEnum = {
   PENDING: 'PENDING',
   PAID: 'PAID',
@@ -34,8 +36,9 @@ export class OrderService {
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
     private readonly menuItemsService: MenuItemsService,
-    @Inject(forwardRef(() => OrderGateway))
     private readonly orderGateway: OrderGateway,
+    private readonly tenantService: TenantService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   async checkout(
@@ -44,23 +47,54 @@ export class OrderService {
     tableId: string,
     dto: CheckoutDto,
   ): Promise<OrderResponseDto> {
-    // 1. Get cart
-    const cart = await this.cartService.getCart(sessionId);
+    // 0. Check subscription limits before creating order
+    const canCreateOrder = await this.subscriptionService.canPerformAction(tenantId, 'createOrder');
+    if (!canCreateOrder.allowed) {
+      throw new ForbiddenException({
+        message: canCreateOrder.reason,
+        code: 'SUBSCRIPTION_LIMIT_EXCEEDED',
+        currentUsage: canCreateOrder.currentUsage,
+        limit: canCreateOrder.limit,
+        upgradeRequired: true,
+      });
+    }
+
+    // 1. Get cart by table
+    const cart = await this.cartService.getCartByTable(tenantId, tableId, sessionId);
 
     if (cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
 
-    // 2. Generate order number
+    // 2. Get tenant pricing settings
+    const pricingSettings = await this.tenantService.getPricingSettings(tenantId);
+
+    // 3. Generate order number
     const orderNumber = await this.generateOrderNumber(tenantId);
 
-    // 3. Determine initial status based on payment method
+    // 4. Calculate service charge based on tenant settings
+    let serviceChargeAmount = new Decimal(0);
+    if (pricingSettings.serviceCharge.enabled) {
+      serviceChargeAmount = new Decimal(cart.subtotal)
+        .mul(pricingSettings.serviceCharge.rate)
+        .div(100);
+    }
+
+    // 5. Handle tip from checkout DTO
+    const tipAmount = new Decimal(dto.tip || 0);
+
+    // 6. Recalculate total with service charge and tip
+    const subtotal = new Decimal(cart.subtotal);
+    const taxAmount = new Decimal(cart.tax);
+    const total = subtotal.add(taxAmount).add(serviceChargeAmount).add(tipAmount);
+
+    // 7. Determine initial status based on payment method
     const initialStatus =
       dto.paymentMethod === 'BILL_TO_TABLE' ? OrderStatus.RECEIVED : OrderStatus.PENDING;
 
     const initialPaymentStatus: PaymentStatus = PaymentStatusEnum.PENDING;
 
-    // 4. Create order with items in transaction
+    // 8. Create order with items in transaction
     const order = await this.prisma.$transaction(async (tx) => {
       // Create order
       const newOrder = await tx.order.create({
@@ -72,9 +106,11 @@ export class OrderService {
           customerName: dto.customerName,
           customerNotes: dto.customerNotes,
           status: initialStatus,
-          subtotal: cart.subtotal,
-          tax: cart.tax,
-          total: cart.total,
+          subtotal: subtotal,
+          tax: taxAmount,
+          serviceCharge: serviceChargeAmount,
+          tip: tipAmount,
+          total: total,
           paymentMethod: dto.paymentMethod as PaymentMethod,
           paymentStatus: initialPaymentStatus,
         },
@@ -111,16 +147,12 @@ export class OrderService {
       return newOrder;
     });
 
-    // 5. Clear cart
-    await this.cartService.clearCart(sessionId);
+    // 5. Clear cart - get cartId first
+    const cartId = await this.cartService.getOrCreateCart(tenantId, tableId, sessionId);
+    await this.cartService.clearCart(cartId);
 
-    // 6. If online payment, create Stripe PaymentIntent
-    // let stripeClientSecret: string | undefined;
-    // if (dto.paymentMethod === 'CARD_ONLINE') {
-    //   // TODO: Implement Stripe integration (Epic 5)
-    //   // stripeClientSecret = await this.stripeService.createPaymentIntent(order);
-    //   throw new BadRequestException('Online payment not yet implemented');
-    // }
+    // 6. Increment order count for subscription usage tracking
+    await this.subscriptionService.incrementOrderCount(tenantId);
 
     this.logger.log(`Order created: ${orderNumber} for table ${tableId}`);
 
@@ -182,7 +214,9 @@ export class OrderService {
   ): Promise<PaginatedResponseDto<OrderResponseDto>> {
     const where: Prisma.OrderWhereInput = {
       tenantId,
-      ...(filters.status && { status: filters.status as OrderStatus }),
+      ...(filters.status && filters.status.length > 0 && {
+        status: { in: filters.status as OrderStatus[] },
+      }),
       ...(filters.tableId && { tableId: filters.tableId }),
       ...(filters.search && {
         OR: [
@@ -191,6 +225,12 @@ export class OrderService {
         ],
       }),
     };
+
+    // Build orderBy based on sortBy and sortOrder
+    const orderBy: Prisma.OrderOrderByWithRelationInput = {};
+    const sortField = filters.sortBy || 'createdAt';
+    const sortDirection = (filters.sortOrder || 'DESC').toLowerCase() as 'asc' | 'desc';
+    orderBy[sortField as keyof Prisma.OrderOrderByWithRelationInput] = sortDirection;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -203,7 +243,7 @@ export class OrderService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (filters.page! - 1) * filters.limit!,
         take: filters.limit,
       }),
@@ -422,6 +462,136 @@ export class OrderService {
     this.logger.log(`Order ${order.orderNumber} cancelled by ${staffId}`);
 
     return this.getOrderById(orderId);
+  }
+
+  /**
+   * Customer self-service order cancellation
+   * Business rules:
+   * 1. Must be within 5 minutes of order creation
+   * 2. Order must not have started preparing (status = PENDING or RECEIVED)
+   * 3. Must be the same table that placed the order
+   */
+  async customerCancelOrder(
+    orderId: string,
+    tableId: string,
+    reason: string,
+  ): Promise<OrderResponseDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Verify table ownership
+    if (order.tableId !== tableId) {
+      throw new BadRequestException('You can only cancel orders from your table');
+    }
+
+    // Check cancellation time window (5 minutes)
+    const CANCELLATION_WINDOW_MINUTES = 5;
+    const orderAge = Date.now() - order.createdAt.getTime();
+    const maxAgeMs = CANCELLATION_WINDOW_MINUTES * 60 * 1000;
+
+    if (orderAge > maxAgeMs) {
+      throw new BadRequestException(
+        `Cancellation window expired. Orders can only be cancelled within ${CANCELLATION_WINDOW_MINUTES} minutes.`,
+      );
+    }
+
+    // Check order status - can only cancel if not yet preparing
+    const cancellableStatuses: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.RECEIVED];
+    if (!cancellableStatuses.includes(order.status as OrderStatus)) {
+      throw new BadRequestException(
+        'Order cannot be cancelled as kitchen has already started preparing it. Please ask staff for assistance.',
+      );
+    }
+
+    // Cancel the order
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          status: OrderStatus.CANCELLED,
+          notes: `Customer cancelled: ${reason}`,
+          changedBy: 'CUSTOMER',
+        },
+      });
+    });
+
+    this.logger.log(`Order ${order.orderNumber} cancelled by customer (table: ${tableId})`);
+
+    // Emit WebSocket event for cancelled order
+    const orderResponse = await this.getOrderById(orderId);
+    this.orderGateway.emitOrderStatusChanged(order.tenantId, orderResponse);
+
+    return orderResponse;
+  }
+
+  /**
+   * Request bill for order (customer)
+   */
+  async requestBill(orderId: string, tableId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        table: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Verify table ownership
+    if (order.tableId !== tableId) {
+      throw new BadRequestException('You can only request bill for orders from your table');
+    }
+
+    // Check if order is in a state where bill can be requested
+    const validStatuses: OrderStatus[] = [
+      OrderStatus.READY,
+      OrderStatus.SERVED,
+      OrderStatus.COMPLETED,
+    ];
+    if (!validStatuses.includes(order.status as OrderStatus)) {
+      throw new BadRequestException(
+        'Bill can only be requested after order is ready or served',
+      );
+    }
+
+    // Check if already paid
+    if (order.paymentStatus === 'COMPLETED') {
+      throw new BadRequestException('This order has already been paid');
+    }
+
+    // Emit WebSocket event to notify staff
+    this.orderGateway.emitBillRequested(order.tenantId, {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      tableId: order.tableId,
+      tableNumber: order.table.tableNumber,
+      totalAmount: Number(order.total),
+      requestedAt: new Date(),
+    });
+
+    this.logger.log(`Bill requested for order ${order.orderNumber} at table ${order.table.tableNumber}`);
+
+    return {
+      success: true,
+      message: 'Bill request sent. A server will assist you shortly.',
+      orderId: order.id,
+      tableNumber: order.table.tableNumber,
+      requestedAt: new Date(),
+    };
   }
 
   /**
@@ -690,6 +860,8 @@ export class OrderService {
       paymentStatus: order.paymentStatus,
       subtotal: Number(order.subtotal),
       tax: Number(order.tax),
+      serviceCharge: order.serviceCharge ? Number(order.serviceCharge) : 0,
+      tip: order.tip ? Number(order.tip) : 0,
       total: Number(order.total),
       items: (order.items || []).map((item: any) => ({
         id: item.id,

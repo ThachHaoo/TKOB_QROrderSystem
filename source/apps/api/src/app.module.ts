@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, OnModuleInit, RequestMethod, Logger } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -11,9 +11,21 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware';
+import { ArrayQueryMiddleware } from './common/middleware/array-query.middleware';
 import { MenuModule } from './modules/menu/menu.module';
 import { TableModule } from './modules/table/table.module';
 import { OrderModule } from './modules/order/order.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { ReviewModule } from './modules/review/review.module';
+import { PaymentConfigModule } from './modules/payment-config/payment-config.module';
+import { PromotionModule } from './modules/promotion/promotion.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { WebsocketModule } from './modules/websocket/websocket.module';
+import { SeedModule } from './database/seed/seed.module';
+import { SeedService } from './database/seed/seed.service';
+import { HealthController } from './common/controllers/health.controller';
 
 @Module({
   imports: [
@@ -51,6 +63,7 @@ import { OrderModule } from './modules/order/order.module';
 
     // MainModule
     PrismaModule,
+    WebsocketModule,
     RedisModule,
     EmailModule,
     AuthModule,
@@ -58,8 +71,16 @@ import { OrderModule } from './modules/order/order.module';
     MenuModule,
     TableModule,
     OrderModule,
+    PaymentModule,
+    AnalyticsModule,
+    StaffModule,
+    ReviewModule,
+    PaymentConfigModule,
+    PromotionModule,
+    SubscriptionModule,
+    SeedModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   providers: [
     AppService,
     // Make JwtAuthGuard global (optional, để protect tất cả routes by default)
@@ -69,8 +90,25 @@ import { OrderModule } from './modules/order/order.module';
     // },
   ],
 })
-export class AppModule implements NestModule {
+export class AppModule implements NestModule, OnModuleInit {
+  private readonly logger = new Logger(AppModule.name);
+
+  constructor(private readonly seedService: SeedService) {}
+
+  async onModuleInit() {
+    // Seed subscription plans on startup (idempotent - uses upsert)
+    try {
+      await this.seedService.seedSubscriptionPlans();
+      this.logger.log('✅ Subscription plans seeded successfully');
+    } catch (error) {
+      this.logger.error('Failed to seed subscription plans:', error);
+    }
+  }
+
   configure(consumer: MiddlewareConsumer) {
+    // Apply ArrayQueryMiddleware first to transform status[] to status array
+    consumer.apply(ArrayQueryMiddleware).forRoutes({ path: '*path', method: RequestMethod.ALL });
+
     // Apply RequestIdMiddleware globally
     consumer.apply(RequestIdMiddleware).forRoutes({ path: '*path', method: RequestMethod.ALL });
 

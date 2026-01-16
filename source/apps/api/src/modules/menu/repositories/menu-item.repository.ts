@@ -80,35 +80,65 @@ export class MenuItemsRepository extends BaseRepository<MenuItem, Prisma.MenuIte
       | Prisma.MenuItemOrderByWithRelationInput[]
       | undefined;
 
-    if (filters.sortBy) {
-      const sortOrder = filters.sortOrder || 'asc';
+    // Map display sortBy strings to actual field names
+    let sortByField = filters.sortBy;
+    if (sortByField) {
+      const sortByMap: Record<string, string> = {
+        'Sort by: Newest': 'createdAt',
+        'Sort by: Oldest': 'createdAt',
+        'Price (Low)': 'price',
+        'Price (High)': 'price',
+        'Name (A-Z)': 'name',
+        'Name (Z-A)': 'name',
+        'Popularity': 'popularity',
+      };
+      sortByField = sortByMap[sortByField] || sortByField;
+    }
 
-      switch (filters.sortBy) {
-        case 'popularity':
-          orderBy = { popularity: sortOrder };
-          break;
-        case 'price':
-          orderBy = { price: sortOrder };
-          break;
-        case 'name':
-          orderBy = { name: sortOrder };
-          break;
-        case 'createdAt':
-          orderBy = { createdAt: sortOrder };
-          break;
-        default:
-          orderBy = { createdAt: 'desc' };
-      }
+    if (sortByField && ['popularity', 'price', 'name', 'createdAt'].includes(sortByField)) {
+      const sortOrder = filters.sortOrder || 'asc';
+      orderBy = { [sortByField]: sortOrder };
     } else {
       orderBy = { createdAt: 'desc' };
     }
 
-    return this.findPaginated(new PaginationDto(filters.page, filters.limit), {
+    // Handle pageSize alias for limit - prioritize pageSize over limit
+    const limit = filters.pageSize ?? filters.limit ?? 20;
+    console.log('[MenuItemRepository] Pagination:', { 
+      pageSize: filters.pageSize, 
+      limit: filters.limit, 
+      finalLimit: limit, 
+      page: filters.page 
+    });
+
+    // Handle availability filter
+    let availabilityFilter: boolean | undefined = filters.available;
+    if (filters.availability) {
+      if (filters.availability === 'available') {
+        availabilityFilter = true;
+      } else if (filters.availability === 'unavailable') {
+        availabilityFilter = false;
+      }
+      // 'all' or any other value = undefined (no filter)
+    }
+
+    // Transform status to uppercase for enum matching
+    let statusFilter: any = filters.status;
+    if (statusFilter) {
+      // Convert "Draft" -> "DRAFT", "Published" -> "PUBLISHED", etc.
+      statusFilter = statusFilter.toUpperCase();
+      // Validate it's a valid enum value
+      if (!['DRAFT', 'PUBLISHED', 'ARCHIVED'].includes(statusFilter)) {
+        statusFilter = undefined;
+      }
+    }
+
+    return this.findPaginated(new PaginationDto(filters.page, limit), {
       where: {
         tenantId,
-        ...(filters.categoryId && { categoryId: filters.categoryId }),
-        ...(filters.status && { status: filters.status }),
-        ...(filters.available !== undefined && { available: filters.available }),
+        ...(filters.categoryId && filters.categoryId !== 'all' && { categoryId: filters.categoryId }),
+        ...(statusFilter && { status: statusFilter }),
+        ...(availabilityFilter !== undefined && { available: availabilityFilter }),
         ...(filters.chefRecommended !== undefined && { chefRecommended: filters.chefRecommended }),
         ...(filters.search && {
           OR: [
