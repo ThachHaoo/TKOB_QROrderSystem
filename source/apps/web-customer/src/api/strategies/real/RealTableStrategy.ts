@@ -11,7 +11,7 @@ export class RealTableStrategy implements ITableStrategy {
   }
   
   async getCurrentSession(): Promise<SessionInfo> {
-    const response = await apiClient.get<{ success: boolean; data: SessionInfo }>('/session');
+    const response = await apiClient.get<{ success: boolean; data: SessionInfo }>('/api/v1/session');
     return response.data.data;
   }
   
