@@ -84,16 +84,29 @@ export class MenuItemFiltersDto extends PaginationDto {
   @IsOptional()
   categoryId?: string;
 
-  @ApiPropertyOptional({ enum: MenuItemStatus })
-  @IsEnum(MenuItemStatus)
+  @ApiPropertyOptional({ description: 'Filter by status (DRAFT, PUBLISHED, ARCHIVED, or Draft, Published, Archived)' })
+  @IsString()
   @IsOptional()
-  status?: MenuItemStatus;
+  status?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Filter by availability status (true/false)' })
   @IsBoolean()
   @IsOptional()
   @Type(() => Boolean)
   available?: boolean;
+
+  @ApiPropertyOptional({ description: 'Alias for limit - items per page' })
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  @Min(1)
+  @Max(100)
+  pageSize?: number;
+
+  @ApiPropertyOptional({ description: 'Filter string for availability (all/available/unavailable)' })
+  @IsString()
+  @IsOptional()
+  availability?: string;
 
   @ApiPropertyOptional()
   @IsString()
@@ -107,12 +120,11 @@ export class MenuItemFiltersDto extends PaginationDto {
   chefRecommended?: boolean;
 
   @ApiPropertyOptional({
-    enum: ['popularity', 'price', 'name', 'createdAt'],
-    description: 'Sort field',
+    description: 'Sort field - can be standard field name or display string',
   })
   @IsString()
   @IsOptional()
-  sortBy?: 'popularity' | 'price' | 'name' | 'createdAt';
+  sortBy?: string;
 
   @ApiPropertyOptional({
     enum: ['asc', 'desc'],

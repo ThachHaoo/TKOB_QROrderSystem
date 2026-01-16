@@ -4,6 +4,7 @@ import {
   Patch,
   Post,
   Body,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -18,15 +19,14 @@ import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UpdateOpeningHoursDto } from '../dto/update-opening-hours.dto';
 import { UpdateSettingsDto } from '../dto/update-settings.dto';
 import { UserRole } from '@prisma/client';
-import { UpdatePaymentConfigDto } from '../dto/update-payment-config.dto';
+import { UpdatePaymentConfigDto } from '../../payment-config/dto/payment-config.dto';
 import { TenantOwnershipGuard } from '../guards/tenant-ownership.guard';
 import { TenantResponseDto } from '../dto/tenant-response.dto';
 import { OnboardingService } from '../services/onboarding.service';
+import { Public } from '../../../common/decorators/public.decorator';
 
 @ApiTags('Tenants')
 @Controller('tenants')
-@UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
-@ApiBearerAuth()
 export class TenantController {
   constructor(
     private readonly tenantService: TenantService,
@@ -34,6 +34,8 @@ export class TenantController {
   ) {}
 
   @Get('me')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get current tenant info' })
   @ApiResponse({
@@ -45,7 +47,63 @@ export class TenantController {
     return this.tenantService.getTenant(user.tenantId);
   }
 
+  @Get('me/pricing')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
+  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @ApiOperation({ summary: 'Get tenant pricing settings (tax, service charge, tip)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pricing settings retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        currency: { type: 'string', example: 'USD' },
+        tax: {
+          type: 'object',
+          properties: {
+            enabled: { type: 'boolean' },
+            rate: { type: 'number' },
+            label: { type: 'string' },
+            includedInPrice: { type: 'boolean' },
+          },
+        },
+        serviceCharge: {
+          type: 'object',
+          properties: {
+            enabled: { type: 'boolean' },
+            rate: { type: 'number' },
+            label: { type: 'string' },
+          },
+        },
+        tip: {
+          type: 'object',
+          properties: {
+            enabled: { type: 'boolean' },
+            suggestions: { type: 'array', items: { type: 'number' } },
+            allowCustom: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  })
+  async getPricingSettings(@CurrentUser() user: any) {
+    return this.tenantService.getPricingSettings(user.tenantId);
+  }
+
+  @Get('public/:slug/pricing')
+  @Public()
+  @ApiOperation({ summary: 'Get tenant pricing settings by slug (public)' })
+  @ApiResponse({ status: 200, description: 'Pricing settings for checkout' })
+  @ApiResponse({ status: 404, description: 'Restaurant not found' })
+  async getPublicPricingSettings(@Param('slug') slug: string) {
+    const tenant = await this.tenantService.getTenantBySlug(slug);
+    return this.tenantService.getPricingSettings(tenant.id);
+  }
+
   @Patch('profile')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Update tenant profile (Onboarding Step 1)' })
   @ApiResponse({
@@ -59,6 +117,8 @@ export class TenantController {
   }
 
   @Patch('opening-hours')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Update opening hours (Onboarding Step 2)' })
   @ApiResponse({
@@ -71,8 +131,10 @@ export class TenantController {
   }
 
   @Patch('settings')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.OWNER)
-  @ApiOperation({ summary: 'Update settings (Onboarding Step 3)' })
+  @ApiOperation({ summary: 'Update settings (Onboarding Step 3) - includes tax, service charge, tip config' })
   @ApiResponse({
     status: 200,
     description: 'Settings updated successfully',
@@ -83,6 +145,8 @@ export class TenantController {
   }
 
   @Patch('payment-config')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Update settings (Onboarding Step 4)' })
   @ApiResponse({
@@ -94,6 +158,8 @@ export class TenantController {
   }
 
   @Post('complete-onboarding')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @ApiBearerAuth()
   @Roles(UserRole.OWNER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Complete onboarding' })

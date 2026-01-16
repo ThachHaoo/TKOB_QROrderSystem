@@ -36,14 +36,16 @@ import { TableListResponseDto } from '../dto/table-list-response.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { TenantOwnershipGuard } from 'src/modules/tenant/guards/tenant-ownership.guard';
+import { SubscriptionLimitsGuard, CheckLimit } from 'src/modules/subscription/guards/subscription-limits.guard';
 import { Roles } from '@common/decorators/roles.decorator';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { UserRole, TableStatus, Table } from '@prisma/client';
 import type { AuthenticatedUser } from 'src/common/interfaces/auth.interface';
+import { SkipTransform } from '@common/interceptors/transform.interceptor';
 
 @ApiTags('Tables')
 @Controller('admin/tables')
-@UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard, SubscriptionLimitsGuard)
 export class TableController {
   constructor(
     private readonly service: TableService,
@@ -54,10 +56,12 @@ export class TableController {
 
   @Post()
   @Roles(UserRole.OWNER, UserRole.STAFF)
+  @CheckLimit('createTable')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new table with auto QR generation' })
   @ApiResponse({ status: 201, type: TableResponseDto })
   @ApiResponse({ status: 409, description: 'Table number already exists' })
+  @ApiResponse({ status: 403, description: 'Subscription limit exceeded' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateTableDto,
@@ -158,6 +162,7 @@ export class TableController {
   @Roles(UserRole.OWNER)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({ summary: 'Delete table (soft delete)' })
   @ApiResponse({ status: 204, description: 'Table deleted successfully' })
   @ApiResponse({ status: 409, description: 'Cannot delete table with active orders' })

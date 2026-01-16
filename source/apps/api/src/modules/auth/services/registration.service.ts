@@ -153,9 +153,13 @@ export class RegistrationService {
       tenant = result.tenant;
 
       try {
-        await this.seedService.seedTenantData(tenant.id);
+        // Seed demo data and create FREE subscription
+        await Promise.all([
+          this.seedService.seedTenantData(tenant.id),
+          this.seedService.createFreeSubscription(tenant.id),
+        ]);
         await this.seedService.seedDemoStaffUser(tenant.id, user.email);
-        this.logger.log(`✅ Demo data seeded for tenant: ${tenant.id}`);
+        this.logger.log(`✅ Demo data and FREE subscription created for tenant: ${tenant.id}`);
       } catch (seedError) {
         // Don't fail registration if seed fails
         this.logger.error(`Failed to seed demo data for ${tenant.id}:`, seedError);

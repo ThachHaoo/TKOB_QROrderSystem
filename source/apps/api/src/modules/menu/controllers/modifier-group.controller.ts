@@ -19,6 +19,7 @@ import { TenantOwnershipGuard } from 'src/modules/tenant/guards/tenant-ownership
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { CreateModifierGroupDto, UpdateModifierGroupDto } from '../dto/modifier.dto';
 import type { AuthenticatedUser } from 'src/common/interfaces/auth.interface';
+import { SkipTransform } from 'src/common/interceptors/transform.interceptor';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { ModifierType, UserRole } from '@prisma/client';
 import { ModifierGroupResponseDto } from '../dto/menu-response.dto';
@@ -86,7 +87,9 @@ export class ModifierGroupController {
   // DELETE
   @Delete(':id')
   @Roles(UserRole.OWNER)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({
     summary: 'Archive modifier group',
     description: 'Soft delete: Sets active = false after checking dependencies',

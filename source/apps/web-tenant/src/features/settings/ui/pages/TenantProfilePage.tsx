@@ -9,34 +9,42 @@ import {
   TenantAppearanceSection,
   TenantOpeningHoursSection,
   TenantPaymentsSection,
-  TenantNotificationsSection,
-  TenantSecuritySection,
+  TenantPromotionsSection,
 } from '../components/sections';
+import { SubscriptionSettingsPage } from './SubscriptionSettingsPage';
 import type { TenantProfileTab } from '../../model';
 
 
 export function TenantProfilePage() {
   const controller = useTenantProfileController();
 
+  const tabLabels: Record<TenantProfileTab, string> = {
+    profile: 'Hồ sơ',
+    hours: 'Giờ mở cửa',
+    payments: 'Thanh toán',
+    promotions: 'Mã giảm giá',
+    subscription: 'Gói dịch vụ',
+  };
+
   return (
     <div className="flex flex-col gap-6 px-6 pt-6 pb-5">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-text-primary">Restaurant Profile</h1>
-        <p className="text-text-secondary text-sm">Manage your restaurant&apos;s information and settings</p>
+        <h1 className="text-2xl font-semibold text-text-primary">Cài đặt nhà hàng</h1>
+        <p className="text-text-secondary text-sm">Quản lý thông tin và cài đặt nhà hàng của bạn</p>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-default">
-        <div className="flex gap-2">
-          {['profile', 'hours', 'payments', 'notifications', 'security'].map((tab) => (
+        <div className="flex gap-2 overflow-x-auto">
+          {(['profile', 'hours', 'payments', 'promotions', 'subscription'] as TenantProfileTab[]).map((tab) => (
             <button
               key={tab}
-              onClick={() => controller.setActiveTab(tab as TenantProfileTab)}
-              className={`px-4 py-3 relative text-sm font-semibold transition-colors capitalize ${
+              onClick={() => controller.setActiveTab(tab)}
+              className={`px-4 py-3 relative text-sm font-semibold transition-colors whitespace-nowrap ${
                 controller.activeTab === tab ? 'text-accent-500' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              {tab}
+              {tabLabels[tab]}
               {controller.activeTab === tab && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-accent-500" />}
             </button>
           ))}
@@ -95,41 +103,17 @@ export function TenantProfilePage() {
 
       {/* Payments Tab */}
       {controller.activeTab === 'payments' && (
-        <TenantPaymentsSection
-          stripeEnabled={controller.stripeEnabled}
-          paypalEnabled={controller.paypalEnabled}
-          cashEnabled={controller.cashEnabled}
-          onStripeChange={controller.setStripeEnabled}
-          onPaypalChange={controller.setPaypalEnabled}
-          onCashChange={controller.setCashEnabled}
-          onSave={controller.handleSavePayments}
-        />
+        <TenantPaymentsSection />
       )}
 
-      {/* Notifications Tab */}
-      {controller.activeTab === 'notifications' && (
-        <TenantNotificationsSection
-          emailNotifications={controller.emailNotifications}
-          orderNotifications={controller.orderNotifications}
-          lowStockAlerts={controller.lowStockAlerts}
-          staffNotifications={controller.staffNotifications}
-          onEmailChange={controller.setEmailNotifications}
-          onOrderChange={controller.setOrderNotifications}
-          onStockChange={controller.setLowStockAlerts}
-          onStaffChange={controller.setStaffNotifications}
-          onSave={controller.handleSaveNotifications}
-        />
+      {/* Promotions Tab */}
+      {controller.activeTab === 'promotions' && (
+        <TenantPromotionsSection />
       )}
 
-      {/* Security Tab */}
-      {controller.activeTab === 'security' && (
-        <TenantSecuritySection
-          twoFactorEnabled={controller.twoFactorEnabled}
-          sessionTimeout={controller.sessionTimeout}
-          onTwoFactorChange={controller.setTwoFactorEnabled}
-          onSessionTimeoutChange={controller.setSessionTimeout}
-          onSave={controller.handleSaveSecurity}
-        />
+      {/* Subscription Tab */}
+      {controller.activeTab === 'subscription' && (
+        <SubscriptionSettingsPage />
       )}
     </div>
   );

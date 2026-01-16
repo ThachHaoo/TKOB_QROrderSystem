@@ -9,10 +9,12 @@ export class PaymentIntentResponseDto {
   paymentId: string;
 
   @ApiProperty({
-    description: 'Order ID',
+    description: 'Order ID (null for subscription payments)',
     example: 'e8f9a0b1-2c3d-4e5f-6a7b-8c9d0e1f2a3b',
+    required: false,
+    nullable: true,
   })
-  orderId: string;
+  orderId: string | null;
 
   @ApiProperty({
     description: 'Payment amount in VND',

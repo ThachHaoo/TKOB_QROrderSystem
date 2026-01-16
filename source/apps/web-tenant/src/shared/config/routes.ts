@@ -17,11 +17,13 @@ export const ROUTES = {
   staff: '/admin/staff',
   accountSettings: '/admin/account-settings',
   tenantProfile: '/admin/tenant-profile',
-  // KDS routes
-  kds: '/kds',
-  // Waiter routes
+  // KDS routes - Owner views in admin panel, Kitchen staff uses standalone
+  kds: '/admin/kds',
+  kdsStandalone: '/kds', // For kitchen staff only
+  // Waiter routes - Owner views in admin panel, Waiter staff uses standalone  
   waiter: '/waiter',
-  waiterServiceBoard: '/waiter',
+  waiterServiceBoard: '/admin/service-board', // Owner view with sidebar
+  waiterStandalone: '/waiter', // For waiter staff only
   // Public menu preview
   menuPreview: '/menu',
   // Auth routes

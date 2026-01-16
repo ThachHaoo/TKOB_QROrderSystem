@@ -4,17 +4,24 @@ import {
   Get,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
   Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PaymentService } from '../services/payment.service';
+import { CurrencyService } from '../services/currency.service';
 import { CreatePaymentIntentDto } from '../dto/create-payment-intent.dto';
 import { PaymentIntentResponseDto } from '../dto/payment-intent-response.dto';
 import { PaymentWebhookDto } from '../dto/payment-webhook.dto';
 import { PaymentStatusResponseDto } from '../dto/payment-status-response.dto';
+import { 
+  PollTransactionsDto, 
+  PollTransactionsResponseDto,
+  CheckPaymentResponseDto,
+} from '../dto/poll-transactions.dto';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public.decorator';
@@ -22,7 +29,30 @@ import { Public } from '@/common/decorators/public.decorator';
 @ApiTags('Payments')
 @Controller('payment')
 export class PaymentController {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly currencyService: CurrencyService,
+  ) {}
+
+  @Get('exchange-rate')
+  @Public()
+  @ApiOperation({ summary: 'Get current USD to VND exchange rate' })
+  @ApiResponse({
+    status: 200,
+    description: 'Exchange rate retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', example: 'USD' },
+        to: { type: 'string', example: 'VND' },
+        rate: { type: 'number', example: 25000 },
+        timestamp: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  async getExchangeRate() {
+    return this.currencyService.getExchangeRate('USD', 'VND');
+  }
 
   @Post('intent')
   @UseGuards(JwtAuthGuard)
@@ -71,5 +101,34 @@ export class PaymentController {
     // SePay sends signature in Authorization header: "Apikey YOUR_API_KEY"
     const signature = authorization || '';
     return this.paymentService.handleWebhook(webhookDto, signature);
+  }
+
+  @Get('poll')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Poll SePay for recent transactions',
+    description: 'Fallback mechanism when webhook not available. Polls SePay API for recent transactions.',
+  })
+  @ApiQuery({ name: 'transferContent', required: false, description: 'Specific transfer content to search for' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of transactions to fetch (default 20)' })
+  @ApiResponse({ status: 200, description: 'Transactions retrieved', type: PollTransactionsResponseDto })
+  async pollTransactions(
+    @Query() query: PollTransactionsDto,
+  ): Promise<PollTransactionsResponseDto> {
+    return this.paymentService.pollTransactions(query.transferContent, query.limit);
+  }
+
+  @Get(':paymentId/check')
+  @Public()
+  @ApiOperation({ 
+    summary: 'Check payment status via SePay polling',
+    description: 'Checks if a pending payment has been paid by polling SePay API. Use this when webhook is not available.',
+  })
+  @ApiResponse({ status: 200, description: 'Payment check result', type: CheckPaymentResponseDto })
+  async checkPaymentViaPoll(
+    @Param('paymentId') paymentId: string,
+  ): Promise<CheckPaymentResponseDto> {
+    return this.paymentService.checkPaymentViaPoll(paymentId);
   }
 }

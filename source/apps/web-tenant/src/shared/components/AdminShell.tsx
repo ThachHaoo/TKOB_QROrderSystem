@@ -54,6 +54,8 @@ export function AdminShell({
     if (pathname.includes('/admin/menu')) return 'menu';
     if (pathname.includes('/admin/tables')) return 'tables';
     if (pathname.includes('/admin/orders')) return 'orders';
+    if (pathname.includes('/admin/kds')) return 'kds';
+    if (pathname.includes('/admin/service-board')) return 'service-board';
     if (pathname.includes('/admin/analytics')) return 'analytics';
     if (pathname.includes('/admin/staff')) return 'staff';
     if (pathname.includes('/admin/tenant-profile')) return 'tenant-profile';
@@ -115,7 +117,7 @@ export function AdminShell({
       </div>
 
       {/* Mobile Sidebar Overlay */}
-      {sidebarCollapsed === false && (
+      {!sidebarCollapsed && (
         <div 
           className="md:hidden fixed inset-0 bg-black/50 z-30"
           onClick={() => setSidebarCollapsed(true)}
@@ -125,7 +127,7 @@ export function AdminShell({
       {/* Mobile Sidebar */}
       <aside
         className={`
-          md:hidden fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200
+          md:hidden fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 shadow-xl
           transform transition-transform duration-300
           ${sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
         `}
@@ -139,6 +141,7 @@ export function AdminShell({
           }}
           collapsed={false}
           onToggleCollapse={() => setSidebarCollapsed(true)}
+          isMobileView={true}
         />
       </aside>
     </div>

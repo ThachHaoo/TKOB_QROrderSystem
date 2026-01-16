@@ -84,7 +84,7 @@ export function useOrdersController() {
   }
 
   const handlePayOrder = (order: Order) => {
-    // TODO: Navigate to payment with order context
+    // Navigate to payment page with order ID
     router.push('/payment?orderId=' + order.id)
   }
 

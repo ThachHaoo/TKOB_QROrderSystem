@@ -7,8 +7,10 @@
 
 import React from 'react';
 import { Badge } from '@/shared/components/Badge';
-import { Bell, BellOff, RefreshCw, Clock, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, BellOff, RefreshCw, Clock, ChevronDown, LogOut, Wifi, WifiOff } from 'lucide-react';
 import { formatKdsTime } from '../../../utils/formatKdsTime';
+
+export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 export interface KdsHeaderSectionProps {
   currentTime: Date | null;
@@ -17,6 +19,7 @@ export interface KdsHeaderSectionProps {
   showKdsProfile: boolean;
   isUserMenuOpen: boolean;
   userMenuRef: React.RefObject<HTMLDivElement>;
+  connectionStatus?: ConnectionStatus;
   onToggleSound: () => void;
   onToggleAutoRefresh: () => void;
   onToggleUserMenu: () => void;
@@ -30,11 +33,51 @@ export function KdsHeaderSection({
   showKdsProfile,
   isUserMenuOpen,
   userMenuRef,
+  connectionStatus = 'connected',
   onToggleSound,
   onToggleAutoRefresh,
   onToggleUserMenu,
   onLogout,
 }: KdsHeaderSectionProps) {
+  // Connection status config
+  const connectionConfig = {
+    connecting: {
+      icon: Wifi,
+      label: 'Đang kết nối...',
+      color: 'text-yellow-500',
+      bg: 'bg-yellow-500/10',
+      border: 'border-yellow-500/20',
+      dot: 'bg-yellow-500',
+    },
+    connected: {
+      icon: Wifi,
+      label: 'Kết nối',
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/20',
+      dot: 'bg-emerald-500',
+    },
+    disconnected: {
+      icon: WifiOff,
+      label: 'Mất kết nối',
+      color: 'text-red-500',
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/20',
+      dot: 'bg-red-500',
+    },
+    error: {
+      icon: WifiOff,
+      label: 'Lỗi kết nối',
+      color: 'text-orange-500',
+      bg: 'bg-orange-500/10',
+      border: 'border-orange-500/20',
+      dot: 'bg-orange-500',
+    },
+  };
+
+  const config = connectionConfig[connectionStatus];
+  const ConnectionIcon = config.icon;
+
   return (
     <div className="bg-secondary border-b border-default">
       {/* Main Header */}
@@ -54,12 +97,17 @@ export function KdsHeaderSection({
               </p>
             </div>
           </div>
-          <Badge variant="success">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-              Live
+          
+          {/* WebSocket Connection Status */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 ${config.bg} ${config.border}`}>
+            <ConnectionIcon className={`w-4 h-4 ${config.color}`} />
+            <span className={`text-xs font-medium ${config.color}`}>
+              {config.label}
             </span>
-          </Badge>
+            {connectionStatus === 'connected' && (
+              <span className={`w-2 h-2 rounded-full ${config.dot} animate-pulse`}></span>
+            )}
+          </div>
         </div>
 
         {/* Center - Live Clock (lg+ only) */}

@@ -16,35 +16,75 @@ import {
  *
  * Integrates with SePay VietQR API for bank transfer payments.
  * Docs: https://docs.sepay.vn
+ * 
+ * Supports two modes:
+ * 1. Platform config (from .env): For tenant subscription payments
+ * 2. Tenant config (from TenantPaymentConfig): For customer order payments
  */
+
+/**
+ * Tenant-specific SePay config for customer payments
+ */
+export interface TenantSepayConfig {
+  accountNumber: string;
+  accountName?: string;
+  bankCode: string;
+  apiKey?: string;
+}
+
+/**
+ * Transaction data returned from SePay polling API
+ */
+export interface SepayTransaction {
+  /** Transaction ID from SePay */
+  id: string;
+  /** Transaction amount (positive for incoming) */
+  amount: number;
+  /** Bank account number receiving the payment */
+  accountNumber: string;
+  /** Transfer content/description */
+  transferContent: string;
+  /** Transaction timestamp */
+  transactionTime: Date;
+  /** Bank code */
+  bankCode: string;
+  /** Sender account number */
+  senderAccountNumber?: string;
+  /** Sender name */
+  senderName?: string;
+  /** Reference code from bank */
+  referenceCode?: string;
+}
+
 @Injectable()
 export class SepayProvider implements IPaymentProvider {
   private readonly logger = new Logger(SepayProvider.name);
   private readonly httpClient: AxiosInstance;
   private readonly apiUrl: string;
-  private readonly apiToken: string;
-  private readonly accountNumber: string;
-  private readonly accountName: string;
-  private readonly bankCode: string;
+  
+  // Platform config (for tenant subscription payments)
+  private readonly platformApiToken: string;
+  private readonly platformAccountNumber: string;
+  private readonly platformAccountName: string;
+  private readonly platformBankCode: string;
+  
   private readonly retryAttempts: number = 3;
   private readonly retryDelay: number = 1000; // ms
 
   constructor(private readonly configService: ConfigService) {
     this.apiUrl = this.configService.get<string>('payment.sepay.apiUrl')!;
-    this.apiToken = this.configService.get<string>('payment.sepay.secretKey')!;
-    this.accountNumber = this.configService.get<string>(
+    this.platformApiToken = this.configService.get<string>('payment.sepay.secretKey')!;
+    this.platformAccountNumber = this.configService.get<string>(
       'payment.sepay.accountNumber',
     )!;
-    this.accountName = this.configService.get<string>(
+    this.platformAccountName = this.configService.get<string>(
       'payment.sepay.accountName',
     )!;
-    this.bankCode = this.configService.get<string>('payment.sepay.bankCode')!;
+    this.platformBankCode = this.configService.get<string>('payment.sepay.bankCode')!;
 
-    // Validate required config
-    if (!this.apiToken || !this.accountNumber || !this.bankCode) {
-      throw new Error(
-        'Missing required SePay configuration. Check SEPAY_SECRET_KEY, SEPAY_ACCOUNT_NUMBER, SEPAY_BANK_CODE in .env',
-      );
+    // Validate required config (platform config optional if only using tenant configs)
+    if (!this.platformApiToken) {
+      this.logger.warn('Platform SePay config not set. Only tenant-specific payments will work.');
     }
 
     // Create axios instance with defaults
@@ -53,7 +93,6 @@ export class SepayProvider implements IPaymentProvider {
       timeout: 10000, // 10s timeout
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiToken}`,
       },
     });
 
@@ -82,7 +121,7 @@ export class SepayProvider implements IPaymentProvider {
     );
 
     this.logger.log(
-      `SePay Provider initialized - Bank: ${this.bankCode}, Account: ${this.accountNumber}`,
+      `SePay Provider initialized - Platform Bank: ${this.platformBankCode || 'NOT_SET'}, Account: ${this.platformAccountNumber || 'NOT_SET'}`,
     );
   }
 
@@ -96,6 +135,7 @@ export class SepayProvider implements IPaymentProvider {
    * @param amount - Payment amount in VND
    * @param currency - Currency code (VND)
    * @param metadata - Additional metadata
+   * @param tenantConfig - Tenant-specific SePay config (for customer orders). If not provided, uses platform config.
    * @returns Payment intent with QR code and payment details
    */
   async createPaymentIntent(
@@ -103,10 +143,23 @@ export class SepayProvider implements IPaymentProvider {
     amount: number,
     currency: string,
     metadata?: Record<string, any>,
+    tenantConfig?: TenantSepayConfig,
   ): Promise<PaymentIntent> {
+    // Determine which config to use: tenant (for customer orders) or platform (for subscriptions)
+    const accountNumber = tenantConfig?.accountNumber || this.platformAccountNumber;
+    const accountName = tenantConfig?.accountName || this.platformAccountName || 'Restaurant';
+    const bankCode = tenantConfig?.bankCode || this.platformBankCode;
+    const configSource = tenantConfig ? 'tenant' : 'platform';
+
     this.logger.log(
-      `Creating payment intent for order ${orderId} - Amount: ${amount} ${currency}`,
+      `Creating payment intent for order ${orderId} - Amount: ${amount} ${currency} - Config: ${configSource} - Bank: ${bankCode}`,
     );
+
+    if (!accountNumber || !bankCode) {
+      throw new PaymentProviderInvalidRequestException(
+        `Missing SePay config. AccountNumber: ${!!accountNumber}, BankCode: ${!!bankCode}`,
+      );
+    }
 
     try {
       // Generate transfer content (used to match payment)
@@ -114,13 +167,16 @@ export class SepayProvider implements IPaymentProvider {
 
       // Generate VietQR content (for QR code generation)
       // Format: bank_code|account_number|account_name|amount|transfer_content
-      const qrContent = this.generateVietQRContent(
+      const qrContent = this.generateVietQRContentWithConfig(
         amount,
         transferContent,
+        bankCode,
+        accountNumber,
+        accountName,
       );
 
       // Generate deep link for mobile banking apps
-      const deepLink = this.generateDeepLink(amount, transferContent);
+      const deepLink = this.generateDeepLinkWithConfig(amount, transferContent, bankCode, accountNumber);
 
       // Return payment intent (no API call needed for basic SePay)
       const paymentIntent: PaymentIntent = {
@@ -131,9 +187,9 @@ export class SepayProvider implements IPaymentProvider {
         qrContent,
         deepLink,
         transferContent,
-        accountNumber: this.accountNumber,
-        accountName: this.accountName,
-        bankCode: this.bankCode,
+        accountNumber,
+        accountName,
+        bankCode,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
         providerData: {
           provider: 'sepay',
@@ -162,7 +218,7 @@ export class SepayProvider implements IPaymentProvider {
    * Verify webhook signature from SePay
    *
    * SePay webhook authentication uses API Key in header:
-   * Authorization: Apikey YOUR_API_KEY
+   * Authorization: Bearer API_TOKEN
    *
    * @param payload - Raw webhook payload
    * @param signature - Signature from Authorization header
@@ -177,20 +233,20 @@ export class SepayProvider implements IPaymentProvider {
     this.logger.debug('Verifying SePay webhook signature');
 
     try {
-      // SePay webhook uses: Authorization: Apikey YOUR_API_KEY
-      // Extract the API key from signature (format: "Apikey XXXXX")
-      const expectedPrefix = 'Apikey ';
+      // SePay webhook uses: Authorization: Bearer API_TOKEN (per docs)
+      // Extract the API token from signature (format: "Bearer XXXXX")
+      const expectedPrefix = 'Bearer ';
       if (!signature.startsWith(expectedPrefix)) {
         this.logger.warn(
-          `Invalid signature format. Expected "Apikey XXX", got: ${signature}`,
+          `Invalid signature format. Expected "Bearer XXX", got: ${signature}`,
         );
         return false;
       }
 
       const providedApiKey = signature.substring(expectedPrefix.length).trim();
 
-      // Compare with our API token
-      const isValid = providedApiKey === this.apiToken;
+      // Compare with our API token (platform token for webhook verification)
+      const isValid = providedApiKey === this.platformApiToken;
 
       if (!isValid) {
         this.logger.warn('Webhook signature verification failed - Invalid API key');
@@ -243,6 +299,260 @@ export class SepayProvider implements IPaymentProvider {
   }
 
   /**
+   * Poll recent transactions from SePay API
+   * 
+   * SePay API: GET /transactions/list
+   * Returns list of recent bank transactions for the configured account.
+   * 
+   * @param limit - Number of transactions to fetch (default 20, max 100)
+   * @param apiKey - Optional API key (uses platform key if not provided)
+   * @returns List of recent transactions
+   */
+  async pollTransactions(
+    limit: number = 20,
+    apiKey?: string,
+  ): Promise<SepayTransaction[]> {
+    this.logger.log(`Polling SePay transactions (limit: ${limit})`);
+
+    const token = apiKey || this.platformApiToken;
+    
+    if (!token) {
+      throw new PaymentProviderException(
+        'SePay API token not configured',
+        'CONFIG_ERROR',
+        500,
+      );
+    }
+
+    try {
+      const response = await this.executeWithRetry(async () => {
+        return this.httpClient.get('/transactions/list', {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          params: {
+            limit,
+          },
+        });
+      });
+
+      const data = response.data;
+
+      // Validate response structure according to SePay docs
+      if (!data || data.status !== 200) {
+        this.logger.error(`Invalid SePay response: ${JSON.stringify(data)}`);
+        throw new PaymentProviderException(
+          'Invalid response from SePay API',
+          'INVALID_RESPONSE',
+          500,
+        );
+      }
+
+      if (!data.transactions || !Array.isArray(data.transactions)) {
+        this.logger.warn('SePay returned no transactions array');
+        return [];
+      }
+
+      // DEBUG: Log raw response to understand SePay's actual data
+      this.logger.debug(`SePay raw response: status=${data.status}, count=${data.transactions.length}`);
+      if (data.transactions.length > 0) {
+        this.logger.debug(`Sample transaction: ${JSON.stringify(data.transactions[0], null, 2)}`);
+      }
+
+      // Parse transactions according to SePay API docs format
+      const transactions: SepayTransaction[] = data.transactions.map((tx: any) => {
+        const parsed = {
+          id: String(tx.id || ''),
+          amount: parseFloat(tx.amount_in || '0') || 0, // amount_in for incoming money
+          accountNumber: String(tx.account_number || ''),
+          transferContent: String(tx.transaction_content || '').trim(), // Main field per docs
+          transactionTime: new Date(tx.transaction_date || Date.now()),
+          bankCode: String(tx.bank_brand_name || ''), // SePay uses bank_brand_name
+          senderAccountNumber: String(tx.sub_account || ''),
+          senderName: String(tx.sender_name || ''),
+          referenceCode: String(tx.reference_number || ''),
+        };
+        
+        // Debug log each transaction
+        this.logger.debug(`Parsed TX ${parsed.id}: ${parsed.amount} VND - "${parsed.transferContent}"`);
+        
+        return parsed;
+      });
+
+      this.logger.log(`Fetched ${transactions.length} transactions from SePay`);
+      return transactions;
+    } catch (error) {
+      if (error instanceof PaymentProviderException) {
+        throw error;
+      }
+
+      this.logger.error(`Failed to poll SePay transactions: ${error.message}`);
+      throw new PaymentProviderException(
+        'Failed to poll transactions from SePay',
+        'POLL_ERROR',
+        500,
+      );
+    }
+  }
+
+  /**
+   * Find a specific transaction by transfer content
+   * 
+   * @param transferContent - The transfer content to search for (e.g., DH{orderId})
+   * @param limit - Number of recent transactions to search
+   * @param apiKey - Optional API key
+   * @returns Matching transaction or null
+   */
+  async findTransactionByContent(
+    transferContent: string,
+    limit: number = 50,
+    apiKey?: string,
+  ): Promise<SepayTransaction | null> {
+    this.logger.log(`🔍 Searching for transaction with content: "${transferContent}"`);
+
+    const transactions = await this.pollTransactions(limit, apiKey);
+
+    if (transactions.length === 0) {
+      this.logger.warn('⚠️  No transactions returned from SePay API');
+      return null;
+    }
+
+    this.logger.log(`📋 Checking ${transactions.length} transactions for match...`);
+
+    // Normalize search content (remove spaces, dashes, lowercase)
+    const normalizeContent = (text: string) => 
+      text.toUpperCase().replace(/[\s\-_\.]/g, '');
+
+    const searchContent = normalizeContent(transferContent);
+    
+    this.logger.debug(`🔤 Normalized search: "${transferContent}" -> "${searchContent}"`);
+    this.logger.debug(`📝 Transaction contents: ${transactions.map(t => `"${t.transferContent}"`).slice(0, 5).join(', ')}`);
+
+    // Try multiple matching strategies
+    // 1. Exact match (case-insensitive)
+    let matched = transactions.find((tx) => 
+      tx.transferContent.toUpperCase() === transferContent.toUpperCase()
+    );
+
+    if (matched) {
+      this.logger.log(`✅ Found EXACT match: TX ${matched.id} - "${matched.transferContent}" = ${matched.amount} VND`);
+      return matched;
+    }
+
+    // 2. Contains match (search IN transaction)
+    matched = transactions.find((tx) => 
+      tx.transferContent.toUpperCase().includes(transferContent.toUpperCase())
+    );
+
+    if (matched) {
+      this.logger.log(`✅ Found CONTAINS match: TX ${matched.id} - "${matched.transferContent}" contains "${transferContent}"`);
+      return matched;
+    }
+
+    // 3. Reverse contains (transaction IN search) - for "SUBUPG-0946" contains "SUB0946"
+    matched = transactions.find((tx) => 
+      transferContent.toUpperCase().includes(tx.transferContent.toUpperCase())
+    );
+
+    if (matched) {
+      this.logger.log(`✅ Found REVERSE match: "${transferContent}" contains TX ${matched.id} - "${matched.transferContent}"`);
+      return matched;
+    }
+
+    // 4. Normalized match (remove all special chars)
+    matched = transactions.find((tx) => {
+      const normalizedTxContent = normalizeContent(tx.transferContent);
+      this.logger.debug(`  Comparing: "${normalizedTxContent}" vs "${searchContent}"`);
+      return normalizedTxContent.includes(searchContent) || searchContent.includes(normalizedTxContent);
+    });
+
+    if (matched) {
+      this.logger.log(`✅ Found NORMALIZED match: TX ${matched.id} - "${matched.transferContent}"`);
+      return matched;
+    }
+
+    // No match found
+    this.logger.warn(`❌ No matching transaction found for: "${transferContent}"`);
+    this.logger.warn(`   Searched in: ${transactions.map(t => `"${t.transferContent}"`).join(', ')}`);
+
+    return null;
+  }
+
+  /**
+   * Create payment intent using platform config (for subscription payments)
+   * 
+   * This uses the platform's SePay account, not tenant's account.
+   * Used for tenant subscription upgrades.
+   * 
+   * @param referenceId - Reference ID (e.g., subscription upgrade request ID)
+   * @param amount - Amount in VND
+   * @param description - Payment description
+   * @returns Payment intent with QR code
+   */
+  async createPlatformPaymentIntent(
+    referenceId: string,
+    amount: number,
+    description?: string,
+  ): Promise<PaymentIntent> {
+    this.logger.log(
+      `Creating platform payment intent: ${referenceId} - Amount: ${amount} VND`,
+    );
+
+    if (!this.platformAccountNumber || !this.platformBankCode) {
+      throw new PaymentProviderInvalidRequestException(
+        'Platform SePay config not set. Check SEPAY_ACCOUNT_NUMBER and SEPAY_BANK_CODE in .env',
+      );
+    }
+
+    try {
+      // Generate transfer content for subscription payment
+      // Format: SUB{referenceId} to differentiate from order payments (DH{orderId})
+      const transferContent = `SUB${referenceId.substring(0, 8).toUpperCase()}`;
+
+      // Generate VietQR content using platform config
+      const qrContent = this.generateVietQRContent(amount, transferContent);
+
+      // Generate deep link
+      const deepLink = this.generateDeepLink(amount, transferContent);
+
+      const paymentIntent: PaymentIntent = {
+        paymentId: '', // Will be set by calling service
+        orderId: referenceId, // Use referenceId as orderId for consistency
+        amount,
+        currency: 'VND',
+        qrContent,
+        deepLink,
+        transferContent,
+        accountNumber: this.platformAccountNumber,
+        accountName: this.platformAccountName || 'TKOB Platform',
+        bankCode: this.platformBankCode,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        providerData: {
+          provider: 'sepay',
+          type: 'subscription',
+          version: '1.0',
+          description,
+        },
+      };
+
+      this.logger.log(
+        `Platform payment intent created - Transfer: ${transferContent}`,
+      );
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(
+        `Failed to create platform payment intent: ${error.message}`,
+      );
+      throw new PaymentProviderException(
+        'Failed to create platform payment intent',
+        'CREATE_INTENT_ERROR',
+        500,
+      );
+    }
+  }
+
+  /**
    * Generate transfer content for payment matching
    *
    * Format: DH{orderId}
@@ -270,7 +580,28 @@ export class SepayProvider implements IPaymentProvider {
     transferContent: string,
   ): string {
     // VietQR Compact Format v2
-    return `2|${this.bankCode}|${this.accountNumber}|${this.accountName}|${amount}|${transferContent}|0`;
+    return `2|${this.platformBankCode}|${this.platformAccountNumber}|${this.platformAccountName}|${amount}|${transferContent}|0`;
+  }
+
+  /**
+   * Generate VietQR content string with custom config
+   *
+   * @param amount - Payment amount
+   * @param transferContent - Transfer content/description
+   * @param bankCode - Bank code
+   * @param accountNumber - Account number
+   * @param accountName - Account name
+   * @returns VietQR content string
+   */
+  private generateVietQRContentWithConfig(
+    amount: number,
+    transferContent: string,
+    bankCode: string,
+    accountNumber: string,
+    accountName: string,
+  ): string {
+    // VietQR Compact Format v2
+    return `2|${bankCode}|${accountNumber}|${accountName}|${amount}|${transferContent}|0`;
   }
 
   /**
@@ -286,9 +617,34 @@ export class SepayProvider implements IPaymentProvider {
   private generateDeepLink(amount: number, transferContent: string): string {
     // Generic banking deep link (works with most Vietnamese banking apps)
     const params = new URLSearchParams({
-      bankCode: this.bankCode,
-      accountNumber: this.accountNumber,
-      accountName: this.accountName,
+      bankCode: this.platformBankCode,
+      accountNumber: this.platformAccountNumber,
+      accountName: this.platformAccountName,
+      amount: amount.toString(),
+      content: transferContent,
+    });
+
+    return `banking://transfer?${params.toString()}`;
+  }
+
+  /**
+   * Generate deep link for mobile banking apps with custom config
+   *
+   * @param amount - Payment amount
+   * @param transferContent - Transfer content
+   * @param bankCode - Bank code
+   * @param accountNumber - Account number
+   * @returns Deep link URL
+   */
+  private generateDeepLinkWithConfig(
+    amount: number,
+    transferContent: string,
+    bankCode: string,
+    accountNumber: string,
+  ): string {
+    const params = new URLSearchParams({
+      bankCode,
+      accountNumber,
       amount: amount.toString(),
       content: transferContent,
     });

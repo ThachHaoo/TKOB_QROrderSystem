@@ -30,6 +30,7 @@ import { MenuItemPhotoResponseDto, UpdatePhotoDto, UploadPhotoDto } from '../dto
 import { Roles } from '@/common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { SkipTransform } from '@/common/interceptors/transform.interceptor';
 
 @ApiTags('Menu - Photos')
 @Controller('menu/items/:itemId/photos')
@@ -129,6 +130,7 @@ export class MenuPhotoController {
   @Delete(':photoId')
   @Roles(UserRole.OWNER, UserRole.STAFF)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({ summary: 'Delete photo' })
   @ApiResponse({ status: 204 })
   async deletePhoto(

@@ -1,7 +1,12 @@
 'use client';
 
+import { RoleGuard } from '@/shared/guards';
 import { TenantProfilePage } from '@/features/settings';
 
 export default function TenantProfile() {
-  return <TenantProfilePage />;
+  return (
+    <RoleGuard allowedRoles={['admin']}>
+      <TenantProfilePage />
+    </RoleGuard>
+  );
 }

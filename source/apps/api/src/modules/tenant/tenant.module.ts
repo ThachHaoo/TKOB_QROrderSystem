@@ -1,11 +1,13 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod, forwardRef } from '@nestjs/common';
 import { TenantController } from './controllers/tenant.controller';
 import { TenantService } from './services/tenant.service';
 import { TenantOwnershipGuard } from './guards/tenant-ownership.guard';
 import { TenantContextMiddleware } from 'src/common/middleware/tenant-context.middleware';
 import { OnboardingService } from './services/onboarding.service';
+import { PaymentConfigModule } from '../payment-config/payment-config.module';
 
 @Module({
+  imports: [forwardRef(() => PaymentConfigModule)],
   controllers: [TenantController],
   providers: [TenantService, OnboardingService, TenantOwnershipGuard],
   exports: [TenantService],

@@ -7,9 +7,14 @@ import { RegisterConfirmDto } from '../dto/register-confirm.dto';
 import { LoginDto } from '../dto/login.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { LogoutDto } from '../dto/logout.dto';
+import { ForgotPasswordDto, ForgotPasswordResponseDto } from '../dto/forgot-password.dto';
+import { ResetPasswordDto, ResetPasswordResponseDto } from '../dto/reset-password.dto';
+import { VerifyEmailDto, VerifyEmailResponseDto } from '../dto/verify-email.dto';
+import { ResendVerificationDto, ResendVerificationResponseDto } from '../dto/resend-verification.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
+import { SkipTransform } from '../../../common/interceptors/transform.interceptor';
 
 /**
  * Auth Controller
@@ -105,6 +110,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({
     summary: 'Logout user',
     description: 'Revoke refresh token and end session',
@@ -119,6 +125,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({
     summary: 'Logout from all devices',
     description: 'Revoke all refresh tokens for the user',
@@ -168,5 +175,80 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMe(@CurrentUser() user: any) {
     return this.authService.getCurrentUser(user.userId);
+  }
+
+  // ==================== PASSWORD RESET ====================
+
+  @Post('forgot-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Send password reset link to user email',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent (if email exists)',
+    type: ForgotPasswordResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid email format' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<ForgotPasswordResponseDto> {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset password with token',
+    description: 'Change password using reset token from email',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successful',
+    type: ResetPasswordResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<ResetPasswordResponseDto> {
+    return this.authService.resetPassword(dto);
+  }
+
+  // ==================== EMAIL VERIFICATION ====================
+
+  @Post('verify-email')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify email address',
+    description: 'Confirm email using verification token from email',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+    type: VerifyEmailResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(@Body() dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
+    return this.authService.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend verification email',
+    description: 'Send new verification link to user email',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent',
+    type: ResendVerificationResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 400, description: 'Email already verified' })
+  async resendVerification(
+    @Body() dto: ResendVerificationDto,
+  ): Promise<ResendVerificationResponseDto> {
+    return this.authService.resendVerification(dto);
   }
 }
