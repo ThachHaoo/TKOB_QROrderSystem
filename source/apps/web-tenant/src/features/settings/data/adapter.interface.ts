@@ -4,6 +4,15 @@
  */
 
 import type { AccountSettingsState, TenantFullProfileState } from '../model/types';
+import type {
+  PublicSubscriptionControllerGetPublicPlans200Item,
+  PublicSubscriptionControllerGetFeatureComparison200,
+  SubscriptionControllerGetCurrent200,
+  SubscriptionControllerGetUsage200,
+  UpgradeSubscriptionDto,
+  PaymentIntentResponseDto,
+  PaymentStatusResponseDto,
+} from '@/services/generated/models';
 
 export interface SettingsAdapter {
   // Account settings queries
@@ -28,6 +37,25 @@ export interface SettingsAdapter {
     staffNotifications: boolean;
   }): Promise<void>;
   saveTenantSecurity(payload: { twoFactorEnabled: boolean; sessionTimeout: number }): Promise<void>;
+}
+
+/**
+ * Subscription operations
+ */
+export interface ISubscriptionAdapter {
+  getPublicPlans(): Promise<PublicSubscriptionControllerGetPublicPlans200Item[]>;
+  getFeatureComparison(): Promise<PublicSubscriptionControllerGetFeatureComparison200>;
+  getCurrentSubscription(): Promise<SubscriptionControllerGetCurrent200>;
+  getUsage(): Promise<SubscriptionControllerGetUsage200>;
+  upgradePlan(data: UpgradeSubscriptionDto): Promise<PaymentIntentResponseDto>;
+}
+
+/**
+ * Payment verification operations
+ */
+export interface IPaymentAdapter {
+  getPaymentStatus(paymentId: string): Promise<PaymentStatusResponseDto>;
+  checkPayment(paymentId: string): Promise<{ confirmed: boolean; status: string }>;
 }
 
 export type { SettingsAdapter as ISettingsAdapter };

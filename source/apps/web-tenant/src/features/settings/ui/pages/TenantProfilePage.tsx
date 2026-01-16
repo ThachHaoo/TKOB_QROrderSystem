@@ -10,9 +10,8 @@ import {
   TenantOpeningHoursSection,
   TenantPaymentsSection,
   TenantPromotionsSection,
-  TenantNotificationsSection,
-  TenantSecuritySection,
 } from '../components/sections';
+import { SubscriptionSettingsPage } from './SubscriptionSettingsPage';
 import type { TenantProfileTab } from '../../model';
 
 
@@ -24,8 +23,7 @@ export function TenantProfilePage() {
     hours: 'Giờ mở cửa',
     payments: 'Thanh toán',
     promotions: 'Mã giảm giá',
-    notifications: 'Thông báo',
-    security: 'Bảo mật',
+    subscription: 'Gói dịch vụ',
   };
 
   return (
@@ -38,7 +36,7 @@ export function TenantProfilePage() {
       {/* Tabs */}
       <div className="border-b border-default">
         <div className="flex gap-2 overflow-x-auto">
-          {(['profile', 'hours', 'payments', 'promotions', 'notifications', 'security'] as TenantProfileTab[]).map((tab) => (
+          {(['profile', 'hours', 'payments', 'promotions', 'subscription'] as TenantProfileTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => controller.setActiveTab(tab)}
@@ -105,15 +103,7 @@ export function TenantProfilePage() {
 
       {/* Payments Tab */}
       {controller.activeTab === 'payments' && (
-        <TenantPaymentsSection
-          stripeEnabled={controller.stripeEnabled}
-          paypalEnabled={controller.paypalEnabled}
-          cashEnabled={controller.cashEnabled}
-          onStripeChange={controller.setStripeEnabled}
-          onPaypalChange={controller.setPaypalEnabled}
-          onCashChange={controller.setCashEnabled}
-          onSave={controller.handleSavePayments}
-        />
+        <TenantPaymentsSection />
       )}
 
       {/* Promotions Tab */}
@@ -121,30 +111,9 @@ export function TenantProfilePage() {
         <TenantPromotionsSection />
       )}
 
-      {/* Notifications Tab */}
-      {controller.activeTab === 'notifications' && (
-        <TenantNotificationsSection
-          emailNotifications={controller.emailNotifications}
-          orderNotifications={controller.orderNotifications}
-          lowStockAlerts={controller.lowStockAlerts}
-          staffNotifications={controller.staffNotifications}
-          onEmailChange={controller.setEmailNotifications}
-          onOrderChange={controller.setOrderNotifications}
-          onStockChange={controller.setLowStockAlerts}
-          onStaffChange={controller.setStaffNotifications}
-          onSave={controller.handleSaveNotifications}
-        />
-      )}
-
-      {/* Security Tab */}
-      {controller.activeTab === 'security' && (
-        <TenantSecuritySection
-          twoFactorEnabled={controller.twoFactorEnabled}
-          sessionTimeout={controller.sessionTimeout}
-          onTwoFactorChange={controller.setTwoFactorEnabled}
-          onSessionTimeoutChange={controller.setSessionTimeout}
-          onSave={controller.handleSaveSecurity}
-        />
+      {/* Subscription Tab */}
+      {controller.activeTab === 'subscription' && (
+        <SubscriptionSettingsPage />
       )}
     </div>
   );
