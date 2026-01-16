@@ -8,7 +8,7 @@ import type { OrderTrackingResponse } from './types'
  * Uses session cookie for authentication
  */
 class OrderTrackingApiService {
-  private baseUrl = '/orders'
+  private baseUrl = '/api/v1/orders'
 
   /**
    * Get order tracking info for customer view

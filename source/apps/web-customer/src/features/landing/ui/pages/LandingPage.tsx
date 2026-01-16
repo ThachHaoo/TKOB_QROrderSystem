@@ -79,7 +79,7 @@ export function LandingPage() {
                 🪑 {t.tableInfo(session.tableNumber)}
               </p>
               <p className="mb-1" style={{ color: '#374151', fontSize: '14px' }}>
-                👥 {t.guestCount}
+                👥 {t.guestCount(session.guestCount)}
               </p>
               <p style={{ color: '#6B7280', fontSize: '12px' }}>
                 📅 {t.validText}
