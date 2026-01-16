@@ -5,8 +5,19 @@
  * API Documentation for QR Ordering Platform
  * OpenAPI spec version: 1.0
  */
+import type { ServiceChargeSettingsDto } from './serviceChargeSettingsDto';
+import type { TaxSettingsDto } from './taxSettingsDto';
+import type { TipSettingsDto } from './tipSettingsDto';
 
 export interface UpdateSettingsDto {
+  /** Primary currency code */
+  currency?: string;
   language: string;
+  /** Service charge configuration */
+  serviceCharge?: ServiceChargeSettingsDto;
+  /** Tax configuration */
+  tax?: TaxSettingsDto;
   timezone: string;
+  /** Tip configuration */
+  tip?: TipSettingsDto;
 }

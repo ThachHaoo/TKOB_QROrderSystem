@@ -48,7 +48,7 @@ export const menuItemsControllerCreate = (
   
 
 
-export const getMenuItemsControllerCreateMutationOptions = <TError = unknown,
+export const getMenuItemsControllerCreateMutationOptions = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof menuItemsControllerCreate>>, TError,{data: CreateMenuItemDto}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof menuItemsControllerCreate>>, TError,{data: CreateMenuItemDto}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -69,12 +69,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type MenuItemsControllerCreateMutationResult = NonNullable<Awaited<ReturnType<typeof menuItemsControllerCreate>>>
     export type MenuItemsControllerCreateMutationBody = CreateMenuItemDto
-    export type MenuItemsControllerCreateMutationError = unknown
+    export type MenuItemsControllerCreateMutationError = void
 
     /**
  * @summary Create new menu item
  */
-export const useMenuItemsControllerCreate = <TError = unknown,
+export const useMenuItemsControllerCreate = <TError = void,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof menuItemsControllerCreate>>, TError,{data: CreateMenuItemDto}, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof menuItemsControllerCreate>>,
@@ -269,7 +269,7 @@ export const useMenuItemsControllerUpdate = <TError = unknown,
       return useMutation(mutationOptions);
     }
     /**
- * @summary Delete (archive) menu item
+ * @summary Archive menu item
  */
 export const menuItemsControllerDelete = (
     id: string,
@@ -308,7 +308,7 @@ const {mutation: mutationOptions} = options ?? {};
     export type MenuItemsControllerDeleteMutationError = unknown
 
     /**
- * @summary Delete (archive) menu item
+ * @summary Archive menu item
  */
 export const useMenuItemsControllerDelete = <TError = unknown,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof menuItemsControllerDelete>>, TError,{id: string}, TContext>, }

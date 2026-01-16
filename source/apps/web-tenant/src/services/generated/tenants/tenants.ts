@@ -19,6 +19,7 @@ import type {
   UseQueryResult
 } from '@tanstack/react-query'
 import type {
+  TenantControllerGetPricingSettings200,
   TenantResponseDto,
   UpdateOpeningHoursDto,
   UpdatePaymentConfigDto,
@@ -80,6 +81,128 @@ export const useTenantControllerGetCurrentTenant = <TData = Awaited<ReturnType<t
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
   const queryOptions = getTenantControllerGetCurrentTenantQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * @summary Get tenant pricing settings (tax, service charge, tip)
+ */
+export const tenantControllerGetPricingSettings = (
+    
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<TenantControllerGetPricingSettings200>(
+      {url: `/api/v1/tenants/me/pricing`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+export const getTenantControllerGetPricingSettingsQueryKey = () => {
+    return [`/api/v1/tenants/me/pricing`] as const;
+    }
+
+    
+export const getTenantControllerGetPricingSettingsQueryOptions = <TData = Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTenantControllerGetPricingSettingsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>> = ({ signal }) => tenantControllerGetPricingSettings(signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type TenantControllerGetPricingSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>>
+export type TenantControllerGetPricingSettingsQueryError = unknown
+
+/**
+ * @summary Get tenant pricing settings (tax, service charge, tip)
+ */
+export const useTenantControllerGetPricingSettings = <TData = Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tenantControllerGetPricingSettings>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getTenantControllerGetPricingSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * @summary Get tenant pricing settings by slug (public)
+ */
+export const tenantControllerGetPublicPricingSettings = (
+    slug: string,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<void>(
+      {url: `/api/v1/tenants/public/${slug}/pricing`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+export const getTenantControllerGetPublicPricingSettingsQueryKey = (slug: string,) => {
+    return [`/api/v1/tenants/public/${slug}/pricing`] as const;
+    }
+
+    
+export const getTenantControllerGetPublicPricingSettingsQueryOptions = <TData = Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>, TError = void>(slug: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTenantControllerGetPublicPricingSettingsQueryKey(slug);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>> = ({ signal }) => tenantControllerGetPublicPricingSettings(slug, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(slug), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type TenantControllerGetPublicPricingSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>>
+export type TenantControllerGetPublicPricingSettingsQueryError = void
+
+/**
+ * @summary Get tenant pricing settings by slug (public)
+ */
+export const useTenantControllerGetPublicPricingSettings = <TData = Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>, TError = void>(
+ slug: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof tenantControllerGetPublicPricingSettings>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+
+  const queryOptions = getTenantControllerGetPublicPricingSettingsQueryOptions(slug,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -205,7 +328,7 @@ export const useTenantControllerUpdateOpeningHours = <TError = unknown,
       return useMutation(mutationOptions);
     }
     /**
- * @summary Update settings (Onboarding Step 3)
+ * @summary Update settings (Onboarding Step 3) - includes tax, service charge, tip config
  */
 export const tenantControllerUpdateSettings = (
     updateSettingsDto: UpdateSettingsDto,
@@ -246,7 +369,7 @@ const {mutation: mutationOptions} = options ?? {};
     export type TenantControllerUpdateSettingsMutationError = unknown
 
     /**
- * @summary Update settings (Onboarding Step 3)
+ * @summary Update settings (Onboarding Step 3) - includes tax, service charge, tip config
  */
 export const useTenantControllerUpdateSettings = <TError = unknown,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tenantControllerUpdateSettings>>, TError,{data: UpdateSettingsDto}, TContext>, }

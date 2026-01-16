@@ -5,9 +5,11 @@
  * API Documentation for QR Ordering Platform
  * OpenAPI spec version: 1.0
  */
-import type { MenuCategoryResponseDto } from './menuCategoryResponseDto';
+import type { PublicMenuCategoryDto } from './publicMenuCategoryDto';
+import type { PaginationMetaDto } from './paginationMetaDto';
 
 export interface PublicMenuResponseDto {
-  categories: MenuCategoryResponseDto[];
+  categories: PublicMenuCategoryDto[];
+  pagination: PaginationMetaDto;
   publishedAt: string;
 }

@@ -7,5 +7,24 @@
  */
 
 export interface UpdatePaymentConfigDto {
-  stripeAccountId: string;
+  /** Bank account holder name */
+  sepayAccountName?: string;
+  /** Bank account number */
+  sepayAccountNo?: string;
+  /**
+   * SePay API Key (will be encrypted)
+   * @minLength 10
+   */
+  sepayApiKey?: string;
+  /**
+   * Bank code (e.g., MB, VCB, ACB)
+   * @maxLength 20
+   */
+  sepayBankCode?: string;
+  /** Enable SePay for this tenant */
+  sepayEnabled?: boolean;
+  /** Enable webhook notifications */
+  webhookEnabled?: boolean;
+  /** Webhook secret for verification */
+  webhookSecret?: string;
 }

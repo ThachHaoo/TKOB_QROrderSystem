@@ -15,6 +15,7 @@ import type {
   UseQueryResult
 } from '@tanstack/react-query'
 import type {
+  PublicMenuControllerGetPublicMenuParams,
   PublicMenuResponseDto
 } from '.././models'
 import { customInstance } from '../../axios';
@@ -22,36 +23,38 @@ import { customInstance } from '../../axios';
 
 
 /**
+ * Public endpoint - can be accessed with or without authentication. If not authenticated, tenantId must be provided via query parameter.
  * @summary Get published menu (for customers)
  */
 export const publicMenuControllerGetPublicMenu = (
-    
+    params?: PublicMenuControllerGetPublicMenuParams,
  signal?: AbortSignal
 ) => {
       
       
       return customInstance<PublicMenuResponseDto>(
-      {url: `/api/v1/menu/public`, method: 'GET', signal
+      {url: `/api/v1/menu/public`, method: 'GET',
+        params, signal
     },
       );
     }
   
 
-export const getPublicMenuControllerGetPublicMenuQueryKey = () => {
-    return [`/api/v1/menu/public`] as const;
+export const getPublicMenuControllerGetPublicMenuQueryKey = (params?: PublicMenuControllerGetPublicMenuParams,) => {
+    return [`/api/v1/menu/public`, ...(params ? [params]: [])] as const;
     }
 
     
-export const getPublicMenuControllerGetPublicMenuQueryOptions = <TData = Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError, TData>>, }
+export const getPublicMenuControllerGetPublicMenuQueryOptions = <TData = Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError = unknown>(params?: PublicMenuControllerGetPublicMenuParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getPublicMenuControllerGetPublicMenuQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getPublicMenuControllerGetPublicMenuQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>> = ({ signal }) => publicMenuControllerGetPublicMenu(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>> = ({ signal }) => publicMenuControllerGetPublicMenu(params, signal);
 
       
 
@@ -67,11 +70,11 @@ export type PublicMenuControllerGetPublicMenuQueryError = unknown
  * @summary Get published menu (for customers)
  */
 export const usePublicMenuControllerGetPublicMenu = <TData = Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError, TData>>, }
+ params?: PublicMenuControllerGetPublicMenuParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof publicMenuControllerGetPublicMenu>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getPublicMenuControllerGetPublicMenuQueryOptions(options)
+  const queryOptions = getPublicMenuControllerGetPublicMenuQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
