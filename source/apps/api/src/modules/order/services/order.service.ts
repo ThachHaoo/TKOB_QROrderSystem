@@ -214,7 +214,9 @@ export class OrderService {
   ): Promise<PaginatedResponseDto<OrderResponseDto>> {
     const where: Prisma.OrderWhereInput = {
       tenantId,
-      ...(filters.status && { status: filters.status as OrderStatus }),
+      ...(filters.status && filters.status.length > 0 && {
+        status: { in: filters.status as OrderStatus[] },
+      }),
       ...(filters.tableId && { tableId: filters.tableId }),
       ...(filters.search && {
         OR: [
@@ -223,6 +225,12 @@ export class OrderService {
         ],
       }),
     };
+
+    // Build orderBy based on sortBy and sortOrder
+    const orderBy: Prisma.OrderOrderByWithRelationInput = {};
+    const sortField = filters.sortBy || 'createdAt';
+    const sortDirection = (filters.sortOrder || 'DESC').toLowerCase() as 'asc' | 'desc';
+    orderBy[sortField as keyof Prisma.OrderOrderByWithRelationInput] = sortDirection;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
@@ -235,7 +243,7 @@ export class OrderService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: (filters.page! - 1) * filters.limit!,
         take: filters.limit,
       }),
@@ -526,6 +534,64 @@ export class OrderService {
     this.orderGateway.emitOrderStatusChanged(order.tenantId, orderResponse);
 
     return orderResponse;
+  }
+
+  /**
+   * Request bill for order (customer)
+   */
+  async requestBill(orderId: string, tableId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        table: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Verify table ownership
+    if (order.tableId !== tableId) {
+      throw new BadRequestException('You can only request bill for orders from your table');
+    }
+
+    // Check if order is in a state where bill can be requested
+    const validStatuses: OrderStatus[] = [
+      OrderStatus.READY,
+      OrderStatus.SERVED,
+      OrderStatus.COMPLETED,
+    ];
+    if (!validStatuses.includes(order.status as OrderStatus)) {
+      throw new BadRequestException(
+        'Bill can only be requested after order is ready or served',
+      );
+    }
+
+    // Check if already paid
+    if (order.paymentStatus === 'COMPLETED') {
+      throw new BadRequestException('This order has already been paid');
+    }
+
+    // Emit WebSocket event to notify staff
+    this.orderGateway.emitBillRequested(order.tenantId, {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      tableId: order.tableId,
+      tableNumber: order.table.tableNumber,
+      totalAmount: Number(order.total),
+      requestedAt: new Date(),
+    });
+
+    this.logger.log(`Bill requested for order ${order.orderNumber} at table ${order.table.tableNumber}`);
+
+    return {
+      success: true,
+      message: 'Bill request sent. A server will assist you shortly.',
+      orderId: order.id,
+      tableNumber: order.table.tableNumber,
+      requestedAt: new Date(),
+    };
   }
 
   /**

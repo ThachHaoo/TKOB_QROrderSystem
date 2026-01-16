@@ -17,6 +17,7 @@ import { Public } from '@/common/decorators/public.decorator';
 import { Session } from '@/common/decorators/session.decorator';
 import { AddToCartDto, CartResponseDto, UpdateCartItemDto } from '../dtos/cart.dto';
 import { SessionData } from '@/modules/table/services/table-session.service';
+import { SkipTransform } from '@/common/interceptors/transform.interceptor';
 
 @ApiTags('Cart')
 @Controller('cart')
@@ -85,6 +86,7 @@ export class CartController {
   @Delete()
   @ApiCookieAuth('table_session_id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @SkipTransform()
   @ApiOperation({ summary: 'Clear cart' })
   @ApiResponse({ status: 204 })
   async clearCart(@Session() session: SessionData): Promise<void> {
