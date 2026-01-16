@@ -119,19 +119,21 @@ export class AnalyticsService {
     }[groupBy]
 
     // Use raw query for date grouping (PostgreSQL syntax)
-    const results = await this.prisma.$queryRaw<Array<{ period: string; total: number; count: number }>>`
-      SELECT 
-        TO_CHAR(created_at, ${dateFormat}) as period,
-        SUM(total) as total,
-        COUNT(*) as count
-      FROM orders
-      WHERE tenant_id = ${tenantId}
-        AND created_at >= ${startDate}
-        AND created_at <= ${endDate}
-        AND status NOT IN ('CANCELLED')
-      GROUP BY TO_CHAR(created_at, ${dateFormat})
-      ORDER BY period ASC
-    `
+    const results = await this.prisma.$queryRaw<Array<{ period: string; total: any; count: any }>>(
+      Prisma.sql`
+        SELECT 
+          TO_CHAR("created_at", ${Prisma.raw(`'${dateFormat}'`)}) as period,
+          SUM(total)::numeric as total,
+          COUNT(*)::bigint as count
+        FROM orders
+        WHERE tenant_id = ${tenantId}
+          AND created_at >= ${startDate}
+          AND created_at <= ${endDate}
+          AND status NOT IN ('CANCELLED')
+        GROUP BY TO_CHAR("created_at", ${Prisma.raw(`'${dateFormat}'`)})
+        ORDER BY period ASC
+      `
+    )
 
     return {
       period: { from: startDate, to: endDate },
@@ -253,19 +255,21 @@ export class AnalyticsService {
     const endDate = to || new Date()
     const startDate = from || new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-    const results = await this.prisma.$queryRaw<Array<{ hour: number; count: number; total: number }>>`
-      SELECT 
-        HOUR(created_at) as hour,
-        COUNT(*) as count,
-        SUM(total) as total
-      FROM orders
-      WHERE tenant_id = ${tenantId}
-        AND created_at >= ${startDate}
-        AND created_at <= ${endDate}
-        AND status NOT IN ('CANCELLED')
-      GROUP BY hour
-      ORDER BY hour ASC
-    `
+const results = await this.prisma.$queryRaw<Array<{ hour: any; count: any; total: any }>>(
+      Prisma.sql`
+        SELECT 
+          EXTRACT(HOUR FROM created_at)::integer as hour,
+          COUNT(*)::bigint as count,
+          SUM(total)::numeric as total
+        FROM orders
+        WHERE tenant_id = ${tenantId}
+          AND created_at >= ${startDate}
+          AND created_at <= ${endDate}
+          AND status NOT IN ('CANCELLED')
+        GROUP BY EXTRACT(HOUR FROM created_at)
+        ORDER BY hour ASC
+      `
+    )
 
     // Fill in missing hours with zeros
     const hourlyData = Array.from({ length: 24 }, (_, hour) => {

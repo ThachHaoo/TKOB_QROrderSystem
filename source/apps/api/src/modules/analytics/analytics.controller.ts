@@ -7,7 +7,11 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { AnalyticsService } from './analytics.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { RolesGuard } from '../auth/guards/roles.guard'
+import { TenantOwnershipGuard } from '../tenant/guards/tenant-ownership.guard'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
+import { Roles } from '../../common/decorators/roles.decorator'
+import { UserRole } from '@prisma/client'
 
 interface JwtPayload {
   sub: string
@@ -15,20 +19,22 @@ interface JwtPayload {
   role: string
 }
 
-@ApiTags('analytics')
+@ApiTags('Analytics')
 @Controller('admin/analytics')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
 @ApiBearerAuth()
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('overview')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get dashboard overview stats' })
   async getOverview(@CurrentUser() user: JwtPayload) {
     return this.analyticsService.getOverview(user.tenantId)
   }
 
   @Get('revenue')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get revenue by date range' })
   @ApiQuery({ name: 'from', required: false, type: String, description: 'Start date (YYYY-MM-DD)' })
   @ApiQuery({ name: 'to', required: false, type: String, description: 'End date (YYYY-MM-DD)' })
@@ -47,6 +53,7 @@ export class AnalyticsController {
   }
 
   @Get('orders')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get orders statistics' })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
@@ -62,6 +69,7 @@ export class AnalyticsController {
   }
 
   @Get('popular-items')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get top selling menu items' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of items (default 10)' })
   @ApiQuery({ name: 'from', required: false, type: String })
@@ -80,6 +88,7 @@ export class AnalyticsController {
   }
 
   @Get('hourly-distribution')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get orders distribution by hour of day' })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
@@ -95,6 +104,7 @@ export class AnalyticsController {
   }
 
   @Get('table-performance')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
   @ApiOperation({ summary: 'Get performance metrics per table' })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
