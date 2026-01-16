@@ -16,6 +16,21 @@ import {
 import { SubscriptionTier, PaymentStatus, PaymentMethod } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
+// Bank code to bank name mapping for SePay QR
+const BANK_CODE_MAP: Record<string, string> = {
+  'VCB': 'Vietcombank',
+  'TCB': 'Techcombank',
+  'MB': 'MBBank',
+  'ACB': 'ACB',
+  'BIDV': 'BIDV',
+  'VTB': 'VietinBank',
+  'TPB': 'TPBank',
+  'VPB': 'VPBank',
+  'SHB': 'SHB',
+  'MSB': 'MSB',
+  'CTG': 'VietinBank', // CTG is VietinBank code
+};
+
 /**
  * SubscriptionPaymentService
  * 
@@ -76,16 +91,21 @@ export class SubscriptionPaymentService {
       );
     }
 
-    // 4. Check for existing pending upgrade
-    const existingUpgradeKey = `${this.PENDING_UPGRADE_PREFIX}${tenantId}`;
+    // 4. Check for existing pending upgrade (now includes targetTier to prevent cache collision)
+    const existingUpgradeKey = `${this.PENDING_UPGRADE_PREFIX}${tenantId}:${dto.targetTier}`;
     const existingUpgrade = await this.redis.get(existingUpgradeKey);
     
     if (existingUpgrade) {
       const parsed = JSON.parse(existingUpgrade);
       // Check if the existing payment is still valid
       if (new Date(parsed.expiresAt) > new Date()) {
-        this.logger.warn(`Tenant ${tenantId} already has pending upgrade payment: ${parsed.paymentId}`);
-        // Return the existing payment info
+        this.logger.warn(`Tenant ${tenantId} already has pending upgrade payment for ${dto.targetTier}: ${parsed.paymentId}`);
+        
+        // Regenerate QR URL with correct format (in case cached data has old format)
+        const bankName = BANK_CODE_MAP[parsed.bankCode] || parsed.bankCode;
+        parsed.qrCodeUrl = `https://qr.sepay.vn/img?acc=${parsed.accountNumber}&bank=${encodeURIComponent(bankName)}&amount=${parsed.amountVND}&des=${encodeURIComponent(parsed.transferContent)}`;
+        
+        // Return the existing payment info with updated QR URL
         return parsed;
       }
     }
@@ -114,7 +134,7 @@ export class SubscriptionPaymentService {
 
     const payment = await this.prisma.payment.create({
       data: {
-        orderId: upgradeRequestId, // Use upgrade request ID as orderId
+        // orderId: null for subscription payments (not related to any order)
         tenantId,
         method: PaymentMethod.SEPAY_QR,
         status: PaymentStatus.PENDING,
@@ -138,7 +158,12 @@ export class SubscriptionPaymentService {
       },
     });
 
-    // 9. Cache upgrade request in Redis (for quick lookup by transfer content)
+    // 9. Generate SePay QR URL
+    // Format: https://qr.sepay.vn/img?acc=ACCOUNT&bank=BANK_NAME&amount=AMOUNT&des=CONTENT
+    const bankName = BANK_CODE_MAP[paymentIntent.bankCode] || paymentIntent.bankCode;
+    const qrCodeUrl = `https://qr.sepay.vn/img?acc=${paymentIntent.accountNumber}&bank=${encodeURIComponent(bankName)}&amount=${amountVND}&des=${encodeURIComponent(paymentIntent.transferContent)}`;
+
+    // 10. Cache upgrade request in Redis (for quick lookup by transfer content)
     const upgradeData: SubscriptionPaymentResponseDto = {
       paymentId: payment.id,
       upgradeRequestId,
@@ -147,6 +172,7 @@ export class SubscriptionPaymentService {
       amountUSD,
       amountVND,
       qrContent: paymentIntent.qrContent,
+      qrCodeUrl,
       deepLink: paymentIntent.deepLink,
       transferContent: paymentIntent.transferContent,
       accountNumber: paymentIntent.accountNumber,

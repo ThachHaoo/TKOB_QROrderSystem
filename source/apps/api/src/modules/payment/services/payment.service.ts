@@ -261,7 +261,7 @@ export class PaymentService {
     // 3. Transform to DTO
     const response: PaymentStatusResponseDto = {
       paymentId: payment.id,
-      orderId: payment.orderId,
+      orderId: payment.orderId || '',
       method: payment.method,
       status: payment.status,
       amount: payment.amount.toNumber(),
@@ -269,7 +269,7 @@ export class PaymentService {
       transactionId: payment.transactionId || undefined,
       paidAt: payment.paidAt || undefined,
       failureReason: payment.failureReason || undefined,
-      orderStatus: payment.order.status,
+      orderStatus: payment.order?.status || 'PENDING',
       expiresAt: payment.expiresAt,
       createdAt: payment.createdAt,
     };
@@ -372,7 +372,7 @@ export class PaymentService {
       }
 
       this.logger.debug(
-        `[Webhook] Payment found: ${payment.id} for order ${payment.order.orderNumber}`,
+        `[Webhook] Payment found: ${payment.id}${payment.order ? ` for order ${payment.order.orderNumber}` : ' (subscription payment)'}`,
       );
 
       // 4. Check idempotency - has this transaction been processed?
@@ -433,9 +433,9 @@ export class PaymentService {
       await this.redis.del(cacheKey);
       this.logger.debug(`Invalidated cache for payment ${payment.id}`);
 
-      // 7. Update order status if payment successful
+      // 7. Update order status if payment successful (skip for subscription payments)
       let updatedOrder;
-      if (isSuccess) {
+      if (isSuccess && payment.order) {
         // Update order payment status and potentially order status
         const newOrderStatus =
           payment.order.status === OrderStatus.PENDING
@@ -469,7 +469,7 @@ export class PaymentService {
         this.logger.log(
           `[Webhook] Order ${payment.order.orderNumber} payment completed - Amount: ${webhookData.amount} VND`,
         );
-      } else {
+      } else if (!isSuccess && payment.order) {
         // Payment failed - update order payment status
         updatedOrder = await tx.order.update({
           where: { id: payment.order.id },
@@ -483,19 +483,21 @@ export class PaymentService {
         );
       }
 
-      // 9. Emit WebSocket event for payment completion
-      this.orderGateway.emitPaymentCompleted(payment.order.tenantId, payment.order.id, {
-        id: payment.id,
-        status: newPaymentStatus,
-        amount: payment.amount.toNumber(),
-        transactionId: webhookData.transactionId,
-        paidAt: isSuccess ? new Date(webhookData.transactionTime) : null,
-        orderNumber: payment.order.orderNumber,
-        orderStatus: updatedOrder.status,
-      });
-      this.logger.debug(
-        `Emitted order:payment_completed event for order ${payment.order.id}`,
-      );
+      // 9. Emit WebSocket event for payment completion (only for order payments)
+      if (payment.order) {
+        this.orderGateway.emitPaymentCompleted(payment.order.tenantId, payment.order.id, {
+          id: payment.id,
+          status: newPaymentStatus,
+          amount: payment.amount.toNumber(),
+          transactionId: webhookData.transactionId,
+          paidAt: isSuccess ? new Date(webhookData.transactionTime) : null,
+          orderNumber: payment.order.orderNumber,
+          orderStatus: updatedOrder.status,
+        });
+        this.logger.debug(
+          `Emitted order:payment_completed event for order ${payment.order.id}`,
+        );
+      }
 
       this.logger.log(
         `[Webhook] Successfully processed webhook for payment ${payment.id} - Status: ${newPaymentStatus}`,
@@ -594,8 +596,47 @@ export class PaymentService {
       };
     }
 
-    // If already completed, return current status
+    // If already completed, check if subscription upgrade is needed
     if (payment.status === PaymentStatus.COMPLETED) {
+      // Check if this is a subscription payment that hasn't been processed yet
+      const providerData = payment.providerData as any;
+      if (providerData?.type === 'subscription_upgrade' && providerData?.targetPlanId) {
+        // Check if subscription is already upgraded
+        const currentSub = await this.prisma.tenantSubscription.findUnique({
+          where: { tenantId: payment.tenantId },
+          select: { planId: true },
+        });
+
+        // If subscription not yet upgraded, upgrade it now
+        if (currentSub && currentSub.planId !== providerData.targetPlanId) {
+          this.logger.log(
+            `Payment ${paymentId} completed but subscription not upgraded yet. Upgrading now...`,
+          );
+
+          try {
+            await this.prisma.tenantSubscription.update({
+              where: { tenantId: payment.tenantId },
+              data: {
+                planId: providerData.targetPlanId,
+                status: 'ACTIVE',
+                currentPeriodStart: new Date(),
+                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                lastPaymentId: payment.id,
+              },
+            });
+
+            this.logger.log(
+              `✅ Subscription upgraded for tenant ${payment.tenantId} to ${providerData.targetTier}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to upgrade subscription for tenant ${payment.tenantId}:`,
+              error,
+            );
+          }
+        }
+      }
+
       return {
         found: true,
         status: payment.status,
@@ -740,46 +781,80 @@ export class PaymentService {
         },
       });
 
-      // Update order
-      const newOrderStatus =
-        payment.order.status === OrderStatus.PENDING
-          ? OrderStatus.RECEIVED
-          : payment.order.status;
+      // Update order (if this is an order payment, not subscription payment)
+      if (payment.orderId && payment.order) {
+        const newOrderStatus =
+          payment.order.status === OrderStatus.PENDING
+            ? OrderStatus.RECEIVED
+            : payment.order.status;
 
-      await prisma.order.update({
-        where: { id: payment.orderId },
-        data: {
-          paymentStatus: PaymentStatus.COMPLETED,
-          paidAt: tx.transactionTime,
-          status: newOrderStatus,
-        },
-      });
-
-      // Create status history if status changed
-      if (newOrderStatus !== payment.order.status) {
-        await prisma.orderStatusHistory.create({
+        await prisma.order.update({
+          where: { id: payment.orderId },
           data: {
-            orderId: payment.orderId,
+            paymentStatus: PaymentStatus.COMPLETED,
+            paidAt: tx.transactionTime,
             status: newOrderStatus,
-            notes: `Order status auto-updated after payment confirmed via polling. Transaction: ${tx.id}`,
           },
         });
+
+        // Create status history if status changed
+        if (newOrderStatus !== payment.order.status) {
+          await prisma.orderStatusHistory.create({
+            data: {
+              orderId: payment.orderId,
+              status: newOrderStatus,
+              notes: `Order status auto-updated after payment confirmed via polling. Transaction: ${tx.id}`,
+            },
+          });
+        }
+      } else {
+        // This is a subscription payment (no order)
+        this.logger.log(`Subscription payment completed: ${payment.id} - Processing subscription upgrade`);
+        
+        // Extract target tier from providerData
+        const providerData = payment.providerData as any;
+        if (providerData?.type === 'subscription_upgrade' && providerData?.targetTier) {
+          try {
+            // Update subscription plan
+            await prisma.tenantSubscription.update({
+              where: { tenantId: payment.tenantId },
+              data: {
+                planId: providerData.targetPlanId,
+                status: 'ACTIVE',
+                currentPeriodStart: new Date(),
+                currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+                lastPaymentId: payment.id,
+              },
+            });
+            
+            this.logger.log(
+              `✅ Subscription upgraded for tenant ${payment.tenantId} to ${providerData.targetTier}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to upgrade subscription for tenant ${payment.tenantId}:`,
+              error,
+            );
+          }
+        }
       }
     });
 
     // Invalidate cache
     await this.redis.del(`${this.CACHE_PREFIX}${payment.id}`);
 
-    // Emit WebSocket event
-    this.orderGateway.emitPaymentCompleted(payment.order.tenantId, payment.orderId, {
-      id: payment.id,
-      status: PaymentStatus.COMPLETED,
-      amount: payment.amount.toNumber(),
-      transactionId: tx.id,
-      paidAt: tx.transactionTime,
-      orderNumber: payment.order.orderNumber,
-      method: 'polling',
-    });
+    // Emit WebSocket event (only for order payments)
+    if (payment.order) {
+      this.orderGateway.emitPaymentCompleted(payment.order.tenantId, payment.orderId!, {
+        id: payment.id,
+        status: PaymentStatus.COMPLETED,
+        amount: payment.amount.toNumber(),
+        transactionId: tx.id,
+        paidAt: tx.transactionTime,
+        orderNumber: payment.order.orderNumber,
+        method: 'polling',
+      });
+    }
 
     this.logger.log(`Payment ${payment.id} completed via polling - Transaction: ${tx.id}`);
   }

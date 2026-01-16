@@ -93,7 +93,6 @@ export class SepayProvider implements IPaymentProvider {
       timeout: 10000, // 10s timeout
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.platformApiToken}`,
       },
     });
 
@@ -219,7 +218,7 @@ export class SepayProvider implements IPaymentProvider {
    * Verify webhook signature from SePay
    *
    * SePay webhook authentication uses API Key in header:
-   * Authorization: Apikey YOUR_API_KEY
+   * Authorization: Bearer API_TOKEN
    *
    * @param payload - Raw webhook payload
    * @param signature - Signature from Authorization header
@@ -234,12 +233,12 @@ export class SepayProvider implements IPaymentProvider {
     this.logger.debug('Verifying SePay webhook signature');
 
     try {
-      // SePay webhook uses: Authorization: Apikey YOUR_API_KEY
-      // Extract the API key from signature (format: "Apikey XXXXX")
-      const expectedPrefix = 'Apikey ';
+      // SePay webhook uses: Authorization: Bearer API_TOKEN (per docs)
+      // Extract the API token from signature (format: "Bearer XXXXX")
+      const expectedPrefix = 'Bearer ';
       if (!signature.startsWith(expectedPrefix)) {
         this.logger.warn(
-          `Invalid signature format. Expected "Apikey XXX", got: ${signature}`,
+          `Invalid signature format. Expected "Bearer XXX", got: ${signature}`,
         );
         return false;
       }
@@ -329,7 +328,8 @@ export class SepayProvider implements IPaymentProvider {
       const response = await this.executeWithRetry(async () => {
         return this.httpClient.get('/transactions/list', {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           params: {
             limit,
@@ -339,22 +339,46 @@ export class SepayProvider implements IPaymentProvider {
 
       const data = response.data;
 
-      if (!data || !data.transactions) {
-        this.logger.warn('SePay returned empty transaction list');
+      // Validate response structure according to SePay docs
+      if (!data || data.status !== 200) {
+        this.logger.error(`Invalid SePay response: ${JSON.stringify(data)}`);
+        throw new PaymentProviderException(
+          'Invalid response from SePay API',
+          'INVALID_RESPONSE',
+          500,
+        );
+      }
+
+      if (!data.transactions || !Array.isArray(data.transactions)) {
+        this.logger.warn('SePay returned no transactions array');
         return [];
       }
 
-      const transactions: SepayTransaction[] = data.transactions.map((tx: any) => ({
-        id: tx.id || tx.transaction_id,
-        amount: parseFloat(tx.amount_in) || parseFloat(tx.amount) || 0,
-        accountNumber: tx.account_number || tx.bank_account_id,
-        transferContent: tx.transaction_content || tx.content || tx.description || '',
-        transactionTime: new Date(tx.transaction_date || tx.created_at),
-        bankCode: tx.bank_code || tx.bank_brand_name || '',
-        senderAccountNumber: tx.sub_account || tx.sender_account,
-        senderName: tx.sender_name,
-        referenceCode: tx.reference_number || tx.code,
-      }));
+      // DEBUG: Log raw response to understand SePay's actual data
+      this.logger.debug(`SePay raw response: status=${data.status}, count=${data.transactions.length}`);
+      if (data.transactions.length > 0) {
+        this.logger.debug(`Sample transaction: ${JSON.stringify(data.transactions[0], null, 2)}`);
+      }
+
+      // Parse transactions according to SePay API docs format
+      const transactions: SepayTransaction[] = data.transactions.map((tx: any) => {
+        const parsed = {
+          id: String(tx.id || ''),
+          amount: parseFloat(tx.amount_in || '0') || 0, // amount_in for incoming money
+          accountNumber: String(tx.account_number || ''),
+          transferContent: String(tx.transaction_content || '').trim(), // Main field per docs
+          transactionTime: new Date(tx.transaction_date || Date.now()),
+          bankCode: String(tx.bank_brand_name || ''), // SePay uses bank_brand_name
+          senderAccountNumber: String(tx.sub_account || ''),
+          senderName: String(tx.sender_name || ''),
+          referenceCode: String(tx.reference_number || ''),
+        };
+        
+        // Debug log each transaction
+        this.logger.debug(`Parsed TX ${parsed.id}: ${parsed.amount} VND - "${parsed.transferContent}"`);
+        
+        return parsed;
+      });
 
       this.logger.log(`Fetched ${transactions.length} transactions from SePay`);
       return transactions;
@@ -385,23 +409,74 @@ export class SepayProvider implements IPaymentProvider {
     limit: number = 50,
     apiKey?: string,
   ): Promise<SepayTransaction | null> {
-    this.logger.log(`Searching for transaction with content: ${transferContent}`);
+    this.logger.log(`🔍 Searching for transaction with content: "${transferContent}"`);
 
     const transactions = await this.pollTransactions(limit, apiKey);
 
-    // Search for matching transaction (case-insensitive, partial match)
-    const searchContent = transferContent.toUpperCase();
-    const matched = transactions.find((tx) => 
-      tx.transferContent.toUpperCase().includes(searchContent)
+    if (transactions.length === 0) {
+      this.logger.warn('⚠️  No transactions returned from SePay API');
+      return null;
+    }
+
+    this.logger.log(`📋 Checking ${transactions.length} transactions for match...`);
+
+    // Normalize search content (remove spaces, dashes, lowercase)
+    const normalizeContent = (text: string) => 
+      text.toUpperCase().replace(/[\s\-_\.]/g, '');
+
+    const searchContent = normalizeContent(transferContent);
+    
+    this.logger.debug(`🔤 Normalized search: "${transferContent}" -> "${searchContent}"`);
+    this.logger.debug(`📝 Transaction contents: ${transactions.map(t => `"${t.transferContent}"`).slice(0, 5).join(', ')}`);
+
+    // Try multiple matching strategies
+    // 1. Exact match (case-insensitive)
+    let matched = transactions.find((tx) => 
+      tx.transferContent.toUpperCase() === transferContent.toUpperCase()
     );
 
     if (matched) {
-      this.logger.log(`Found matching transaction: ${matched.id} - Amount: ${matched.amount}`);
-    } else {
-      this.logger.debug(`No matching transaction found for: ${transferContent}`);
+      this.logger.log(`✅ Found EXACT match: TX ${matched.id} - "${matched.transferContent}" = ${matched.amount} VND`);
+      return matched;
     }
 
-    return matched || null;
+    // 2. Contains match (search IN transaction)
+    matched = transactions.find((tx) => 
+      tx.transferContent.toUpperCase().includes(transferContent.toUpperCase())
+    );
+
+    if (matched) {
+      this.logger.log(`✅ Found CONTAINS match: TX ${matched.id} - "${matched.transferContent}" contains "${transferContent}"`);
+      return matched;
+    }
+
+    // 3. Reverse contains (transaction IN search) - for "SUBUPG-0946" contains "SUB0946"
+    matched = transactions.find((tx) => 
+      transferContent.toUpperCase().includes(tx.transferContent.toUpperCase())
+    );
+
+    if (matched) {
+      this.logger.log(`✅ Found REVERSE match: "${transferContent}" contains TX ${matched.id} - "${matched.transferContent}"`);
+      return matched;
+    }
+
+    // 4. Normalized match (remove all special chars)
+    matched = transactions.find((tx) => {
+      const normalizedTxContent = normalizeContent(tx.transferContent);
+      this.logger.debug(`  Comparing: "${normalizedTxContent}" vs "${searchContent}"`);
+      return normalizedTxContent.includes(searchContent) || searchContent.includes(normalizedTxContent);
+    });
+
+    if (matched) {
+      this.logger.log(`✅ Found NORMALIZED match: TX ${matched.id} - "${matched.transferContent}"`);
+      return matched;
+    }
+
+    // No match found
+    this.logger.warn(`❌ No matching transaction found for: "${transferContent}"`);
+    this.logger.warn(`   Searched in: ${transactions.map(t => `"${t.transferContent}"`).join(', ')}`);
+
+    return null;
   }
 
   /**

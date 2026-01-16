@@ -57,6 +57,9 @@ export class SubscriptionPaymentResponseDto {
   @ApiProperty({ description: 'VietQR code content' })
   qrContent: string;
 
+  @ApiProperty({ description: 'QR code image URL' })
+  qrCodeUrl: string;
+
   @ApiProperty({ description: 'Deep link to banking app', required: false })
   deepLink?: string;
 

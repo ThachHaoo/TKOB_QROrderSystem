@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { SubscriptionController } from './subscription.controller';
+import { PublicSubscriptionController } from './controllers/public-subscription.controller';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionPaymentService } from './subscription-payment.service';
 import { SubscriptionLimitsGuard } from './guards/subscription-limits.guard';
@@ -12,7 +13,7 @@ import { RedisModule } from '../redis/redis.module';
     forwardRef(() => PaymentModule),
     RedisModule,
   ],
-  controllers: [SubscriptionController],
+  controllers: [SubscriptionController, PublicSubscriptionController],
   providers: [
     SubscriptionService, 
     SubscriptionPaymentService,
