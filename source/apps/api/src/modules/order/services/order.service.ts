@@ -16,8 +16,9 @@ import { TenantService } from '@/modules/tenant/services/tenant.service';
 import { SubscriptionService } from '@/modules/subscription/subscription.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
-// Import PaymentStatus type and enum directly from Prisma client
-import type { PaymentStatus, Prisma } from '@prisma/client';
+// Import PaymentStatus as value (not type) to use in comparisons
+import type { Prisma } from '@prisma/client';
+import { PaymentStatus } from '@prisma/client';
 import { OrderFiltersDto } from '../dtos/order-filters.dto';
 import { PaginatedResponseDto } from '@/common/dto/pagination.dto';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto';
@@ -101,8 +102,11 @@ export class OrderService {
     const total = subtotal.add(taxAmount).add(serviceChargeAmount).add(tipAmount);
 
     // 8. Determine initial status based on payment method
-    const initialStatus =
-      dto.paymentMethod === 'BILL_TO_TABLE' ? OrderStatus.RECEIVED : OrderStatus.PENDING;
+    // ALL orders start as PENDING and require waiter/staff confirmation to move to RECEIVED
+    // This ensures orders go to "Placed" tab first for verification before going to KDS
+    // - SEPAY_QR: PENDING → payment webhook → RECEIVED (after payment confirmed)
+    // - BILL_TO_TABLE/CASH: PENDING → waiter confirms → RECEIVED (manual confirmation)
+    const initialStatus = OrderStatus.PENDING;
 
     const initialPaymentStatus: PaymentStatus = PaymentStatusEnum.PENDING;
 
@@ -168,7 +172,9 @@ export class OrderService {
 
     this.logger.log(`Order created: ${orderNumber} for table ${tableId}`);
 
-    // 7. Emit WebSocket event for new order (KDS notification)
+    // 7. Emit WebSocket event for new order
+    // All new orders (PENDING) should notify waiters/staff
+    // Waiters will see the order in "Placed" tab and confirm to move to RECEIVED (KDS)
     const orderResponse = await this.getOrderById(order.id);
     this.orderGateway.emitNewOrder(tenantId, orderResponse);
 
@@ -203,7 +209,8 @@ export class OrderService {
       where: {
         tableId,
         status: {
-          in: [OrderStatus.RECEIVED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.SERVED],
+          // Include PENDING so customer can track CASH/BILL_TO_TABLE orders before waiter confirmation
+          in: [OrderStatus.PENDING, OrderStatus.RECEIVED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.SERVED],
         },
       },
       include: {
@@ -375,19 +382,22 @@ export class OrderService {
 
   /**
    * Get orders with timer warnings (for KDS priority)
-   * Returns RECEIVED and PREPARING orders for kitchen display
+   * Returns RECEIVED (confirmed by waiter), PREPARING (cooking), and READY (waiting for serve) orders
+   * PENDING orders stay in Waiter's "Placed" tab until confirmed
+   * READY orders stay in KDS until waiter marks them as SERVED
    */
   async getOrdersWithTimerWarnings(tenantId: string): Promise<{
     normal: OrderResponseDto[];
     high: OrderResponseDto[];
     urgent: OrderResponseDto[];
   }> {
-    // Get both RECEIVED (pending acceptance) and PREPARING (actively cooking) orders
+    // Get RECEIVED (waiter confirmed, ready for kitchen), PREPARING (cooking), and READY (cooked, waiting for serve)
+    // NOTE: PENDING orders should NOT appear here - they stay in Waiter's "Placed" tab until confirmed
     const activeOrders = await this.prisma.order.findMany({
       where: {
         tenantId,
         status: {
-          in: [OrderStatus.RECEIVED, OrderStatus.PREPARING],
+          in: [OrderStatus.RECEIVED, OrderStatus.PREPARING, OrderStatus.READY],
         },
       },
       include: {
@@ -411,8 +421,16 @@ export class OrderService {
     for (const order of activeOrders) {
       const orderDto = this.toResponseDto(order);
 
-      // RECEIVED orders (not yet accepted) always go to normal priority
+      // RECEIVED orders (confirmed by waiter, ready for kitchen to start) always go to normal priority
+      // These appear in "New" column for kitchen to accept and start preparing
       if (order.status === OrderStatus.RECEIVED) {
+        categorized.normal.push(orderDto);
+        continue;
+      }
+
+      // READY orders (cooked, waiting for waiter to serve) always go to normal priority
+      // These appear in "Ready" column until waiter marks as SERVED
+      if (order.status === OrderStatus.READY) {
         categorized.normal.push(orderDto);
         continue;
       }
@@ -483,6 +501,40 @@ export class OrderService {
     });
 
     this.logger.log(`Order ${order.orderNumber} cancelled by ${staffId}`);
+
+    return this.getOrderById(orderId);
+  }
+
+  /**
+   * Mark order as paid (for CASH or BILL_TO_TABLE payment methods)
+   * Only updates payment status, does not change order status
+   * @param orderId - Order ID to mark as paid
+   * @returns Updated order response
+   */
+  async markAsPaid(orderId: string): Promise<OrderResponseDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, paymentStatus: true, paymentMethod: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.paymentStatus === PaymentStatus.COMPLETED) {
+      this.logger.warn(`Order ${orderId} is already marked as paid`);
+      return this.getOrderById(orderId);
+    }
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: PaymentStatus.COMPLETED,
+        paidAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Order ${orderId} marked as paid (method: ${order.paymentMethod})`);
 
     return this.getOrderById(orderId);
   }
@@ -798,6 +850,248 @@ export class OrderService {
   }
 
   // ==================== PRIVATE HELPERS ====================
+
+  /**
+   * Find an existing unpaid BILL_TO_TABLE (cash) order for a table
+   * Used to determine if new items should be appended to existing order
+   * @param tenantId - Tenant ID
+   * @param tableId - Table ID
+   * @param sessionId - Current session ID
+   * @returns Mergeable order info or null
+   */
+  async findMergeableOrder(tenantId: string, tableId: string, sessionId: string): Promise<{
+    hasMergeableOrder: boolean;
+    existingOrder?: {
+      id: string;
+      orderNumber: string;
+      total: number;
+      itemCount: number;
+      createdAt: Date;
+    };
+    message: string;
+  }> {
+    // Find orders that are:
+    // 1. Same table and session
+    // 2. Payment method = BILL_TO_TABLE (cash)
+    // 3. Payment status = PENDING (not paid yet)
+    // 4. Order status is active (not COMPLETED, CANCELLED, or PAID)
+    const existingOrder = await this.prisma.order.findFirst({
+      where: {
+        tenantId,
+        tableId,
+        sessionId,
+        paymentMethod: PaymentMethod.BILL_TO_TABLE,
+        paymentStatus: PaymentStatus.PENDING,
+        status: {
+          in: [
+            OrderStatus.PENDING,
+            OrderStatus.RECEIVED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY,
+            OrderStatus.SERVED,
+          ],
+        },
+      },
+      include: {
+        items: true,
+      },
+      orderBy: { createdAt: 'desc' }, // Get the most recent one
+    });
+
+    if (!existingOrder) {
+      return {
+        hasMergeableOrder: false,
+        message: 'No existing cash order found. A new order will be created.',
+      };
+    }
+
+    return {
+      hasMergeableOrder: true,
+      existingOrder: {
+        id: existingOrder.id,
+        orderNumber: existingOrder.orderNumber,
+        total: Number(existingOrder.total),
+        itemCount: existingOrder.items.length,
+        createdAt: existingOrder.createdAt,
+      },
+      message: `Found existing cash order ${existingOrder.orderNumber}. Items will be added to this order.`,
+    };
+  }
+
+  /**
+   * Append items to an existing order
+   * Used for merging new items into unpaid BILL_TO_TABLE orders
+   * @param orderId - Existing order ID
+   * @param sessionId - Current session ID (for validation)
+   * @param tableId - Table ID (for validation)
+   * @param tenantId - Tenant ID
+   * @returns Updated order response
+   */
+  async appendItemsToOrder(
+    orderId: string,
+    sessionId: string,
+    tableId: string,
+    tenantId: string,
+  ): Promise<OrderResponseDto> {
+    // 1. Validate the order exists and is appendable
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // 2. Security checks
+    if (order.tableId !== tableId) {
+      throw new BadRequestException('Order does not belong to this table');
+    }
+
+    if (order.sessionId !== sessionId) {
+      throw new BadRequestException('Order does not belong to this session');
+    }
+
+    if (order.tenantId !== tenantId) {
+      throw new BadRequestException('Order does not belong to this tenant');
+    }
+
+    // 3. Check payment method - only BILL_TO_TABLE can be appended
+    if (order.paymentMethod !== PaymentMethod.BILL_TO_TABLE) {
+      throw new BadRequestException('Can only append items to cash/bill-to-table orders');
+    }
+
+    // 4. Check payment status - cannot append to paid orders
+    if (order.paymentStatus === PaymentStatus.COMPLETED) {
+      throw new BadRequestException('Cannot append items to a paid order');
+    }
+
+    // 5. Check order status - cannot append to completed/cancelled orders
+    const appendableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.RECEIVED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+      OrderStatus.SERVED,
+    ];
+
+    if (!appendableStatuses.includes(order.status)) {
+      throw new BadRequestException(`Cannot append items to order with status: ${order.status}`);
+    }
+
+    // 6. Get current cart items
+    const cart = await this.cartService.getCartByTable(tenantId, tableId, sessionId);
+
+    if (cart.items.length === 0) {
+      throw new BadRequestException('Cart is empty');
+    }
+
+    // 7. Get tenant pricing settings for recalculation
+    const pricingSettings = await this.tenantService.getPricingSettings(tenantId);
+
+    // 8. Calculate new items totals
+    const newItemsSubtotal = new Decimal(cart.subtotal);
+    const newItemsTax = new Decimal(cart.tax);
+
+    // 9. Update order in transaction
+    const updatedOrder = await this.prisma.$transaction(async (tx) => {
+      // Add new items to order
+      await tx.orderItem.createMany({
+        data: cart.items.map((item) => ({
+          orderId: order.id,
+          menuItemId: item.menuItemId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          modifiers: item.modifiers ? JSON.stringify(item.modifiers) : undefined,
+          notes: item.notes,
+          itemTotal: item.itemTotal,
+          prepared: false, // New items need to be prepared
+        })),
+      });
+
+      // Recalculate totals
+      const oldSubtotal = new Decimal(order.subtotal);
+      const oldTax = new Decimal(order.tax);
+      const newSubtotal = oldSubtotal.add(newItemsSubtotal);
+      const newTax = oldTax.add(newItemsTax);
+
+      // Recalculate service charge based on new subtotal
+      let newServiceCharge = new Decimal(0);
+      if (pricingSettings.serviceCharge.enabled) {
+        newServiceCharge = newSubtotal.mul(pricingSettings.serviceCharge.rate).div(100);
+      }
+
+      // Keep existing tip
+      const existingTip = new Decimal(order.tip || 0);
+
+      // Calculate new total
+      const newTotal = newSubtotal.add(newTax).add(newServiceCharge).add(existingTip);
+
+      // Update order totals
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          subtotal: newSubtotal,
+          tax: newTax,
+          serviceCharge: newServiceCharge,
+          total: newTotal,
+          // If order was in SERVED or READY status, move back to PREPARING
+          // so kitchen knows there are new items
+          ...((order.status === OrderStatus.SERVED || order.status === OrderStatus.READY) && {
+            status: OrderStatus.PREPARING,
+            preparingAt: new Date(),
+          }),
+        },
+        include: {
+          items: true,
+          table: {
+            select: {
+              tableNumber: true,
+            },
+          },
+        },
+      });
+
+      // Add status history for appended items
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: updated.status,
+          notes: `${cart.items.length} new item(s) appended to order`,
+        },
+      });
+
+      // Update menu items popularity for new items
+      for (const item of cart.items) {
+        await this.menuItemsService.incrementPopularity(item.menuItemId);
+      }
+
+      return updated;
+    });
+
+    // 10. Clear cart
+    const cartId = await this.cartService.getOrCreateCart(tenantId, tableId, sessionId);
+    await this.cartService.clearCart(cartId);
+
+    this.logger.log(
+      `Appended ${cart.items.length} items to order ${order.orderNumber} for table ${tableId}`,
+    );
+
+    // 11. Emit WebSocket event for updated order
+    const orderResponse = this.toResponseDto(updatedOrder);
+    this.orderGateway.emitOrderStatusChanged(tenantId, orderResponse);
+
+    // Also emit new order event if status changed to notify KDS
+    if (
+      (order.status === OrderStatus.SERVED || order.status === OrderStatus.READY) &&
+      updatedOrder.status === OrderStatus.PREPARING
+    ) {
+      this.orderGateway.emitNewOrder(tenantId, orderResponse);
+    }
+
+    return orderResponse;
+  }
 
   /**
    * Generate unique order number

@@ -18,6 +18,7 @@ import {
   type OrderStatusChangedPayload,
   type OrderCancelledPayload,
 } from '@/lib/websocket';
+import { getStoredAuthToken } from '@/features/auth/data/tokenStorage';
 import { logger } from '@/shared/utils/logger';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -174,9 +175,16 @@ export function useOrdersWebSocket({
 
     setStatus('connecting');
 
+    // Get auth token for WebSocket authentication
+    const accessToken = getStoredAuthToken();
+    if (!accessToken) {
+      logger.warn('[websocket] Missing auth token for orders connection');
+    }
+
     const socket = getSocket({
       tenantId,
       role: 'staff',
+      accessToken: accessToken || undefined,
     });
 
     if (socket) {

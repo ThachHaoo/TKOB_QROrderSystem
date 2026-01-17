@@ -325,7 +325,7 @@ export class AuthService {
     await this.redis.set(redisKey, JSON.stringify({ userId: user.id, email: user.email }), ttl);
 
     // Generate reset link
-    const frontendUrl = this.config.get('CUSTOMER_APP_URL', { infer: true });
+    const frontendUrl = this.config.get('TENANT_APP_URL', { infer: true });
     const resetLink = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     // Send email

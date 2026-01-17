@@ -6,6 +6,7 @@ import { useAuth } from '@/shared/context/AuthContext';
 import { useKdsController } from '../../hooks';
 import { useKdsWebSocket } from '../../hooks/useKdsWebSocket';
 import { useKdsAutoRefresh } from '../../hooks/useKdsAutoRefresh';
+import { initializeAudio } from '@/lib/websocket';
 
 // Import UI components
 import { KdsHeaderSection as KdsHeaderBar } from '../components/sections/KdsHeaderSection';
@@ -32,8 +33,24 @@ export function KdsBoardPage({
   // ========== CONTROLLER ==========
   const controller = useKdsController({ showKdsProfile, enableKitchenServe });
 
+  // ========== INITIALIZE AUDIO ON MOUNT (user gesture satisfied by page navigation) ==========
+  useEffect(() => {
+    // Initialize audio context on mount (page navigation counts as user gesture)
+    initializeAudio()
+      .then((success) => {
+        if (success) {
+          console.log('[kds] Audio initialized successfully');
+        } else {
+          console.warn('[kds] Audio initialization failed, sounds may not play');
+        }
+      })
+      .catch((err) => {
+        console.error('[kds] Audio initialization error:', err);
+      });
+  }, []);
+
   // ========== WEBSOCKET (Real-time updates) ==========
-  const { status, isConnected, newOrderCount } = useKdsWebSocket({
+  const { status, isConnected, newOrderCount, resetNewOrderCount } = useKdsWebSocket({
     tenantId: user?.tenantId || '',
     soundEnabled: controller.soundEnabled,
     autoConnect: true,
@@ -44,6 +61,16 @@ export function KdsBoardPage({
       setTimeout(() => controller.setShowSuccessToast(false), 3000);
     },
   });
+
+  // ========== AUTO-HIDE NEW ORDER BADGE (after 5 seconds) ==========
+  useEffect(() => {
+    if (newOrderCount > 0) {
+      const timer = setTimeout(() => {
+        resetNewOrderCount();
+      }, 5000); // Auto-hide after 5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [newOrderCount, resetNewOrderCount]);
 
   // ========== AUTO-REFRESH FALLBACK (when WebSocket disconnects) ==========
   const { isPolling } = useKdsAutoRefresh({

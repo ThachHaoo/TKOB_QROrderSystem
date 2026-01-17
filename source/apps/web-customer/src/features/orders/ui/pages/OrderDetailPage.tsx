@@ -53,6 +53,24 @@ export function OrderDetailPage({ orderId: propOrderId }: OrderDetailPageProps) 
       }
       return apiOrder
     },
+    // Enable polling for live orders (PENDING, RECEIVED, PREPARING, READY)
+    refetchInterval: (data) => {
+      const order = data as ApiOrder | undefined
+      if (!order) return false
+      
+      // Poll every 2 seconds for real-time feel
+      const liveStatuses = ['PENDING', 'RECEIVED', 'PREPARING', 'READY']
+      const isLive = liveStatuses.includes(order.status || '')
+      
+      if (isLive) {
+        log('data', 'Order tracking polling enabled', { orderId: maskId(orderId), status: order.status }, { feature: 'orders', dedupe: true, dedupeTtlMs: 30000 });
+        return 2000 // 2 seconds for real-time feel
+      }
+      
+      return false // Stop polling when order is completed/served
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 1000, // Consider data stale after 1 second
   })
 
   // Payment verification hook - handles ?paid=1 param and banner display

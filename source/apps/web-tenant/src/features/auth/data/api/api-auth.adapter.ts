@@ -192,7 +192,7 @@ export class ApiAuthAdapter implements IAuthAdapter {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         data: {
-          resetToken: data.token, // Property is 'token' not 'resetToken'
+          token: data.token,
           newPassword: data.newPassword,
         },
       });

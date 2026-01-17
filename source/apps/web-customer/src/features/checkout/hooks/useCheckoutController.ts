@@ -9,6 +9,7 @@ import { useCheckoutStore, type PaymentMethod, type TipPercent } from '@/stores/
 import { useOrderStore } from '@/stores/order.store'
 import { checkoutApi } from '../data'
 import type { CheckoutRequest } from '../data'
+import { useMergeableOrder, appendItemsToOrder } from './useMergeableOrder'
 
 export function useCheckoutController() {
   const router = useRouter()
@@ -22,6 +23,9 @@ export function useCheckoutController() {
     clearCart 
   } = useCart()
   const { session } = useSession()
+  
+  // Check for mergeable order (unpaid BILL_TO_TABLE order)
+  const { data: mergeableOrderData, isLoading: isMergeLoading, refetch: refetchMergeableOrder } = useMergeableOrder()
   
   // Use Zustand store for checkout form state
   const customerName = useCheckoutStore((state) => state.customerName)
@@ -104,25 +108,55 @@ export function useCheckoutController() {
         paymentMethod,
         tipPercent: tipPercent === 'custom' ? 'custom' : tipPercent * 100 + '%',
         tipAmount: tipAmount.toFixed(2),
+        hasMergeableOrder: mergeableOrderData?.hasMergeableOrder,
       }, { feature: 'checkout' });
 
-      // 1. Create order via checkout API
-      const checkoutRequest: CheckoutRequest = {
-        customerName: customerName || undefined,
-        customerNotes: notes || undefined,
-        paymentMethod,
-        // Send tip as percentage if using %, or as fixed amount if custom
-        tipPercent: (tipPercent !== 'custom' && tipPercent > 0) ? tipPercent : undefined,
+      let order: any;
+
+      // Check if we should append to existing order
+      // Only merge if:
+      // 1. There's a mergeable order (unpaid BILL_TO_TABLE)
+      // 2. User selected BILL_TO_TABLE payment method
+      const shouldMerge = 
+        mergeableOrderData?.hasMergeableOrder && 
+        mergeableOrderData.existingOrder &&
+        paymentMethod === 'BILL_TO_TABLE';
+
+      if (shouldMerge) {
+        // Append items to existing order
+        log('data', 'Appending items to existing order', {
+          existingOrderId: maskId(mergeableOrderData.existingOrder!.id),
+          existingOrderNumber: mergeableOrderData.existingOrder!.orderNumber,
+          newItemCount: cartItems.length,
+        }, { feature: 'checkout' });
+
+        order = await appendItemsToOrder(mergeableOrderData.existingOrder!.id);
+
+        log('data', 'Items appended to order', {
+          orderId: maskId(order.id),
+          orderNumber: order.orderNumber,
+          newTotal: order.total,
+          durationMs: Date.now() - startTime,
+        }, { feature: 'checkout' });
+      } else {
+        // Create new order via checkout API
+        const checkoutRequest: CheckoutRequest = {
+          customerName: customerName || undefined,
+          customerNotes: notes || undefined,
+          paymentMethod,
+          // Send tip as percentage if using %, or as fixed amount if custom
+          tipPercent: (tipPercent !== 'custom' && tipPercent > 0) ? tipPercent : undefined,
+        }
+
+        order = await checkoutApi.checkout(checkoutRequest)
+
+        log('data', 'New order created', { 
+          orderId: maskId(order.id),
+          orderNumber: order.orderNumber,
+          paymentMethod,
+          durationMs: Date.now() - startTime,
+        }, { feature: 'checkout' });
       }
-
-      const order = await checkoutApi.checkout(checkoutRequest)
-
-      log('data', 'Order created', { 
-        orderId: maskId(order.id),
-        orderNumber: order.orderNumber,
-        paymentMethod,
-        durationMs: Date.now() - startTime,
-      }, { feature: 'checkout' });
 
       // 2. Set active order in store
       setActiveOrder(order.id, 'checkout')
@@ -176,6 +210,10 @@ export function useCheckoutController() {
 
     // Table info
     tableNumber: session?.tableNumber || 'Unknown',
+
+    // Mergeable order info
+    mergeableOrder: mergeableOrderData,
+    isMergeLoading,
 
     // Actions
     handleSubmit,

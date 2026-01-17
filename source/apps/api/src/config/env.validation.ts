@@ -49,7 +49,10 @@ export const envSchema = z
     CORS_ORIGINS: z.string().optional(),
 
     // Customer App URL (for QR codes)
-    CUSTOMER_APP_URL: z.string().url().default('http://localhost:3000'),
+    CUSTOMER_APP_URL: z.string().url().default('http://localhost:3001'),
+
+    // Tenant App URL (for password reset emails)
+    TENANT_APP_URL: z.string().url().default('http://localhost:3002'),
 
     // ==================== STORAGE CONFIG ====================
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),

@@ -163,21 +163,48 @@ export function isSocketConnected(): boolean {
 // ==================== SOUND UTILITIES ====================
 
 let audioContext: AudioContext | null = null;
+let audioInitialized = false;
 
 /**
- * Play notification sound for new orders
- * Uses Web Audio API for reliable sound playback
+ * Initialize audio context (must be called from user gesture)
+ * Call this on page load or first user interaction
  */
-export function playNewOrderSound(): void {
+export async function initializeAudio(): Promise<boolean> {
   try {
-    // Initialize AudioContext on first use (must be triggered by user interaction)
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     }
 
-    // Resume if suspended
     if (audioContext.state === 'suspended') {
-      audioContext.resume();
+      await audioContext.resume();
+    }
+
+    audioInitialized = true;
+    return true;
+  } catch (error) {
+    console.error('[audio] Failed to initialize AudioContext:', error);
+    return false;
+  }
+}
+
+/**
+ * Play notification sound for new orders
+ * Uses Web Audio API for reliable sound playback
+ * Note: AudioContext must be initialized first via user gesture (call initializeAudio())
+ */
+export function playNewOrderSound(): void {
+  try {
+    // Check if audio is initialized
+    if (!audioContext || !audioInitialized) {
+      console.warn('[audio] AudioContext not initialized. Call initializeAudio() from user gesture first.');
+      return;
+    }
+
+    // Resume if suspended (can happen on page visibility change)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch((err) => {
+        console.error('[audio] Failed to resume AudioContext:', err);
+      });
     }
 
     // Create oscillator for beep sound

@@ -23,9 +23,21 @@ export class OrdersAdapter implements IOrdersAdapter {
   /**
    * Get orders for current table (session cookie auto-included)
    * Returns all orders for this table session
+   * Note: Session is fetched from backend API using HttpOnly cookie
    */
   async getTableOrders(): Promise<Order[]> {
-    const response = await apiClient.get<{ success: boolean; data: Order[] }>(`/orders/table`);
+    // Fetch session from backend (uses HttpOnly cookie table_session_id)
+    // This is cleaner than reading localStorage - single source of truth
+    const sessionResponse = await apiClient.get<{ success: boolean; data: { tableId: string } }>('/session');
+    const tableId = sessionResponse.data.data.tableId;
+    
+    if (!tableId) {
+      throw new Error('Table ID not found in session');
+    }
+    
+    const response = await apiClient.get<{ success: boolean; data: Order[] }>(
+      `/orders/table/${tableId}`
+    );
     return response.data.data;
   }
 

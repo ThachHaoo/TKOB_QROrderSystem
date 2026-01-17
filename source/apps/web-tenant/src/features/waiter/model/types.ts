@@ -14,6 +14,11 @@ export type OrderStatus = 'placed' | 'confirmed' | 'preparing' | 'ready' | 'serv
 export type PaymentStatus = 'paid' | 'unpaid';
 
 /**
+ * Payment method enum
+ */
+export type PaymentMethod = 'BILL_TO_TABLE' | 'SEPAY_QR' | 'CARD_ONLINE';
+
+/**
  * Order item with modifiers
  */
 export interface OrderItem {
@@ -32,6 +37,7 @@ export interface ServiceOrder {
   items: OrderItem[];
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   placedTime: string;
   minutesAgo: number;
   total: number;

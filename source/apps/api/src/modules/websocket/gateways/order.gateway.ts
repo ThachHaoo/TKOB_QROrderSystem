@@ -93,7 +93,7 @@ export class OrderGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private async handleJwtConnection(client: Socket, token: string) {
     try {
       const payload = await this.jwtService.verifyAsync(token);
-      const { tenantId, userId } = payload;
+      const { tenantId, sub: userId } = payload;
 
       if (!tenantId || !userId) {
         throw new Error('Invalid token payload - missing tenantId or userId');

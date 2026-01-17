@@ -6,12 +6,12 @@ import { IAuthAdapter, User } from '../adapter.interface';
 
 export class AuthAdapter implements IAuthAdapter {
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    const response = await apiClient.get('/api/auth/me');
+    const response = await apiClient.get('/auth/me');
     return response.data;
   }
 
   async updateProfile(data: { name: string }): Promise<ApiResponse<User>> {
-    const response = await apiClient.put('/api/auth/profile', data);
+    const response = await apiClient.put('/auth/profile', data);
     return response.data;
   }
 
@@ -19,7 +19,7 @@ export class AuthAdapter implements IAuthAdapter {
     currentPassword: string;
     newPassword: string;
   }): Promise<ApiResponse<{ message: string }>> {
-    const response = await apiClient.post('/api/auth/change-password', data);
+    const response = await apiClient.post('/auth/change-password', data);
     return response.data;
   }
 
@@ -27,12 +27,12 @@ export class AuthAdapter implements IAuthAdapter {
     email: string;
     password: string;
   }): Promise<ApiResponse<User>> {
-    const response = await apiClient.post('/api/auth/login', data);
+    const response = await apiClient.post('/auth/login', data);
     return response.data;
   }
 
   async logout(): Promise<ApiResponse<{ message: string }>> {
-    const response = await apiClient.post('/api/auth/logout');
+    const response = await apiClient.post('/auth/logout');
     return response.data;
   }
 }

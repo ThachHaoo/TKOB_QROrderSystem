@@ -22,6 +22,7 @@ import {
   type OrderCancelledPayload,
 } from '@/lib/websocket';
 import { logger } from '@/shared/utils/logger';
+import { getStoredAuthToken } from '@/features/auth/data/tokenStorage';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
@@ -207,9 +208,16 @@ export function useKdsWebSocket({
 
     setStatus('connecting');
 
+    // Get auth token for WebSocket authentication
+    const accessToken = getStoredAuthToken();
+    if (!accessToken) {
+      logger.warn('[websocket] Missing auth token for KDS connection');
+    }
+
     const socket = getSocket({
       tenantId,
       role: 'kitchen',
+      accessToken: accessToken || undefined,
     });
 
     if (socket) {

@@ -17,7 +17,7 @@ export interface OrderItemResponse {
   name: string
   price: number
   quantity: number
-  modifiers: OrderItemModifier[]
+  modifiers: OrderItemModifier[] | string  // Backend may return JSON string
   notes?: string
   itemTotal: number
   prepared: boolean

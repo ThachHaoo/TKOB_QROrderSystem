@@ -6,9 +6,11 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/context/AuthContext';
 import { logger } from '@/shared/utils/logger';
 import { useKdsOrders } from './queries/useKdsOrders';
+import { orderControllerUpdateOrderStatus } from '@/services/generated/orders/orders';
 import { sortOrdersByStatus } from '../utils/sortOrders';
 import type { KdsOrder, KdsStatus, KdsSummaryCounts } from '../model/types';
 
@@ -21,10 +23,11 @@ export function useKdsController(options: UseKdsControllerOptions = {}) {
   const { showKdsProfile = true, enableKitchenServe = false } = options;
   const router = useRouter();
   const { logout } = useAuth();
+  const queryClient = useQueryClient();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // ========== QUERIES ==========
-  const { orders: initialOrders } = useKdsOrders();
+  const { data: orders = [], isLoading, error } = useKdsOrders();
 
   // ========== STATE ==========
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -35,12 +38,6 @@ export function useKdsController(options: UseKdsControllerOptions = {}) {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [orders, setOrdersLocal] = useState<KdsOrder[]>(initialOrders);
-
-  // Sync with fetched orders
-  useEffect(() => {
-    setOrdersLocal(initialOrders);
-  }, [initialOrders]);
 
   // ========== EFFECTS ==========
   // Update current time every second
@@ -121,7 +118,7 @@ export function useKdsController(options: UseKdsControllerOptions = {}) {
     router.push('/auth/login');
   }, [logout, router]);
 
-  const handleAction = useCallback((orderId: string, columnId: string) => {
+  const handleAction = useCallback(async (orderId: string, columnId: string) => {
     setLoadingOrderId(orderId);
     const order = orders.find((o) => o.id === orderId);
     if (!order) {
@@ -142,45 +139,39 @@ export function useKdsController(options: UseKdsControllerOptions = {}) {
       itemCount,
     });
 
-    const newOrder: KdsOrder = {
-      ...order,
-      status: newStatus,
-      startedAt: newStatus === 'preparing' ? new Date().toISOString() : order.startedAt,
-      readyAt: newStatus === 'ready' ? new Date().toISOString() : order.readyAt,
-      servedAt: newStatus === 'served' ? new Date().toISOString() : order.servedAt,
-      servedBy: newStatus === 'served' ? 'KITCHEN' : order.servedBy,
-    };
+    try {
+      // Call API to update order status
+      await orderControllerUpdateOrderStatus(orderId, {
+        status: newStatus.toUpperCase() as any,
+      });
 
-    // Simulate API call
-    setTimeout(() => {
-      const succeeded = Math.random() < 0.9;
+      // Invalidate query to refetch fresh data
+      await queryClient.invalidateQueries({ queryKey: ['kds', 'orders'] });
+
+      setToastMessage(`Order ${orderId} marked as ${newStatus}`);
+      setShowSuccessToast(true);
+
+      logger.info('[kds] STATUS_UPDATE_ACTION_SUCCESS', {
+        orderId,
+        fromStatus: previousStatus,
+        toStatus: newStatus,
+        itemCount,
+      });
+    } catch (error) {
+      setToastMessage(`Failed to mark order ${orderId} as ${newStatus}`);
+      setShowErrorToast(true);
+
+      logger.error('[kds] STATUS_UPDATE_ACTION_ERROR', {
+        orderId,
+        fromStatus: previousStatus,
+        toStatus: newStatus,
+        itemCount,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
       setLoadingOrderId(null);
-
-      if (succeeded) {
-        setOrdersLocal(orders.map((o) => (o.id === orderId ? newOrder : o)));
-        setToastMessage(`Order ${orderId} marked as ${newStatus}`);
-        setShowSuccessToast(true);
-
-        logger.info('[kds] STATUS_UPDATE_ACTION_SUCCESS', {
-          orderId,
-          fromStatus: previousStatus,
-          toStatus: newStatus,
-          itemCount,
-        });
-      } else {
-        setToastMessage(`Failed to mark order ${orderId} as ${newStatus}`);
-        setShowErrorToast(true);
-
-        logger.error('[kds] STATUS_UPDATE_ACTION_ERROR', {
-          orderId,
-          fromStatus: previousStatus,
-          toStatus: newStatus,
-          itemCount,
-          message: 'Status update simulation failed',
-        });
-      }
-    }, 1000);
-  }, [orders]);
+    }
+  }, [orders, queryClient]);
 
   const handleToggleSound = useCallback(() => {
     setSoundEnabled((prev) => !prev);

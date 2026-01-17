@@ -3,7 +3,7 @@
  */
 
 import { orderControllerGetOrders } from '@/services/generated/orders/orders';
-import type { ServiceOrder, OrderStatus as WaiterOrderStatus } from '../../model/types';
+import type { ServiceOrder, OrderStatus as WaiterOrderStatus, PaymentMethod } from '../../model/types';
 import type { OrderResponseDto } from '@/services/generated/models';
 
 /**
@@ -19,6 +19,18 @@ function mapOrderStatus(backendStatus: string): WaiterOrderStatus {
     'COMPLETED': 'completed',
   };
   return (statusMap[backendStatus] as WaiterOrderStatus) || 'placed';
+}
+
+/**
+ * Map backend payment method to waiter payment method
+ */
+function mapPaymentMethod(backendMethod: string): PaymentMethod {
+  const methodMap: Record<string, PaymentMethod> = {
+    'BILL_TO_TABLE': 'BILL_TO_TABLE',
+    'SEPAY_QR': 'SEPAY_QR',
+    'CARD_ONLINE': 'CARD_ONLINE',
+  };
+  return methodMap[backendMethod] || 'BILL_TO_TABLE';
 }
 
 /**
@@ -56,7 +68,8 @@ function mapToServiceOrder(order: OrderResponseDto): ServiceOrder {
       };
     }),
     status: mapOrderStatus(order.status),
-    paymentStatus: order.paymentStatus === 'PAID' ? 'paid' : 'unpaid',
+    paymentStatus: order.paymentStatus === 'COMPLETED' ? 'paid' : 'unpaid',
+    paymentMethod: mapPaymentMethod(order.paymentMethod),
     placedTime: placedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
     minutesAgo,
     total: order.total,
@@ -67,15 +80,16 @@ export const waiterApi = {
   async getServiceOrders(): Promise<ServiceOrder[]> {
     try {
       // Backend expects comma-separated string for status filter
+      // Include COMPLETED to show in completed tab for payment handling
       const response = await orderControllerGetOrders({
-        status: 'PENDING,RECEIVED,PREPARING,READY,SERVED',
-        sortBy: 'createdAt',
-        sortOrder: 'DESC',
+        status: 'PENDING,RECEIVED,PREPARING,READY,SERVED,COMPLETED',
         page: 1,
         limit: 100,
       });
 
-      return response.data.map(mapToServiceOrder);
+      // Response is PaginatedResponseDto which has data property
+      const orders = (response as any).data || response;
+      return Array.isArray(orders) ? orders.map(mapToServiceOrder) : [];
     } catch (error) {
       console.error('[waiter] Failed to fetch service orders:', error);
       throw error;

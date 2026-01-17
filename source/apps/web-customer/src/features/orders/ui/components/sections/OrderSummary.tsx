@@ -36,12 +36,14 @@ export function OrderSummary({ order, isLive }: OrderSummaryProps) {
  */
 function LiveOrderView({ order, router }: { order: Order; router: ReturnType<typeof useRouter> }) {
   const needsPayment = isPaymentRequired(order.paymentStatus);
+  const isCashPayment = order.paymentMethod === 'BILL_TO_TABLE';
+  const isQrPayment = order.paymentMethod === 'SEPAY_QR';
   
-  // Use real tracking API with polling
+  // Use real tracking API with polling (2s for real-time feel)
   const { tracking, isLoading: trackingLoading } = useOrderTracking({
     orderId: order.id,
     polling: true,
-    pollingInterval: 10000, // 10 seconds
+    pollingInterval: 2000, // 2 seconds for real-time feel
   });
 
   // Use tracking data if available, fallback to order data
@@ -75,8 +77,8 @@ function LiveOrderView({ order, router }: { order: Order; router: ReturnType<typ
         )}
       </div>
 
-      {/* Unpaid Banner */}
-      {needsPayment && (
+      {/* Payment Banner for QR Payment (if unpaid and chose QR) */}
+      {needsPayment && isQrPayment && (
         <div 
           className="bg-white rounded-xl p-4 border" 
           style={{ borderColor: 'var(--orange-300)', backgroundColor: 'var(--orange-50)' }}
@@ -88,14 +90,14 @@ function LiveOrderView({ order, router }: { order: Order; router: ReturnType<typ
                 Payment pending
               </h4>
               <p style={{ color: 'var(--orange-700)', fontSize: '13px' }}>
-                This order is unpaid. Please complete payment to finalize.
+                This order is unpaid. Please complete QR payment to finalize.
               </p>
             </div>
           </div>
           <button
             onClick={() => {
               log('ui', 'Navigate to payment clicked', { orderId: maskId(order.id) }, { feature: 'orders' });
-              router.push(`/payment?orderId=${order.id}&source=order`);
+              router.push(`/payment?orderId=${order.id}&paymentMethod=SEPAY_QR&source=order`);
             }}
             className="w-full py-3 px-4 rounded-full transition-all hover:shadow-md active:scale-95"
             style={{
@@ -104,8 +106,28 @@ function LiveOrderView({ order, router }: { order: Order; router: ReturnType<typ
               minHeight: '48px',
             }}
           >
-            Pay now ${order.total.toFixed(2)}
+            Pay now with QR ${order.total.toFixed(2)}
           </button>
+        </div>
+      )}
+
+      {/* Cash Payment Banner (if chose BILL_TO_TABLE) */}
+      {needsPayment && isCashPayment && (
+        <div 
+          className="bg-white rounded-xl p-4 border" 
+          style={{ borderColor: 'var(--blue-300)', backgroundColor: 'var(--blue-50)' }}
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: 'var(--blue-600)' }} />
+            <div className="flex-1">
+              <h4 className="mb-1" style={{ color: 'var(--blue-900)', fontSize: '15px' }}>
+                💵 Thanh toán tiền mặt
+              </h4>
+              <p style={{ color: 'var(--blue-700)', fontSize: '13px' }}>
+                Nhân viên sẽ thu tiền khi phục vụ đơn hàng. Tổng cộng: <strong>${order.total.toFixed(2)}</strong>
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -140,7 +162,7 @@ function LiveOrderView({ order, router }: { order: Order; router: ReturnType<typ
         )}
         <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--blue-50)' }}>
           <p style={{ color: 'var(--blue-700)', fontSize: '13px' }}>
-            💡 This page updates automatically every 10 seconds.
+            💡 This page updates automatically in real-time.
           </p>
         </div>
       </div>

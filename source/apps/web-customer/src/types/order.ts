@@ -2,6 +2,8 @@
 
 import { CartItem } from './cart';
 
+export type PaymentMethod = 'BILL_TO_TABLE' | 'SEPAY_QR' | 'CARD_ONLINE' | 'card' | 'counter';
+
 export interface Order {
   id: string;
   tableNumber: string;
@@ -12,8 +14,8 @@ export interface Order {
   tax: number;
   serviceCharge: number;
   total: number;
-  paymentMethod: 'card' | 'counter';
-  paymentStatus: 'Paid' | 'Unpaid' | 'Failed';
+  paymentMethod: PaymentMethod;
+  paymentStatus: 'Paid' | 'Unpaid' | 'Failed' | 'PENDING' | 'COMPLETED';
   status: OrderStatus;
   createdAt: Date;
   estimatedReadyMinutes?: number;

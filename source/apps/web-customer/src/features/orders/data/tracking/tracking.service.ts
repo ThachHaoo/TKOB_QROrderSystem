@@ -6,13 +6,17 @@ import type { OrderTrackingResponse } from './types'
 /**
  * Service for fetching order tracking data from backend
  * Uses session cookie for authentication
+ * 
+ * NOTE: apiClient already has baseURL with /api/v1 prefix
+ * Do NOT include /api/v1 in paths here to avoid double prefix
  */
 class OrderTrackingApiService {
-  private baseUrl = '/api/v1/orders'
+  // Do NOT include /api/v1 here - apiClient.baseURL already has it
+  private baseUrl = '/orders'
 
   /**
    * Get order tracking info for customer view
-   * GET /orders/tracking/:orderId
+   * GET /api/v1/orders/tracking/:orderId
    */
   async getOrderTracking(orderId: string): Promise<OrderTrackingResponse> {
     const response = await apiClient.get<OrderTrackingResponse>(

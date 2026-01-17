@@ -9,10 +9,48 @@
 import React from 'react';
 import { Card, Badge } from '@/shared/components';
 import { StatusPill, PAYMENT_STATUS_CONFIG } from '@/shared/patterns';
-import { Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, ChevronDown, ChevronUp, QrCode, Banknote } from 'lucide-react';
 import type { ServiceOrder, OrderStatus } from '../../../model/types';
 import { ORDER_ACTION_CONFIG, BUTTON_HEIGHT } from '../../../model/constants';
 import { OrderItemList } from './OrderItemList';
+
+
+/**
+ * WaiterOrderCard Props
+ */
+interface WaiterOrderCardProps {
+  order: ServiceOrder;
+  activeTab: OrderStatus;
+  isExpanded: boolean;
+  onToggleExpanded: (orderId: string) => void;
+  onAcceptOrder: (order: ServiceOrder) => void;
+  onRejectOrder: (order: ServiceOrder) => void;
+  onCancelOrder: (order: ServiceOrder) => void;
+  onMarkServed: (order: ServiceOrder) => void;
+  onMarkCompleted: (order: ServiceOrder) => void;
+  onMarkPaid: (order: ServiceOrder) => void;
+  onCloseTable: (order: ServiceOrder) => void;
+}
+
+/**
+ * Payment Method Badge Component
+ */
+function PaymentMethodBadge({ method }: { method: ServiceOrder['paymentMethod'] }) {
+  if (method === 'SEPAY_QR') {
+    return (
+      <Badge variant="info" className="flex items-center gap-1">
+        <QrCode className="w-3 h-3" />
+        <span className="text-[10px]">QR Bank</span>
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="warning" className="flex items-center gap-1">
+      <Banknote className="w-3 h-3" />
+      <span className="text-[10px]">Tiền mặt</span>
+    </Badge>
+  );
+}
 
 
 /**
@@ -79,6 +117,10 @@ export function WaiterOrderCard({
                 <Badge variant="default">
                   <span className="text-[11px]">Completed</span>
                 </Badge>
+              )}
+              {/* Payment Method Badge (show on served/completed tabs) */}
+              {(activeTab === 'served' || activeTab === 'completed') && (
+                <PaymentMethodBadge method={order.paymentMethod} />
               )}
               {/* Payment Status Badge */}
               <StatusPill {...PAYMENT_STATUS_CONFIG[order.paymentStatus]} size="sm" />
@@ -210,24 +252,8 @@ export function WaiterOrderCard({
 
         {activeTab === 'completed' && (
           <>
-            {/* Mark as Paid (if unpaid) */}
-            {order.paymentStatus === 'unpaid' && (
-              <button
-                onClick={() => onMarkPaid(order)}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all ${ORDER_ACTION_CONFIG.completed.unpaid.className}`}
-                style={{
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  minHeight: BUTTON_HEIGHT.primary,
-                  boxShadow: ORDER_ACTION_CONFIG.completed.unpaid.shadow,
-                }}
-              >
-                <ORDER_ACTION_CONFIG.completed.unpaid.icon className="w-5 h-5" />
-                {ORDER_ACTION_CONFIG.completed.unpaid.label}
-              </button>
-            )}
-            {/* Close Table (if paid) */}
-            {order.paymentStatus === 'paid' && (
+            {/* For QR payments: they are auto-paid via webhook, just show close table */}
+            {order.paymentMethod === 'SEPAY_QR' && order.paymentStatus === 'paid' && (
               <button
                 onClick={() => onCloseTable(order)}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all ${ORDER_ACTION_CONFIG.completed.paid.className}`}
@@ -241,6 +267,62 @@ export function WaiterOrderCard({
                 <ORDER_ACTION_CONFIG.completed.paid.icon className="w-5 h-5" />
                 {ORDER_ACTION_CONFIG.completed.paid.label}
               </button>
+            )}
+            
+            {/* For cash payments (BILL_TO_TABLE): need to mark as paid first if unpaid */}
+            {order.paymentMethod === 'BILL_TO_TABLE' && order.paymentStatus === 'unpaid' && (
+              <button
+                onClick={() => onMarkPaid(order)}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all ${ORDER_ACTION_CONFIG.completed.unpaid.className}`}
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  minHeight: BUTTON_HEIGHT.primary,
+                  boxShadow: ORDER_ACTION_CONFIG.completed.unpaid.shadow,
+                }}
+              >
+                <ORDER_ACTION_CONFIG.completed.unpaid.icon className="w-5 h-5" />
+                Nhận tiền mặt
+              </button>
+            )}
+            
+            {/* For cash payments: after marked paid, show close table */}
+            {order.paymentMethod === 'BILL_TO_TABLE' && order.paymentStatus === 'paid' && (
+              <button
+                onClick={() => onCloseTable(order)}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all ${ORDER_ACTION_CONFIG.completed.paid.className}`}
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  minHeight: BUTTON_HEIGHT.primary,
+                  boxShadow: ORDER_ACTION_CONFIG.completed.paid.shadow,
+                }}
+              >
+                <ORDER_ACTION_CONFIG.completed.paid.icon className="w-5 h-5" />
+                {ORDER_ACTION_CONFIG.completed.paid.label}
+              </button>
+            )}
+            
+            {/* Handle edge case: QR payment but still unpaid (webhook failed) */}
+            {order.paymentMethod === 'SEPAY_QR' && order.paymentStatus === 'unpaid' && (
+              <div className="space-y-2">
+                <p className="text-xs text-center text-amber-600">
+                  ⚠️ Thanh toán QR chưa nhận được. Kiểm tra lại hoặc thu tiền mặt.
+                </p>
+                <button
+                  onClick={() => onMarkPaid(order)}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all ${ORDER_ACTION_CONFIG.completed.unpaid.className}`}
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    minHeight: BUTTON_HEIGHT.primary,
+                    boxShadow: ORDER_ACTION_CONFIG.completed.unpaid.shadow,
+                  }}
+                >
+                  <ORDER_ACTION_CONFIG.completed.unpaid.icon className="w-5 h-5" />
+                  Đánh dấu đã thanh toán
+                </button>
+              </div>
             )}
           </>
         )}

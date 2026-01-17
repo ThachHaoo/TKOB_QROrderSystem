@@ -16,6 +16,7 @@ import { Session } from '@/common/decorators/session.decorator';
 import { SessionData } from '@/modules/table/services/table-session.service';
 import { CheckoutDto } from '../dtos/checkout.dto';
 import { OrderResponseDto } from '../dtos/order-response.dto';
+import { MergeableOrderResponseDto } from '../dtos/append-order-items.dto';
 import { SessionGuard } from '@/modules/table/guards/session.guard';
 import { Public } from '@/common/decorators/public.decorator';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
@@ -50,6 +51,50 @@ export class OrderController {
     return this.orderService.checkout(session.sessionId, session.tenantId, session.tableId, dto);
   }
 
+  @Get('orders/mergeable')
+  @UseGuards(SessionGuard)
+  @Public()
+  @ApiCookieAuth('table_session_id')
+  @ApiOperation({
+    summary: 'Check if there is an existing unpaid cash order to merge into',
+    description: 'Returns info about existing BILL_TO_TABLE order that can accept new items',
+  })
+  @ApiResponse({ status: 200, type: MergeableOrderResponseDto })
+  async checkMergeableOrder(
+    @Session() session: SessionData,
+  ): Promise<MergeableOrderResponseDto> {
+    return this.orderService.findMergeableOrder(
+      session.tenantId,
+      session.tableId,
+      session.sessionId,
+    );
+  }
+
+  @Post('orders/:orderId/append-items')
+  @UseGuards(SessionGuard)
+  @Public()
+  @ApiCookieAuth('table_session_id')
+  @ApiOperation({
+    summary: 'Append cart items to an existing order',
+    description:
+      'Add items from current cart to an existing unpaid BILL_TO_TABLE order. ' +
+      'Use this when customer wants to order more items but keep everything on one bill.',
+  })
+  @ApiResponse({ status: 200, type: OrderResponseDto })
+  @ApiResponse({ status: 400, description: 'Cart empty, order not appendable, or validation failed' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async appendItemsToOrder(
+    @Session() session: SessionData,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.orderService.appendItemsToOrder(
+      orderId,
+      session.sessionId,
+      session.tableId,
+      session.tenantId,
+    );
+  }
+
   @Get('orders/table/:tableId')
   @UseGuards(SessionGuard)
   @Public()
@@ -73,7 +118,7 @@ export class OrderController {
     return this.orderService.getOrderById(orderId);
   }
 
-  @Get('tracking/:orderId')
+  @Get('orders/tracking/:orderId')
   @UseGuards(SessionGuard)
   @Public()
   @ApiCookieAuth('table_session_id')
@@ -218,6 +263,19 @@ export class OrderController {
     @Body() body: { reason: string },
   ): Promise<OrderResponseDto> {
     return this.orderService.cancelOrder(orderId, body.reason, user.userId);
+  }
+
+  @Patch('admin/orders/:orderId/mark-paid')
+  @UseGuards(JwtAuthGuard, RolesGuard, TenantOwnershipGuard)
+  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mark order as paid (waiter action for CASH/BILL_TO_TABLE)' })
+  @ApiResponse({ status: 200, type: OrderResponseDto })
+  async markOrderAsPaid(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('orderId') orderId: string,
+  ): Promise<OrderResponseDto> {
+    return this.orderService.markAsPaid(orderId);
   }
 
   // ==================== KITCHEN ENDPOINTS ====================

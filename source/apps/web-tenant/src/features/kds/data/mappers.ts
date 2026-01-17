@@ -39,10 +39,30 @@ function calculateElapsedMinutes(createdAt: string): number {
  * Map API OrderItemResponse to KDS OrderItem
  */
 function mapOrderItem(apiItem: OrderResponse['items'][0]): OrderItem {
+  // Parse modifiers - backend returns JSON string, not array
+  let modifiers: string[] = []
+  
+  if (apiItem.modifiers) {
+    try {
+      // If it's a string, parse it
+      const parsedModifiers = typeof apiItem.modifiers === 'string' 
+        ? JSON.parse(apiItem.modifiers) 
+        : apiItem.modifiers
+      
+      // Extract modifier names/optionNames
+      modifiers = Array.isArray(parsedModifiers)
+        ? parsedModifiers.map((m: any) => m.optionName || m.name || '').filter(Boolean)
+        : []
+    } catch (e) {
+      console.error('[KDS_DEBUG] Failed to parse modifiers:', apiItem.modifiers, e)
+      modifiers = []
+    }
+  }
+
   return {
     name: apiItem.name,
     quantity: apiItem.quantity,
-    modifiers: apiItem.modifiers?.map(m => m.name) || [],
+    modifiers,
     notes: apiItem.notes,
   }
 }
@@ -75,10 +95,20 @@ export function mapOrderToKds(apiOrder: OrderResponse): KdsOrder {
 export function flattenPriorityOrders(
   orders: { normal: OrderResponse[]; high: OrderResponse[]; urgent: OrderResponse[] }
 ): KdsOrder[] {
+  console.log('[FLATTEN_DEBUG] Input orders:', orders)
+  console.log('[FLATTEN_DEBUG] orders.urgent:', orders.urgent)
+  console.log('[FLATTEN_DEBUG] orders.high:', orders.high)
+  console.log('[FLATTEN_DEBUG] orders.normal:', orders.normal)
+  
   // Urgent first, then high, then normal
-  return [
+  const result = [
     ...orders.urgent.map(mapOrderToKds),
     ...orders.high.map(mapOrderToKds),
     ...orders.normal.map(mapOrderToKds),
   ]
+  
+  console.log('[FLATTEN_DEBUG] Result length:', result.length)
+  console.log('[FLATTEN_DEBUG] Result:', result)
+  
+  return result
 }

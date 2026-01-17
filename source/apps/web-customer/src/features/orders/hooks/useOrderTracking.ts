@@ -16,7 +16,7 @@ interface UseOrderTrackingOptions {
   polling?: boolean
   /**
    * Polling interval in milliseconds
-   * @default 10000 (10 seconds)
+   * @default 2000 (2 seconds) for real-time feel
    */
   pollingInterval?: number
   /**
@@ -50,7 +50,7 @@ interface UseOrderTrackingResult {
 export function useOrderTracking({
   orderId,
   polling = true,
-  pollingInterval = 10000,
+  pollingInterval = 2000, // 2 seconds for real-time feel
   enabled = true,
 }: UseOrderTrackingOptions): UseOrderTrackingResult {
   // Stop polling for terminal statuses
@@ -90,7 +90,7 @@ export function useOrderTracking({
     refetchInterval: (query) => {
       return shouldPoll(query.state.data) ? pollingInterval : false
     },
-    staleTime: 5000, // Consider data stale after 5 seconds
+    staleTime: 1000, // Consider data stale after 1 second for real-time feel
     retry: 2,
   })
 

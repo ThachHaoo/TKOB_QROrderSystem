@@ -26,13 +26,21 @@ export function useOrdersController() {
     queryKey: orderQueryKeys.currentOrder(sessionId || 'default'),
     queryFn: async () => {
       const strategy = OrdersDataFactory.getStrategy()
-      // In mock, returns all orders in current session
-      // Pass sessionId for localStorage persistence
-      const historyResp = await strategy.getOrderHistory('mock-user', sessionId)
-      const list = (historyResp.data || []) as ApiOrder[]
+      
+      // Use getTableOrders() instead of deprecated getOrderHistory()
+      let list: ApiOrder[];
+      if (USE_MOCK_API) {
+        // Mock adapter still uses getOrderHistory with sessionId
+        const historyResp = await strategy.getOrderHistory('mock-user', sessionId)
+        list = (historyResp.data || []) as ApiOrder[]
+      } else {
+        // Real API adapter uses getTableOrders() - session cookie auto-included
+        list = await strategy.getTableOrders()
+      }
+      
       // Sort desc by createdAt (most recent first)
       if (process.env.NEXT_PUBLIC_USE_LOGGING) {
-        log('data', 'getOrderHistory returned orders for session', { count: list.length, sessionId: maskId(sessionId || '') }, { feature: 'orders' })
+        log('data', 'getTableOrders returned orders for session', { count: list.length, sessionId: maskId(sessionId || '') }, { feature: 'orders' })
       }
       const sorted = list
         .slice()
@@ -45,8 +53,18 @@ export function useOrdersController() {
     queryKey: orderQueryKeys.orderHistory(sessionId || 'default'),
     queryFn: async () => {
       const strategy = OrdersDataFactory.getStrategy()
-      const resp = await strategy.getOrderHistory('mock-user', sessionId)
-      const list = (resp.data || []) as ApiOrder[]
+      
+      // Use getTableOrders() instead of deprecated getOrderHistory()
+      let list: ApiOrder[];
+      if (USE_MOCK_API) {
+        // Mock adapter still uses getOrderHistory with sessionId
+        const resp = await strategy.getOrderHistory('mock-user', sessionId)
+        list = (resp.data || []) as ApiOrder[]
+      } else {
+        // Real API adapter uses getTableOrders() - session cookie auto-included
+        list = await strategy.getTableOrders()
+      }
+      
       return list.map(toFeatureOrder)
     },
     enabled: !!sessionId,

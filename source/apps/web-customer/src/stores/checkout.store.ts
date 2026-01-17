@@ -13,7 +13,7 @@ export type TipPercent = 0 | 0.10 | 0.15 | 0.20 | 'custom';
 interface CheckoutStore {
   customerName: string
   notes: string
-  paymentMethod: PaymentMethod
+  paymentMethod: PaymentMethod | null  // null = not selected yet
   tipPercent: TipPercent
   customTipAmount: number  // Custom tip dollar amount
   setCustomerName: (name: string) => void
@@ -29,7 +29,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
     (set) => ({
       customerName: '',
       notes: '',
-      paymentMethod: 'BILL_TO_TABLE', // Default: pay at table
+      paymentMethod: null, // User must select payment method
       tipPercent: 0, // Default: no tip
       customTipAmount: 0, // Default: no custom tip
 
@@ -63,7 +63,7 @@ export const useCheckoutStore = create<CheckoutStore>()(
         set({
           customerName: '',
           notes: '',
-          paymentMethod: 'BILL_TO_TABLE',
+          paymentMethod: null,
           tipPercent: 0,
           customTipAmount: 0,
         })

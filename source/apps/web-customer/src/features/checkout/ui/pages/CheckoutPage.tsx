@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, QrCode, Wallet, Loader2 } from 'lucide-react'
+import { ArrowLeft, QrCode, Wallet, Loader2, PlusCircle } from 'lucide-react'
 import { PageTransition } from '@/shared/components/transitions/PageTransition'
 import { useCheckoutController } from '../../hooks'
 import { usePaymentMethods } from '../../hooks/usePaymentMethods'
@@ -9,7 +9,7 @@ import { useSession } from '@/features/tables/hooks/useSession'
 import { colors, shadows, transitions, typography } from '@/styles/design-tokens'
 
 export function CheckoutPage() {
-  const { state, updateField, cartItems, tableNumber, total, subtotal, tipAmount, tipPercent, handleSubmit, handleBack } =
+  const { state, updateField, cartItems, tableNumber, total, subtotal, tipAmount, tipPercent, handleSubmit, handleBack, mergeableOrder, isMergeLoading } =
     useCheckoutController()
   
   const { session, loading: sessionLoading } = useSession()
@@ -33,9 +33,10 @@ export function CheckoutPage() {
     paymentError: paymentError?.message
   })
   
-  // Default to cash if SePay not available
+  // No longer auto-default to cash - user must explicitly select payment method
+  // Only clear invalid selection if SePay becomes unavailable
   if (!isLoadingMethods && !isSepayAvailable && state.paymentMethod === 'SEPAY_QR') {
-    updateField('paymentMethod', 'BILL_TO_TABLE')
+    updateField('paymentMethod', null)
   }
   
   // Handle custom tip input change
@@ -86,6 +87,45 @@ export function CheckoutPage() {
 
       {/* Content - Reserve bottom space for sticky CTA only (BottomNav hidden on checkout) */}
       <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}>
+        {/* Merge Order Banner - Show when there's an existing unpaid cash order */}
+        {mergeableOrder?.hasMergeableOrder && mergeableOrder.existingOrder && (
+          <div 
+            className="bg-blue-50 border-b p-4" 
+            style={{ 
+              borderColor: colors.primary[200],
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <PlusCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: colors.primary[600] }} />
+              <div className="flex-1">
+                <p 
+                  style={{ 
+                    color: colors.primary[800],
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    marginBottom: '4px',
+                  }}
+                >
+                  Gộp vào đơn hàng hiện tại?
+                </p>
+                <p 
+                  style={{ 
+                    color: colors.primary[700],
+                    fontSize: '13px',
+                    lineHeight: '1.4',
+                  }}
+                >
+                  Bạn đã có đơn hàng <strong>{mergeableOrder.existingOrder.orderNumber}</strong> ({mergeableOrder.existingOrder.itemCount} món · ${mergeableOrder.existingOrder.total.toFixed(2)}) đang chờ thanh toán tiền mặt. 
+                  <br />
+                  <span style={{ color: colors.primary[600] }}>
+                    Chọn "Pay at counter" để gộp các món mới vào đơn này.
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Summary Strip */}
         <div 
           className="bg-white border-b p-4" 
@@ -492,21 +532,21 @@ export function CheckoutPage() {
         <div className="max-w-[480px] mx-auto">
           <button
             onClick={handleSubmit}
-            disabled={state.isSubmitting || cartItems.length === 0}
+            disabled={state.isSubmitting || cartItems.length === 0 || !state.paymentMethod}
             className="w-full py-3 px-6 rounded-full"
             style={{
-              backgroundColor: state.isSubmitting || cartItems.length === 0 ? colors.neutral[300] : colors.primary[600],
+              backgroundColor: state.isSubmitting || cartItems.length === 0 || !state.paymentMethod ? colors.neutral[300] : colors.primary[600],
               color: 'white',
               minHeight: '48px',
-              boxShadow: state.isSubmitting || cartItems.length === 0 ? 'none' : shadows.button,
+              boxShadow: state.isSubmitting || cartItems.length === 0 || !state.paymentMethod ? 'none' : shadows.button,
               transition: transitions.fast,
-              opacity: state.isSubmitting || cartItems.length === 0 ? 0.6 : 1,
-              cursor: state.isSubmitting || cartItems.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: state.isSubmitting || cartItems.length === 0 || !state.paymentMethod ? 0.6 : 1,
+              cursor: state.isSubmitting || cartItems.length === 0 || !state.paymentMethod ? 'not-allowed' : 'pointer',
               fontWeight: '600',
               fontFamily: typography.fontFamily.body,
             }}
             onMouseEnter={(e) => {
-              if (!state.isSubmitting && cartItems.length > 0) {
+              if (!state.isSubmitting && cartItems.length > 0 && state.paymentMethod) {
                 e.currentTarget.style.backgroundColor = colors.primary[700];
                 e.currentTarget.style.boxShadow = shadows.buttonHover;
                 e.currentTarget.style.transform = 'translateY(-1px)';
@@ -529,14 +569,18 @@ export function CheckoutPage() {
                 e.currentTarget.style.transform = 'translateY(-1px)';
               }
             }}
-            aria-label={cartItems.length === 0 ? 'Cart is empty' : state.isSubmitting ? 'Creating order' : state.paymentMethod === 'SEPAY_QR' ? 'Continue to payment' : 'Place order'}
+            aria-label={cartItems.length === 0 ? 'Cart is empty' : state.isSubmitting ? 'Creating order' : state.paymentMethod === 'SEPAY_QR' ? 'Continue to payment' : (mergeableOrder?.hasMergeableOrder && state.paymentMethod === 'BILL_TO_TABLE') ? 'Add to existing order' : 'Place order'}
           >
             {cartItems.length === 0
               ? 'Cart is empty'
               : state.isSubmitting
-              ? 'Creating order...'
+              ? (mergeableOrder?.hasMergeableOrder && state.paymentMethod === 'BILL_TO_TABLE') 
+                ? 'Adding to order...' 
+                : 'Creating order...'
               : state.paymentMethod === 'SEPAY_QR'
               ? 'Continue to payment'
+              : (mergeableOrder?.hasMergeableOrder && state.paymentMethod === 'BILL_TO_TABLE')
+              ? 'Add to existing order'
               : 'Place order'}
           </button>
         </div>
